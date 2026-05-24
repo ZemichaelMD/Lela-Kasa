@@ -1,13 +1,13 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { SalesService } from '../sales/sales.service';
-import { MailService } from '../mail/mail.service';
-import { SmsService } from '../sms/sms.service';
-import { TelegramService } from '../telegram/telegram.service';
-import { AppException } from '../common/errors/app.exception';
-import { ErrorCode } from '../contract';
-import type { CreateOrderDto } from './dto/create-order.dto';
-import type { CustomerOrder, CustomerOrderLine } from '@/database';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { SalesService } from "../sales/sales.service";
+import { MailService } from "../mail/mail.service";
+import { SmsService } from "../sms/sms.service";
+import { TelegramService } from "../telegram/telegram.service";
+import { AppException } from "../common/errors/app.exception";
+import { ErrorCode } from "../contract";
+import type { CreateOrderDto } from "./dto/create-order.dto";
+import type { CustomerOrder, CustomerOrderLine } from "../database";
 
 @Injectable()
 export class OrdersService {
@@ -23,19 +23,21 @@ export class OrdersService {
     const customer = await this.prisma.customer.findFirst({
       where: { id: dto.customerId, shopId, deletedAt: null },
     });
-    if (!customer) throw AppException.notFound('Customer', dto.customerId);
+    if (!customer) throw AppException.notFound("Customer", dto.customerId);
 
     const tierId = customer.priceTierId
-      ? (await this.prisma.priceTier.findUnique({
-          where: { id: customer.priceTierId },
-        }))?.id ?? null
+      ? ((
+          await this.prisma.priceTier.findUnique({
+            where: { id: customer.priceTierId },
+          })
+        )?.id ?? null)
       : null;
 
     const shop = await this.prisma.shop.findUnique({
       where: { id: shopId },
       select: { defaultPriceTierId: true, name: true },
     });
-    if (!shop) throw AppException.notFound('Shop', shopId);
+    if (!shop) throw AppException.notFound("Shop", shopId);
 
     const resolvedTierId = tierId ?? shop.defaultPriceTierId;
 
@@ -67,7 +69,7 @@ export class OrdersService {
             priceTierId: resolvedTierId,
             effectiveFrom: { lte: new Date() },
           },
-          orderBy: { effectiveFrom: 'desc' },
+          orderBy: { effectiveFrom: "desc" },
         });
         if (price) {
           pricePerBoxCents = price.pricePerBoxCents;
@@ -91,7 +93,7 @@ export class OrdersService {
 
     if (lineData.length === 0) {
       throw AppException.badRequest(
-        'Order must have at least one item with quantity > 0',
+        "Order must have at least one item with quantity > 0",
       );
     }
 
@@ -101,7 +103,7 @@ export class OrdersService {
         customerId: customer.id,
         subtotalCents,
         notes: dto.notes ?? null,
-        status: 'PENDING',
+        status: "PENDING",
         lines: { create: lineData },
       },
       include: { lines: { include: { beverage: true } }, customer: true },
@@ -117,8 +119,8 @@ export class OrdersService {
       where: { id: orderId, shopId },
       include: { lines: true },
     });
-    if (!order) throw AppException.notFound('CustomerOrder', orderId);
-    if (order.status !== 'PENDING') {
+    if (!order) throw AppException.notFound("CustomerOrder", orderId);
+    if (order.status !== "PENDING") {
       throw AppException.conflict(
         ErrorCode.CONFLICT,
         `Cannot confirm order with status ${order.status}`,
@@ -146,7 +148,7 @@ export class OrdersService {
     await this.prisma.customerOrder.update({
       where: { id: order.id },
       data: {
-        status: 'CONFIRMED',
+        status: "CONFIRMED",
         saleId: sale.id,
         confirmedAt: new Date(),
         confirmedById: userId,
@@ -157,15 +159,15 @@ export class OrdersService {
       data: {
         shopId,
         actorUserId: userId,
-        action: 'order.confirm',
-        entityType: 'CustomerOrder',
+        action: "order.confirm",
+        entityType: "CustomerOrder",
         entityId: order.id,
         afterJson: JSON.stringify({ saleId: sale.id }),
       },
     });
 
     return {
-      order: { ...order, status: 'CONFIRMED' as const, saleId: sale.id },
+      order: { ...order, status: "CONFIRMED" as const, saleId: sale.id },
       sale,
     };
   }
@@ -179,8 +181,8 @@ export class OrdersService {
     const order = await this.prisma.customerOrder.findFirst({
       where: { id: orderId, shopId },
     });
-    if (!order) throw AppException.notFound('CustomerOrder', orderId);
-    if (order.status !== 'PENDING') {
+    if (!order) throw AppException.notFound("CustomerOrder", orderId);
+    if (order.status !== "PENDING") {
       throw AppException.conflict(
         ErrorCode.CONFLICT,
         `Cannot reject order with status ${order.status}`,
@@ -190,7 +192,7 @@ export class OrdersService {
     await this.prisma.customerOrder.update({
       where: { id: order.id },
       data: {
-        status: 'REJECTED',
+        status: "REJECTED",
         rejectedAt: new Date(),
         rejectedById: userId,
         rejectedReason: reason ?? null,
@@ -201,34 +203,34 @@ export class OrdersService {
       data: {
         shopId,
         actorUserId: userId,
-        action: 'order.reject',
-        entityType: 'CustomerOrder',
+        action: "order.reject",
+        entityType: "CustomerOrder",
         entityId: order.id,
         afterJson: JSON.stringify({ reason }),
       },
     });
 
-    return { ...order, status: 'REJECTED' as const };
+    return { ...order, status: "REJECTED" as const };
   }
 
   async cancel(orderId: string, customerId: string) {
     const order = await this.prisma.customerOrder.findFirst({
       where: { id: orderId, customerId },
     });
-    if (!order) throw AppException.notFound('CustomerOrder', orderId);
-    if (order.status !== 'PENDING') {
+    if (!order) throw AppException.notFound("CustomerOrder", orderId);
+    if (order.status !== "PENDING") {
       throw AppException.conflict(
         ErrorCode.CONFLICT,
-        'Only pending orders can be cancelled',
+        "Only pending orders can be cancelled",
       );
     }
 
     await this.prisma.customerOrder.update({
       where: { id: order.id },
-      data: { status: 'CANCELLED', cancelledAt: new Date() },
+      data: { status: "CANCELLED", cancelledAt: new Date() },
     });
 
-    return { ...order, status: 'CANCELLED' as const };
+    return { ...order, status: "CANCELLED" as const };
   }
 
   async list(
@@ -241,9 +243,9 @@ export class OrdersService {
     },
   ) {
     const where: Record<string, unknown> = { shopId };
-    if (params.status && params.status !== 'ALL')
-      where['status'] = params.status;
-    if (params.customerId) where['customerId'] = params.customerId;
+    if (params.status && params.status !== "ALL")
+      where["status"] = params.status;
+    if (params.customerId) where["customerId"] = params.customerId;
 
     const page = Math.max(1, params.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, params.pageSize ?? 20));
@@ -253,7 +255,7 @@ export class OrdersService {
       this.prisma.customerOrder.findMany({
         where,
         include: { lines: { include: { beverage: true } }, customer: true },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         skip,
         take: pageSize,
       }),
@@ -269,7 +271,7 @@ export class OrdersService {
       this.prisma.customerOrder.findMany({
         where: { customerId },
         include: { lines: { include: { beverage: true } } },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         skip,
         take: pageSize,
       }),
@@ -283,21 +285,21 @@ export class OrdersService {
       where: { id },
       include: { lines: { include: { beverage: true } }, customer: true },
     });
-    if (!order) throw AppException.notFound('CustomerOrder', id);
+    if (!order) throw AppException.notFound("CustomerOrder", id);
     return order;
   }
 
   async getPendingCount(shopId: string) {
     return this.prisma.customerOrder.count({
-      where: { shopId, status: 'PENDING' },
+      where: { shopId, status: "PENDING" },
     });
   }
 
   async getPending(shopId: string) {
     return this.prisma.customerOrder.findMany({
-      where: { shopId, status: 'PENDING' },
+      where: { shopId, status: "PENDING" },
       include: { lines: { include: { beverage: true } }, customer: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: 20,
     });
   }
@@ -311,10 +313,9 @@ export class OrdersService {
   ) {
     const itemList = order.lines
       .map(
-        (l) =>
-          `${l.boxes} boxes + ${l.bottles} bottles of ${l.beverage.name}`,
+        (l) => `${l.boxes} boxes + ${l.bottles} bottles of ${l.beverage.name}`,
       )
-      .join(', ');
+      .join(", ");
     const total = (order.subtotalCents / 100).toFixed(2);
     const message = `New order from ${order.customer.name} for ${shopName}: ${itemList} — Total: ${total} ETB`;
 

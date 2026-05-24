@@ -1,5 +1,5 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
-import { PaymentMethod } from '@/database';
+import { IsEnum, IsInt, IsOptional, IsString, Min } from "class-validator";
+import { PaymentMethod } from "../../database";
 
 export class AddPaymentDto {
   @IsInt() @Min(1) declare amountCents: number;

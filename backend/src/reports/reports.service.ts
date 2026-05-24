@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { SaleStatus } from '@/database';
+import { Injectable } from "@nestjs/common";
+import { SaleStatus } from "../database";
 
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from "../prisma/prisma.service";
 
 export interface DateRangeQuery {
   from?: string;
@@ -24,13 +24,15 @@ export class ReportsService {
     };
     if (query.from || query.to) {
       const range: Record<string, Date> = {};
-      if (query.from) range['gte'] = new Date(query.from);
+      if (query.from) range["gte"] = new Date(query.from);
       if (query.to) {
         // Expand a date-only "YYYY-MM-DD" to end-of-day UTC so same-day sales are included.
         const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(query.to);
-        range['lte'] = new Date(isDateOnly ? `${query.to}T23:59:59.999Z` : query.to);
+        range["lte"] = new Date(
+          isDateOnly ? `${query.to}T23:59:59.999Z` : query.to,
+        );
       }
-      where['saleDate'] = range;
+      where["saleDate"] = range;
     }
     return where;
   }
@@ -44,12 +46,14 @@ export class ReportsService {
     const where: Record<string, unknown> = { shopId, voidedAt: null };
     if (query.from || query.to) {
       const range: Record<string, Date> = {};
-      if (query.from) range['gte'] = new Date(query.from);
+      if (query.from) range["gte"] = new Date(query.from);
       if (query.to) {
         const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(query.to);
-        range['lte'] = new Date(isDateOnly ? `${query.to}T23:59:59.999Z` : query.to);
+        range["lte"] = new Date(
+          isDateOnly ? `${query.to}T23:59:59.999Z` : query.to,
+        );
       }
-      where['paidAt'] = range;
+      where["paidAt"] = range;
     }
     return where;
   }
@@ -66,14 +70,14 @@ export class ReportsService {
         _count: { _all: true },
       }),
       this.prisma.sale.groupBy({
-        by: ['saleDate'],
+        by: ["saleDate"],
         where,
         _sum: { subtotalCents: true },
         _count: { _all: true },
-        orderBy: { saleDate: 'asc' },
+        orderBy: { saleDate: "asc" },
       }),
       this.prisma.sale.groupBy({
-        by: ['priceTierId'],
+        by: ["priceTierId"],
         where,
         _sum: { subtotalCents: true },
         _count: { _all: true },
@@ -113,7 +117,7 @@ export class ReportsService {
     const where = this.buildSaleDateWhere(shopId, query);
 
     const rows = await this.prisma.sale.groupBy({
-      by: ['customerId'],
+      by: ["customerId"],
       where,
       _count: { _all: true },
       _sum: { subtotalCents: true },
@@ -126,7 +130,7 @@ export class ReportsService {
     // sale-linked payments and payments recorded outside a sale. Keyed off the
     // payment's own paidAt, not the sale, so account payments are not missed.
     const paymentRows = await this.prisma.payment.groupBy({
-      by: ['customerId'],
+      by: ["customerId"],
       where: {
         ...this.buildPaymentDateWhere(shopId, query),
         customerId: { in: customerIds },
@@ -180,7 +184,7 @@ export class ReportsService {
     if (saleIds.length === 0) return [];
 
     const rows = await this.prisma.saleLine.groupBy({
-      by: ['beverageId'],
+      by: ["beverageId"],
       where: { saleId: { in: saleIds } },
       _sum: { boxes: true, bottles: true, lineTotalCents: true },
     });
@@ -213,7 +217,7 @@ export class ReportsService {
 
     // Group by paymentAccountId + method
     const byMethod = await this.prisma.payment.groupBy({
-      by: ['paymentAccountId', 'method'],
+      by: ["paymentAccountId", "method"],
       where: paymentWhere,
       _sum: { amountCents: true },
       _count: { _all: true },
@@ -221,7 +225,7 @@ export class ReportsService {
 
     // Group by paymentAccountId for totals
     const byAccount = await this.prisma.payment.groupBy({
-      by: ['paymentAccountId'],
+      by: ["paymentAccountId"],
       where: paymentWhere,
       _sum: { amountCents: true },
       _count: { _all: true },
@@ -279,24 +283,28 @@ export class ReportsService {
         creditDeltaCents: { gt: 0 },
       },
       select: { customerId: true, saleDate: true },
-      orderBy: { saleDate: 'asc' },
-      distinct: ['customerId'],
+      orderBy: { saleDate: "asc" },
+      distinct: ["customerId"],
     });
 
-    const oldestDateMap = new Map(oldestSales.map((s) => [s.customerId, s.saleDate]));
+    const oldestDateMap = new Map(
+      oldestSales.map((s) => [s.customerId, s.saleDate]),
+    );
 
     return customers.map((c) => {
       const oldestDate = oldestDateMap.get(c.id);
       let daysOverdue = 0;
       if (oldestDate) {
-        daysOverdue = Math.floor((now.getTime() - oldestDate.getTime()) / (1000 * 60 * 60 * 24));
+        daysOverdue = Math.floor(
+          (now.getTime() - oldestDate.getTime()) / (1000 * 60 * 60 * 24),
+        );
       }
 
-      let bucket: '0-30' | '31-60' | '61-90' | '90+';
-      if (daysOverdue <= 30) bucket = '0-30';
-      else if (daysOverdue <= 60) bucket = '31-60';
-      else if (daysOverdue <= 90) bucket = '61-90';
-      else bucket = '90+';
+      let bucket: "0-30" | "31-60" | "61-90" | "90+";
+      if (daysOverdue <= 30) bucket = "0-30";
+      else if (daysOverdue <= 60) bucket = "31-60";
+      else if (daysOverdue <= 90) bucket = "61-90";
+      else bucket = "90+";
 
       return {
         customerId: c.id,
@@ -314,10 +322,18 @@ export class ReportsService {
       where: {
         shopId,
         deletedAt: null,
-        OR: [{ outstandingBoxes: { gt: 0 } }, { outstandingBottles: { gt: 0 } }],
+        OR: [
+          { outstandingBoxes: { gt: 0 } },
+          { outstandingBottles: { gt: 0 } },
+        ],
       },
-      select: { id: true, name: true, outstandingBoxes: true, outstandingBottles: true },
-      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        outstandingBoxes: true,
+        outstandingBottles: true,
+      },
+      orderBy: { name: "asc" },
     });
 
     return customers.map((c) => ({
@@ -341,7 +357,7 @@ export class ReportsService {
           stockBottles: true,
           bottlesPerBox: true,
         },
-        orderBy: { name: 'asc' },
+        orderBy: { name: "asc" },
       }),
       this.prisma.shop.findUnique({
         where: { id: shopId },
@@ -378,7 +394,11 @@ export class ReportsService {
     }
 
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
     const weekStart = new Date(todayStart);
     weekStart.setDate(weekStart.getDate() - 6);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -425,31 +445,36 @@ export class ReportsService {
         _sum: { outstandingBoxes: true, outstandingBottles: true },
       }),
       this.prisma.sale.groupBy({
-        by: ['customerId'],
+        by: ["customerId"],
         where: confirmedWhere(monthStart),
         _sum: { subtotalCents: true },
-        orderBy: { _sum: { subtotalCents: 'desc' } },
+        orderBy: { _sum: { subtotalCents: "desc" } },
         take: 5,
       }),
       this.prisma.saleLine.groupBy({
-        by: ['beverageId'],
+        by: ["beverageId"],
         where: {
           sale: confirmedWhere(monthStart),
         },
         _sum: { boxes: true },
-        orderBy: { _sum: { boxes: 'desc' } },
+        orderBy: { _sum: { boxes: "desc" } },
         take: 5,
       }),
       this.prisma.beverage.findMany({
         where: { shopId, deletedAt: null, isActive: true },
-        select: { id: true, name: true, stockBottles: true, bottlesPerBox: true },
-        orderBy: { stockBottles: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          stockBottles: true,
+          bottlesPerBox: true,
+        },
+        orderBy: { stockBottles: "asc" },
         take: 10,
       }),
       this.prisma.sale.findMany({
         where: { shopId, status: SaleStatus.VOIDED, voidedAt: { not: null } },
         include: { customer: { select: { name: true } } },
-        orderBy: { voidedAt: 'desc' },
+        orderBy: { voidedAt: "desc" },
         take: 5,
       }),
     ]);

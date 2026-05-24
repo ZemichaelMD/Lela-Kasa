@@ -1,18 +1,23 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
-import { SaleStatus, StockMovementReason } from '@/database';
+import { HttpStatus, Injectable } from "@nestjs/common";
+import { SaleStatus, StockMovementReason } from "../database";
 
-import { PrismaService } from '../prisma/prisma.service';
-import { AppException } from '../common/errors/app.exception';
-import { ErrorCode } from '../contract';
-import type { CreateSaleDto } from './dto/create-sale.dto';
-import type { UpdateSaleDto } from './dto/update-sale.dto';
-import type { AddPaymentDto } from './dto/add-payment.dto';
+import { PrismaService } from "../prisma/prisma.service";
+import { AppException } from "../common/errors/app.exception";
+import { ErrorCode } from "../contract";
+import type { CreateSaleDto } from "./dto/create-sale.dto";
+import type { UpdateSaleDto } from "./dto/update-sale.dto";
+import type { AddPaymentDto } from "./dto/add-payment.dto";
 
 export interface SaleListQuery {
   page?: number;
   pageSize?: number;
-  sortBy?: 'saleDate' | 'subtotalCents' | 'paidCents' | 'creditDeltaCents' | 'createdAt';
-  sortDir?: 'asc' | 'desc';
+  sortBy?:
+    | "saleDate"
+    | "subtotalCents"
+    | "paidCents"
+    | "creditDeltaCents"
+    | "createdAt";
+  sortDir?: "asc" | "desc";
   dateFrom?: string;
   dateTo?: string;
   customerId?: string;
@@ -47,52 +52,57 @@ export class SalesService {
     const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 25));
     const skip = (page - 1) * pageSize;
 
-    const sortBy = query.sortBy ?? 'createdAt';
-    const sortDir = query.sortDir ?? 'desc';
+    const sortBy = query.sortBy ?? "createdAt";
+    const sortDir = query.sortDir ?? "desc";
 
     // Build where
     const where: Record<string, unknown> = { shopId };
 
     if (query.status) {
-      const statuses = typeof query.status === 'string'
-        ? query.status.split(',').map((s) => s.trim())
-        : [query.status];
-      where['status'] = statuses.length === 1 ? statuses[0] : { in: statuses };
+      const statuses =
+        typeof query.status === "string"
+          ? query.status.split(",").map((s) => s.trim())
+          : [query.status];
+      where["status"] = statuses.length === 1 ? statuses[0] : { in: statuses };
     } else {
-      where['status'] = { in: [SaleStatus.CONFIRMED, SaleStatus.OPEN] };
+      where["status"] = { in: [SaleStatus.CONFIRMED, SaleStatus.OPEN] };
     }
 
     if (query.dateFrom || query.dateTo) {
       const range: Record<string, Date> = {};
-      if (query.dateFrom) range['gte'] = new Date(query.dateFrom);
+      if (query.dateFrom) range["gte"] = new Date(query.dateFrom);
       if (query.dateTo) {
         // Expand a date-only "YYYY-MM-DD" to end-of-day UTC so same-day sales are included.
         const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(query.dateTo);
-        range['lte'] = new Date(isDateOnly ? `${query.dateTo}T23:59:59.999Z` : query.dateTo);
+        range["lte"] = new Date(
+          isDateOnly ? `${query.dateTo}T23:59:59.999Z` : query.dateTo,
+        );
       }
-      where['saleDate'] = range;
+      where["saleDate"] = range;
     }
 
     if (query.customerId) {
-      where['customerId'] = query.customerId;
+      where["customerId"] = query.customerId;
     }
 
     if (query.hasCredit === true) {
-      where['creditDeltaCents'] = { gt: 0 };
+      where["creditDeltaCents"] = { gt: 0 };
     }
 
     if (query.paymentAccountId) {
-      where['payments'] = {
+      where["payments"] = {
         some: { paymentAccountId: query.paymentAccountId, voidedAt: null },
       };
     }
 
     if (query.beverageId) {
-      where['lines'] = { some: { beverageId: query.beverageId } };
+      where["lines"] = { some: { beverageId: query.beverageId } };
     }
 
     if (query.search) {
-      where['customer'] = { name: { contains: query.search, mode: 'insensitive' } };
+      where["customer"] = {
+        name: { contains: query.search, mode: "insensitive" },
+      };
     }
 
     const [data, total] = await this.prisma.$transaction([
@@ -109,32 +119,42 @@ export class SalesService {
     return { data, total, page, pageSize };
   }
 
-  async exportSales(shopId: string, query: { dateFrom?: string; dateTo?: string; customerId?: string; status?: SaleStatus }) {
+  async exportSales(
+    shopId: string,
+    query: {
+      dateFrom?: string;
+      dateTo?: string;
+      customerId?: string;
+      status?: SaleStatus;
+    },
+  ) {
     const where: Record<string, unknown> = { shopId };
 
     if (query.status) {
-      where['status'] = query.status;
+      where["status"] = query.status;
     } else {
-      where['status'] = { in: [SaleStatus.CONFIRMED, SaleStatus.OPEN] };
+      where["status"] = { in: [SaleStatus.CONFIRMED, SaleStatus.OPEN] };
     }
 
     if (query.dateFrom || query.dateTo) {
       const range: Record<string, Date> = {};
-      if (query.dateFrom) range['gte'] = new Date(query.dateFrom);
+      if (query.dateFrom) range["gte"] = new Date(query.dateFrom);
       if (query.dateTo) {
         const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(query.dateTo);
-        range['lte'] = new Date(isDateOnly ? `${query.dateTo}T23:59:59.999Z` : query.dateTo);
+        range["lte"] = new Date(
+          isDateOnly ? `${query.dateTo}T23:59:59.999Z` : query.dateTo,
+        );
       }
-      where['saleDate'] = range;
+      where["saleDate"] = range;
     }
 
     if (query.customerId) {
-      where['customerId'] = query.customerId;
+      where["customerId"] = query.customerId;
     }
 
     const sales = await this.prisma.sale.findMany({
       where,
-      orderBy: { saleDate: 'desc' },
+      orderBy: { saleDate: "desc" },
       include: {
         customer: { select: { name: true } },
         createdBy: { select: { name: true } },
@@ -143,8 +163,8 @@ export class SalesService {
 
     return sales.map((s) => ({
       id: s.id,
-      saleDate: s.saleDate.toISOString().split('T')[0],
-      customerName: s.customer?.name ?? '—',
+      saleDate: s.saleDate.toISOString().split("T")[0],
+      customerName: s.customer?.name ?? "—",
       status: s.status,
       subtotalCents: s.subtotalCents,
       paidCents: s.paidCents,
@@ -153,7 +173,7 @@ export class SalesService {
       bottlesOutDelta: s.bottlesOutDelta,
       boxesReturnedOnSale: s.boxesReturnedOnSale,
       bottlesReturnedOnSale: s.bottlesReturnedOnSale,
-      createdByName: s.createdBy?.name ?? '—',
+      createdByName: s.createdBy?.name ?? "—",
     }));
   }
 
@@ -167,11 +187,11 @@ export class SalesService {
         stockMovements: true,
       },
     });
-    if (!sale) throw AppException.notFound('Sale', id);
+    if (!sale) throw AppException.notFound("Sale", id);
 
     const auditLogs = await this.prisma.auditLog.findMany({
-      where: { entityType: 'Sale', entityId: id },
-      orderBy: { createdAt: 'asc' },
+      where: { entityType: "Sale", entityId: id },
+      orderBy: { createdAt: "asc" },
     });
 
     return { ...sale, auditLogs };
@@ -181,7 +201,7 @@ export class SalesService {
     const saleDate = new Date(dto.saleDate);
     // Use end-of-day for price lookup: effectiveFrom is stored as the exact creation
     // timestamp, so a price created at 15:30 on day X must still match a sale on day X.
-    const saleDateEndOfDay = new Date(dto.saleDate + 'T23:59:59.999Z');
+    const saleDateEndOfDay = new Date(dto.saleDate + "T23:59:59.999Z");
     const status = dto.draft ? SaleStatus.OPEN : SaleStatus.CONFIRMED;
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -189,18 +209,18 @@ export class SalesService {
       const customer = await tx.customer.findFirst({
         where: { id: dto.customerId, shopId, deletedAt: null },
       });
-      if (!customer) throw AppException.notFound('Customer', dto.customerId);
+      if (!customer) throw AppException.notFound("Customer", dto.customerId);
 
       // b. Load Shop to get defaultPriceTierId
       const shop = await tx.shop.findUnique({ where: { id: shopId } });
-      if (!shop) throw AppException.notFound('Shop', shopId);
+      if (!shop) throw AppException.notFound("Shop", shopId);
 
       // c. Resolve priceTierId
       const priceTierId = dto.priceTierId ?? shop.defaultPriceTierId;
       if (!priceTierId) {
         throw new AppException({
           code: ErrorCode.VALIDATION_ERROR,
-          message: 'No price tier specified and shop has no default price tier',
+          message: "No price tier specified and shop has no default price tier",
           status: HttpStatus.UNPROCESSABLE_ENTITY,
         });
       }
@@ -221,16 +241,20 @@ export class SalesService {
         const beverage = await tx.beverage.findFirst({
           where: { id: line.beverageId, shopId, deletedAt: null },
         });
-        if (!beverage) throw AppException.notFound('Beverage', line.beverageId);
+        if (!beverage) throw AppException.notFound("Beverage", line.beverageId);
 
         const price = await tx.beveragePrice.findFirst({
           where: { beverageId: line.beverageId, priceTierId },
-          orderBy: { effectiveFrom: 'desc' },
+          orderBy: { effectiveFrom: "desc" },
         });
 
         if (!price) {
           const msg = `Price not set for beverage "${beverage.name}" in this price tier. Add a price first, then retry.`;
-          throw new AppException({ code: ErrorCode.VALIDATION_ERROR, message: msg, status: HttpStatus.UNPROCESSABLE_ENTITY });
+          throw new AppException({
+            code: ErrorCode.VALIDATION_ERROR,
+            message: msg,
+            status: HttpStatus.UNPROCESSABLE_ENTITY,
+          });
         }
 
         // e. Stock check for CONFIRMED sales
@@ -263,17 +287,26 @@ export class SalesService {
       }
 
       // g. subtotalCents
-      const subtotalCents = resolvedLines.reduce((sum, l) => sum + l.lineTotalCents, 0);
+      const subtotalCents = resolvedLines.reduce(
+        (sum, l) => sum + l.lineTotalCents,
+        0,
+      );
 
       // h. paidCents
-      const paidCents = (dto.payments ?? []).reduce((sum, p) => sum + p.amountCents, 0);
+      const paidCents = (dto.payments ?? []).reduce(
+        (sum, p) => sum + p.amountCents,
+        0,
+      );
 
       // i. creditDeltaCents
       const creditDeltaCents = subtotalCents - paidCents;
 
       // j. container deltas
       const boxesOutDelta = resolvedLines.reduce((sum, l) => sum + l.boxes, 0);
-      const bottlesOutDelta = resolvedLines.reduce((sum, l) => sum + l.bottles, 0);
+      const bottlesOutDelta = resolvedLines.reduce(
+        (sum, l) => sum + l.bottles,
+        0,
+      );
 
       // k. Insert Sale
       const sale = await tx.sale.create({
@@ -315,7 +348,10 @@ export class SalesService {
             where: { id: payment.paymentAccountId, shopId, deletedAt: null },
           });
           if (!account) {
-            throw AppException.notFound('PaymentAccount', payment.paymentAccountId);
+            throw AppException.notFound(
+              "PaymentAccount",
+              payment.paymentAccountId,
+            );
           }
 
           await tx.payment.create({
@@ -338,7 +374,10 @@ export class SalesService {
       // n. If CONFIRMED: stock movements + update stock
       if (status === SaleStatus.CONFIRMED) {
         for (const line of resolvedLines) {
-          const bottlesDelta = -(line.boxes * line.bottlesPerBox + line.bottles);
+          const bottlesDelta = -(
+            line.boxes * line.bottlesPerBox +
+            line.bottles
+          );
           await tx.stockMovement.create({
             data: {
               shopId,
@@ -374,8 +413,8 @@ export class SalesService {
         data: {
           shopId,
           actorUserId: userId,
-          action: 'sale.create',
-          entityType: 'Sale',
+          action: "sale.create",
+          entityType: "Sale",
           entityId: sale.id,
           afterJson: JSON.stringify({ saleId: sale.id, status }),
         },
@@ -388,7 +427,12 @@ export class SalesService {
     return this.findOne(shopId, result);
   }
 
-  async updateSale(shopId: string, userId: string, saleId: string, dto: UpdateSaleDto) {
+  async updateSale(
+    shopId: string,
+    userId: string,
+    saleId: string,
+    dto: UpdateSaleDto,
+  ) {
     const existingSale = await this.prisma.sale.findFirst({
       where: { id: saleId, shopId },
       include: {
@@ -396,19 +440,24 @@ export class SalesService {
         payments: { where: { voidedAt: null } },
       },
     });
-    if (!existingSale) throw AppException.notFound('Sale', saleId);
+    if (!existingSale) throw AppException.notFound("Sale", saleId);
     if (existingSale.status === SaleStatus.VOIDED) {
-      throw AppException.conflict(ErrorCode.CONFLICT, 'Cannot edit a voided sale');
+      throw AppException.conflict(
+        ErrorCode.CONFLICT,
+        "Cannot edit a voided sale",
+      );
     }
 
     const status = dto.draft ? SaleStatus.OPEN : SaleStatus.CONFIRMED;
     const saleDate = new Date(dto.saleDate);
-    const saleDateEndOfDay = new Date(dto.saleDate + 'T23:59:59.999Z');
+    const saleDateEndOfDay = new Date(dto.saleDate + "T23:59:59.999Z");
 
     await this.prisma.$transaction(async (tx) => {
       // a. Reverse old customer effects
-      const oldNetBoxDelta = existingSale.boxesOutDelta - existingSale.boxesReturnedOnSale;
-      const oldNetBottleDelta = existingSale.bottlesOutDelta - existingSale.bottlesReturnedOnSale;
+      const oldNetBoxDelta =
+        existingSale.boxesOutDelta - existingSale.boxesReturnedOnSale;
+      const oldNetBottleDelta =
+        existingSale.bottlesOutDelta - existingSale.bottlesReturnedOnSale;
       await tx.customer.update({
         where: { id: existingSale.customerId },
         data: {
@@ -421,7 +470,8 @@ export class SalesService {
       // b. If old status was CONFIRMED: reverse stock
       if (existingSale.status === SaleStatus.CONFIRMED) {
         for (const line of existingSale.lines) {
-          const bottlesDelta = line.boxes * line.beverage.bottlesPerBox + line.bottles;
+          const bottlesDelta =
+            line.boxes * line.beverage.bottlesPerBox + line.bottles;
           await tx.stockMovement.create({
             data: {
               shopId,
@@ -452,18 +502,18 @@ export class SalesService {
       const customer = await tx.customer.findFirst({
         where: { id: dto.customerId, shopId, deletedAt: null },
       });
-      if (!customer) throw AppException.notFound('Customer', dto.customerId);
+      if (!customer) throw AppException.notFound("Customer", dto.customerId);
 
       // f. Load shop for priceTierId fallback
       const shop = await tx.shop.findUnique({ where: { id: shopId } });
-      if (!shop) throw AppException.notFound('Shop', shopId);
+      if (!shop) throw AppException.notFound("Shop", shopId);
 
       // g. Resolve priceTierId
       const priceTierId = dto.priceTierId ?? shop.defaultPriceTierId;
       if (!priceTierId) {
         throw new AppException({
           code: ErrorCode.VALIDATION_ERROR,
-          message: 'No price tier specified and shop has no default price tier',
+          message: "No price tier specified and shop has no default price tier",
           status: HttpStatus.UNPROCESSABLE_ENTITY,
         });
       }
@@ -484,16 +534,20 @@ export class SalesService {
         const beverage = await tx.beverage.findFirst({
           where: { id: line.beverageId, shopId, deletedAt: null },
         });
-        if (!beverage) throw AppException.notFound('Beverage', line.beverageId);
+        if (!beverage) throw AppException.notFound("Beverage", line.beverageId);
 
         const price = await tx.beveragePrice.findFirst({
           where: { beverageId: line.beverageId, priceTierId },
-          orderBy: { effectiveFrom: 'desc' },
+          orderBy: { effectiveFrom: "desc" },
         });
 
         if (!price) {
           const msg = `Price not set for beverage "${beverage.name}" in this price tier. Add a price first, then retry.`;
-          throw new AppException({ code: ErrorCode.VALIDATION_ERROR, message: msg, status: HttpStatus.UNPROCESSABLE_ENTITY });
+          throw new AppException({
+            code: ErrorCode.VALIDATION_ERROR,
+            message: msg,
+            status: HttpStatus.UNPROCESSABLE_ENTITY,
+          });
         }
 
         // Stock check if new status is CONFIRMED
@@ -525,11 +579,20 @@ export class SalesService {
       }
 
       // i. Compute new totals
-      const subtotalCents = resolvedLines.reduce((sum, l) => sum + l.lineTotalCents, 0);
-      const paidCents = (dto.payments ?? []).reduce((sum, p) => sum + p.amountCents, 0);
+      const subtotalCents = resolvedLines.reduce(
+        (sum, l) => sum + l.lineTotalCents,
+        0,
+      );
+      const paidCents = (dto.payments ?? []).reduce(
+        (sum, p) => sum + p.amountCents,
+        0,
+      );
       const creditDeltaCents = subtotalCents - paidCents;
       const boxesOutDelta = resolvedLines.reduce((sum, l) => sum + l.boxes, 0);
-      const bottlesOutDelta = resolvedLines.reduce((sum, l) => sum + l.bottles, 0);
+      const bottlesOutDelta = resolvedLines.reduce(
+        (sum, l) => sum + l.bottles,
+        0,
+      );
 
       // j. Update sale record
       await tx.sale.update({
@@ -570,7 +633,10 @@ export class SalesService {
             where: { id: payment.paymentAccountId, shopId, deletedAt: null },
           });
           if (!account) {
-            throw AppException.notFound('PaymentAccount', payment.paymentAccountId);
+            throw AppException.notFound(
+              "PaymentAccount",
+              payment.paymentAccountId,
+            );
           }
 
           await tx.payment.create({
@@ -593,7 +659,10 @@ export class SalesService {
       // m. If new status is CONFIRMED: create stock movements + update stock
       if (status === SaleStatus.CONFIRMED) {
         for (const line of resolvedLines) {
-          const bottlesDelta = -(line.boxes * line.bottlesPerBox + line.bottles);
+          const bottlesDelta = -(
+            line.boxes * line.bottlesPerBox +
+            line.bottles
+          );
           await tx.stockMovement.create({
             data: {
               shopId,
@@ -628,8 +697,8 @@ export class SalesService {
         data: {
           shopId,
           actorUserId: userId,
-          action: 'sale.update',
-          entityType: 'Sale',
+          action: "sale.update",
+          entityType: "Sale",
           entityId: saleId,
           afterJson: JSON.stringify({ saleId, status }),
         },
@@ -639,7 +708,12 @@ export class SalesService {
     return this.findOne(shopId, saleId);
   }
 
-  async voidSale(shopId: string, userId: string, saleId: string, reason: string) {
+  async voidSale(
+    shopId: string,
+    userId: string,
+    saleId: string,
+    reason: string,
+  ) {
     const sale = await this.prisma.sale.findFirst({
       where: { id: saleId, shopId },
       include: {
@@ -647,9 +721,9 @@ export class SalesService {
         payments: { where: { voidedAt: null } },
       },
     });
-    if (!sale) throw AppException.notFound('Sale', saleId);
+    if (!sale) throw AppException.notFound("Sale", saleId);
     if (sale.status === SaleStatus.VOIDED) {
-      throw AppException.conflict(ErrorCode.CONFLICT, 'Sale is already voided');
+      throw AppException.conflict(ErrorCode.CONFLICT, "Sale is already voided");
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -667,7 +741,8 @@ export class SalesService {
       // b. Reverse stock for confirmed sales
       if (sale.status === SaleStatus.CONFIRMED) {
         for (const line of sale.lines) {
-          const bottlesDelta = line.boxes * line.beverage.bottlesPerBox + line.bottles;
+          const bottlesDelta =
+            line.boxes * line.beverage.bottlesPerBox + line.bottles;
           await tx.stockMovement.create({
             data: {
               shopId,
@@ -709,8 +784,8 @@ export class SalesService {
         data: {
           shopId,
           actorUserId: userId,
-          action: 'sale.void',
-          entityType: 'Sale',
+          action: "sale.void",
+          entityType: "Sale",
           entityId: saleId,
           afterJson: JSON.stringify({ reason }),
         },
@@ -720,19 +795,28 @@ export class SalesService {
     return this.findOne(shopId, saleId);
   }
 
-  async addPayment(shopId: string, userId: string, saleId: string, dto: AddPaymentDto) {
+  async addPayment(
+    shopId: string,
+    userId: string,
+    saleId: string,
+    dto: AddPaymentDto,
+  ) {
     const sale = await this.prisma.sale.findFirst({
       where: { id: saleId, shopId },
     });
-    if (!sale) throw AppException.notFound('Sale', saleId);
+    if (!sale) throw AppException.notFound("Sale", saleId);
     if (sale.status === SaleStatus.VOIDED) {
-      throw AppException.conflict(ErrorCode.CONFLICT, 'Cannot add payment to a voided sale');
+      throw AppException.conflict(
+        ErrorCode.CONFLICT,
+        "Cannot add payment to a voided sale",
+      );
     }
 
     const account = await this.prisma.paymentAccount.findFirst({
       where: { id: dto.paymentAccountId, shopId, deletedAt: null },
     });
-    if (!account) throw AppException.notFound('PaymentAccount', dto.paymentAccountId);
+    if (!account)
+      throw AppException.notFound("PaymentAccount", dto.paymentAccountId);
 
     await this.prisma.$transaction(async (tx) => {
       // a. Insert Payment
@@ -771,8 +855,8 @@ export class SalesService {
         data: {
           shopId,
           actorUserId: userId,
-          action: 'payment.create',
-          entityType: 'Payment',
+          action: "payment.create",
+          entityType: "Payment",
           entityId: payment.id,
           afterJson: JSON.stringify({ saleId, amountCents: dto.amountCents }),
         },
@@ -792,13 +876,18 @@ export class SalesService {
     const payment = await this.prisma.payment.findFirst({
       where: { id: paymentId, saleId, shopId },
     });
-    if (!payment) throw AppException.notFound('Payment', paymentId);
+    if (!payment) throw AppException.notFound("Payment", paymentId);
     if (payment.voidedAt) {
-      throw AppException.conflict(ErrorCode.CONFLICT, 'Payment is already voided');
+      throw AppException.conflict(
+        ErrorCode.CONFLICT,
+        "Payment is already voided",
+      );
     }
 
-    const sale = await this.prisma.sale.findFirst({ where: { id: saleId, shopId } });
-    if (!sale) throw AppException.notFound('Sale', saleId);
+    const sale = await this.prisma.sale.findFirst({
+      where: { id: saleId, shopId },
+    });
+    if (!sale) throw AppException.notFound("Sale", saleId);
 
     await this.prisma.$transaction(async (tx) => {
       // a. Void payment
@@ -827,8 +916,8 @@ export class SalesService {
         data: {
           shopId,
           actorUserId: userId,
-          action: 'payment.void',
-          entityType: 'Payment',
+          action: "payment.void",
+          entityType: "Payment",
           entityId: paymentId,
           afterJson: JSON.stringify({ reason }),
         },

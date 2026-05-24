@@ -6,8 +6,8 @@ import {
   Logger,
 } from "@nestjs/common";
 import type { Response } from "express";
-import { Prisma } from "@/database";
-import { ErrorCode } from "@/contract";
+import { Prisma } from "../../database";
+import { ErrorCode } from "../../contract";
 
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaExceptionFilter implements ExceptionFilter {

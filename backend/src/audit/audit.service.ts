@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import type { AuditLog } from '@/database';
+import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import type { AuditLog } from "../database";
 
 export interface AuditLogInput {
   actorUserId?: string;
@@ -36,7 +36,7 @@ export class AuditService {
         },
       });
     } catch (err) {
-      this.logger.error('Failed to write audit log', { err, input });
+      this.logger.error("Failed to write audit log", { err, input });
       return {} as AuditLog;
     }
   }

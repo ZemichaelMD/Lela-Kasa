@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type } from "class-transformer";
 import {
   IsArray,
   IsBoolean,
@@ -9,8 +9,8 @@ import {
   IsString,
   Min,
   ValidateNested,
-} from 'class-validator';
-import { PaymentMethod } from '@/database';
+} from "class-validator";
+import { PaymentMethod } from "../../database";
 
 export class SaleLineDto {
   @IsString() declare beverageId: string;
@@ -32,7 +32,10 @@ export class CreateSaleDto {
   @IsString() declare customerId: string;
   @IsOptional() @IsString() priceTierId?: string;
   @IsOptional() @IsString() notes?: string;
-  @IsArray() @ValidateNested({ each: true }) @Type(() => SaleLineDto) declare lines: SaleLineDto[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SaleLineDto)
+  declare lines: SaleLineDto[];
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

@@ -1,17 +1,22 @@
-import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
-import { SaleStatus } from '@/database';
-import { PrismaService } from '../prisma/prisma.service';
-import { SmsService } from '../sms/sms.service';
-import { SmsTemplatesService } from '../sms/sms-templates.service';
-import { TelegramService } from '../telegram/telegram.service';
-import { WhatsAppService } from '../whatsapp/whatsapp.service';
-import { AppException } from '../common/errors/app.exception';
-import * as argon2 from 'argon2';
-import { ErrorCode } from '../contract';
-import type { CreateCustomerDto } from './dto/create-customer.dto';
-import type { UpdateCustomerDto } from './dto/update-customer.dto';
-import type { RecordCustomerPaymentDto } from './dto/record-payment.dto';
-import type { RecordContainerReturnDto } from './dto/record-return.dto';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+} from "@nestjs/common";
+import { SaleStatus } from "../database";
+import { PrismaService } from "../prisma/prisma.service";
+import { SmsService } from "../sms/sms.service";
+import { SmsTemplatesService } from "../sms/sms-templates.service";
+import { TelegramService } from "../telegram/telegram.service";
+import { WhatsAppService } from "../whatsapp/whatsapp.service";
+import { AppException } from "../common/errors/app.exception";
+import * as argon2 from "argon2";
+import { ErrorCode } from "../contract";
+import type { CreateCustomerDto } from "./dto/create-customer.dto";
+import type { UpdateCustomerDto } from "./dto/update-customer.dto";
+import type { RecordCustomerPaymentDto } from "./dto/record-payment.dto";
+import type { RecordContainerReturnDto } from "./dto/record-return.dto";
 
 export interface CustomerListQuery {
   page?: number;
@@ -46,13 +51,13 @@ export class CustomersService {
     };
 
     if (query.search) {
-      where['name'] = { contains: query.search, mode: 'insensitive' };
+      where["name"] = { contains: query.search, mode: "insensitive" };
     }
 
     if (query.hasCredit === true) {
-      where['creditBalanceCents'] = { not: 0 };
+      where["creditBalanceCents"] = { not: 0 };
     } else if (query.hasCredit === false) {
-      where['creditBalanceCents'] = 0;
+      where["creditBalanceCents"] = 0;
     }
 
     const [data, total] = await this.prisma.$transaction([
@@ -60,7 +65,7 @@ export class CustomersService {
         where,
         skip,
         take: pageSize,
-        orderBy: { name: 'asc' },
+        orderBy: { name: "asc" },
       }),
       this.prisma.customer.count({ where }),
     ]);
@@ -72,7 +77,7 @@ export class CustomersService {
     const customer = await this.prisma.customer.findFirst({
       where: { id, shopId, deletedAt: null },
     });
-    if (!customer) throw AppException.notFound('Customer', id);
+    if (!customer) throw AppException.notFound("Customer", id);
     return customer;
   }
 
@@ -92,8 +97,8 @@ export class CustomersService {
       data: {
         shopId,
         actorUserId,
-        action: 'customer.create',
-        entityType: 'Customer',
+        action: "customer.create",
+        entityType: "Customer",
         entityId: customer.id,
         afterJson: JSON.stringify(customer),
       },
@@ -102,7 +107,12 @@ export class CustomersService {
     return customer;
   }
 
-  async update(shopId: string, id: string, dto: UpdateCustomerDto, actorUserId: string) {
+  async update(
+    shopId: string,
+    id: string,
+    dto: UpdateCustomerDto,
+    actorUserId: string,
+  ) {
     await this.findOne(shopId, id);
 
     const customer = await this.prisma.customer.update({
@@ -111,8 +121,12 @@ export class CustomersService {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
         ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
-        ...(dto.priceTierId !== undefined ? { priceTierId: dto.priceTierId || null } : {}),
-        ...(dto.priceTierLocked !== undefined ? { priceTierLocked: dto.priceTierLocked } : {}),
+        ...(dto.priceTierId !== undefined
+          ? { priceTierId: dto.priceTierId || null }
+          : {}),
+        ...(dto.priceTierLocked !== undefined
+          ? { priceTierLocked: dto.priceTierLocked }
+          : {}),
       },
     });
 
@@ -120,8 +134,8 @@ export class CustomersService {
       data: {
         shopId,
         actorUserId,
-        action: 'customer.update',
-        entityType: 'Customer',
+        action: "customer.update",
+        entityType: "Customer",
         entityId: customer.id,
         afterJson: JSON.stringify(customer),
       },
@@ -140,7 +154,7 @@ export class CustomersService {
     ) {
       throw AppException.conflict(
         ErrorCode.CONFLICT,
-        'Cannot delete customer with outstanding balance or boxes/bottles',
+        "Cannot delete customer with outstanding balance or boxes/bottles",
       );
     }
 
@@ -153,8 +167,8 @@ export class CustomersService {
       data: {
         shopId,
         actorUserId,
-        action: 'customer.delete',
-        entityType: 'Customer',
+        action: "customer.delete",
+        entityType: "Customer",
         entityId: id,
         afterJson: JSON.stringify(deleted),
       },
@@ -170,20 +184,20 @@ export class CustomersService {
       this.prisma.sale.findMany({
         where: { shopId, customerId: id },
         include: { lines: true },
-        orderBy: { saleDate: 'desc' },
+        orderBy: { saleDate: "desc" },
       }),
       this.prisma.payment.findMany({
         where: { shopId, customerId: id },
-        orderBy: { paidAt: 'desc' },
+        orderBy: { paidAt: "desc" },
       }),
       this.prisma.auditLog.findMany({
         where: {
           shopId,
-          action: 'customer.return',
-          entityType: 'Customer',
+          action: "customer.return",
+          entityType: "Customer",
           entityId: id,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
     ]);
 
@@ -197,13 +211,17 @@ export class CustomersService {
     const returnEntries = returnLogs.map((log) => {
       let payload: ReturnPayload = {};
       try {
-        payload = log.afterJson ? (JSON.parse(log.afterJson) as ReturnPayload) : {};
+        payload = log.afterJson
+          ? (JSON.parse(log.afterJson) as ReturnPayload)
+          : {};
       } catch {
         payload = {};
       }
-      const when = payload.returnedAt ? new Date(payload.returnedAt) : log.createdAt;
+      const when = payload.returnedAt
+        ? new Date(payload.returnedAt)
+        : log.createdAt;
       return {
-        type: 'return' as const,
+        type: "return" as const,
         date: when,
         data: {
           id: log.id,
@@ -218,8 +236,16 @@ export class CustomersService {
     });
 
     const entries = [
-      ...sales.map((s) => ({ type: 'sale' as const, date: s.saleDate, data: s })),
-      ...payments.map((p) => ({ type: 'payment' as const, date: p.paidAt, data: p })),
+      ...sales.map((s) => ({
+        type: "sale" as const,
+        date: s.saleDate,
+        data: s,
+      })),
+      ...payments.map((p) => ({
+        type: "payment" as const,
+        date: p.paidAt,
+        data: p,
+      })),
       ...returnEntries,
     ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
@@ -259,8 +285,8 @@ export class CustomersService {
       this.prisma.auditLog.findMany({
         where: {
           shopId,
-          action: 'customer.return',
-          entityType: 'Customer',
+          action: "customer.return",
+          entityType: "Customer",
           entityId: customerId,
         },
         select: { afterJson: true },
@@ -321,7 +347,7 @@ export class CustomersService {
         },
       }),
       this.prisma.sale.groupBy({
-        by: ['customerId'],
+        by: ["customerId"],
         where: { shopId, status: { not: SaleStatus.VOIDED } },
         _sum: {
           subtotalCents: true,
@@ -332,12 +358,12 @@ export class CustomersService {
         },
       }),
       this.prisma.payment.groupBy({
-        by: ['customerId'],
+        by: ["customerId"],
         where: { shopId, voidedAt: null },
         _sum: { amountCents: true },
       }),
       this.prisma.auditLog.findMany({
-        where: { shopId, action: 'customer.return', entityType: 'Customer' },
+        where: { shopId, action: "customer.return", entityType: "Customer" },
         select: { entityId: true, afterJson: true },
       }),
     ]);
@@ -370,7 +396,9 @@ export class CustomersService {
       const outstandingBoxes =
         (s?.boxesOutDelta ?? 0) - (s?.boxesReturnedOnSale ?? 0) - ret.boxes;
       const outstandingBottles =
-        (s?.bottlesOutDelta ?? 0) - (s?.bottlesReturnedOnSale ?? 0) - ret.bottles;
+        (s?.bottlesOutDelta ?? 0) -
+        (s?.bottlesReturnedOnSale ?? 0) -
+        ret.bottles;
 
       if (
         c.creditBalanceCents !== creditBalanceCents ||
@@ -385,7 +413,10 @@ export class CustomersService {
       }
     }
 
-    return { customersChecked: customers.length, customersCorrected: corrected };
+    return {
+      customersChecked: customers.length,
+      customersCorrected: corrected,
+    };
   }
 
   async recordPayment(
@@ -399,7 +430,8 @@ export class CustomersService {
     const account = await this.prisma.paymentAccount.findFirst({
       where: { id: dto.paymentAccountId, shopId, deletedAt: null },
     });
-    if (!account) throw AppException.notFound('PaymentAccount', dto.paymentAccountId);
+    if (!account)
+      throw AppException.notFound("PaymentAccount", dto.paymentAccountId);
 
     await this.prisma.$transaction(async (tx) => {
       const payment = await tx.payment.create({
@@ -426,8 +458,8 @@ export class CustomersService {
         data: {
           shopId,
           actorUserId,
-          action: 'customer.payment',
-          entityType: 'Payment',
+          action: "customer.payment",
+          entityType: "Payment",
           entityId: payment.id,
           afterJson: JSON.stringify({
             customerId,
@@ -450,7 +482,7 @@ export class CustomersService {
     if (dto.boxes <= 0 && dto.bottles <= 0) {
       throw new AppException({
         code: ErrorCode.VALIDATION_ERROR,
-        message: 'Provide at least one box or bottle to return',
+        message: "Provide at least one box or bottle to return",
         status: 422,
       });
     }
@@ -470,8 +502,8 @@ export class CustomersService {
         data: {
           shopId,
           actorUserId,
-          action: 'customer.return',
-          entityType: 'Customer',
+          action: "customer.return",
+          entityType: "Customer",
           entityId: customerId,
           afterJson: JSON.stringify({
             boxes: dto.boxes,
@@ -488,12 +520,19 @@ export class CustomersService {
     return this.findOne(shopId, customerId);
   }
 
-  async setCredentials(shopId: string, customerId: string, username: string, pin: string): Promise<any> {
+  async setCredentials(
+    shopId: string,
+    customerId: string,
+    username: string,
+    pin: string,
+  ): Promise<any> {
     const customer = await this.findOne(shopId, customerId);
 
-    const existing = await this.prisma.customer.findUnique({ where: { username: username.trim() } });
+    const existing = await this.prisma.customer.findUnique({
+      where: { username: username.trim() },
+    });
     if (existing && existing.id !== customerId) {
-      throw new ConflictException('Username is already taken');
+      throw new ConflictException("Username is already taken");
     }
 
     const pinHash = await argon2.hash(pin);
@@ -504,10 +543,14 @@ export class CustomersService {
     });
   }
 
-  async sendCustomerSms(shopId: string, customerId: string, text: string): Promise<void> {
+  async sendCustomerSms(
+    shopId: string,
+    customerId: string,
+    text: string,
+  ): Promise<void> {
     const customer = await this.findOne(shopId, customerId);
     if (!customer.phone) {
-      throw new BadRequestException('Customer has no phone number on file');
+      throw new BadRequestException("Customer has no phone number on file");
     }
     await this.sms.sendSms(customer.phone, text);
   }
@@ -530,7 +573,7 @@ export class CustomersService {
       customer.outstandingBottles <= 0
     ) {
       throw new BadRequestException(
-        'This customer has nothing outstanding — no reminder needed.',
+        "This customer has nothing outstanding — no reminder needed.",
       );
     }
 
@@ -538,11 +581,11 @@ export class CustomersService {
     const lastReminder = await this.prisma.auditLog.findFirst({
       where: {
         shopId,
-        action: 'customer.reminder',
-        entityType: 'Customer',
+        action: "customer.reminder",
+        entityType: "Customer",
         entityId: customerId,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
     if (lastReminder) {
       const elapsedMs = Date.now() - lastReminder.createdAt.getTime();
@@ -555,7 +598,7 @@ export class CustomersService {
           throttled: true,
           retryAfterMinutes,
           channels: [] as string[],
-          message: `A reminder was already sent recently. Try again in about ${retryAfterMinutes} minute${retryAfterMinutes === 1 ? '' : 's'}.`,
+          message: `A reminder was already sent recently. Try again in about ${retryAfterMinutes} minute${retryAfterMinutes === 1 ? "" : "s"}.`,
         };
       }
     }
@@ -567,13 +610,13 @@ export class CustomersService {
 
     // Resolve the message — a per-shop override wins over the code default.
     const override = await this.prisma.shopSetting.findUnique({
-      where: { shopId_key: { shopId, key: 'reminder_template' } },
+      where: { shopId_key: { shopId, key: "reminder_template" } },
     });
     const text = this.smsTemplates.renderReminder(
       override?.value || this.smsTemplates.reminderDefaultTemplate(),
       {
         name: customer.name,
-        shopName: shop?.name ?? 'your shop',
+        shopName: shop?.name ?? "your shop",
         amountCents: customer.creditBalanceCents,
         boxes: customer.outstandingBoxes,
         bottles: customer.outstandingBottles,
@@ -585,16 +628,20 @@ export class CustomersService {
     if (customer.phone) {
       try {
         await this.sms.sendSms(customer.phone, text);
-        channels.push('SMS');
+        channels.push("SMS");
       } catch (e) {
-        this.logger.error(`[reminder] SMS failed for ${customerId}: ${String(e)}`);
+        this.logger.error(
+          `[reminder] SMS failed for ${customerId}: ${String(e)}`,
+        );
       }
       if (await this.whatsapp.isEnabled()) {
         try {
           await this.whatsapp.sendMessage(customer.phone, text);
-          channels.push('WhatsApp');
+          channels.push("WhatsApp");
         } catch (e) {
-          this.logger.error(`[reminder] WhatsApp failed for ${customerId}: ${String(e)}`);
+          this.logger.error(
+            `[reminder] WhatsApp failed for ${customerId}: ${String(e)}`,
+          );
         }
       }
     }
@@ -602,15 +649,17 @@ export class CustomersService {
     if (customer.telegramChatId) {
       try {
         const sent = await this.telegram.sendToCustomer(customerId, text);
-        if (sent) channels.push('Telegram');
+        if (sent) channels.push("Telegram");
       } catch (e) {
-        this.logger.error(`[reminder] Telegram failed for ${customerId}: ${String(e)}`);
+        this.logger.error(
+          `[reminder] Telegram failed for ${customerId}: ${String(e)}`,
+        );
       }
     }
 
     if (channels.length === 0) {
       throw new BadRequestException(
-        'No way to reach this customer — add a phone number or have them connect Telegram.',
+        "No way to reach this customer — add a phone number or have them connect Telegram.",
       );
     }
 
@@ -618,8 +667,8 @@ export class CustomersService {
       data: {
         shopId,
         actorUserId,
-        action: 'customer.reminder',
-        entityType: 'Customer',
+        action: "customer.reminder",
+        entityType: "Customer",
         entityId: customerId,
         afterJson: JSON.stringify({
           channels,
@@ -635,7 +684,7 @@ export class CustomersService {
       success: true,
       throttled: false,
       channels,
-      message: `Reminder sent via ${channels.join(', ')}.`,
+      message: `Reminder sent via ${channels.join(", ")}.`,
     };
   }
 
@@ -647,9 +696,13 @@ export class CustomersService {
     await this.findOne(shopId, customerId);
     const configured = await this.telegram.isConfigured();
     if (!configured) {
-      return { configured: false, deepLink: '', code: '', botUsername: '' };
+      return { configured: false, deepLink: "", code: "", botUsername: "" };
     }
-    const link = await this.telegram.createLinkCode('CUSTOMER', customerId, shopId);
+    const link = await this.telegram.createLinkCode(
+      "CUSTOMER",
+      customerId,
+      shopId,
+    );
     return { configured: true, ...link };
   }
 }

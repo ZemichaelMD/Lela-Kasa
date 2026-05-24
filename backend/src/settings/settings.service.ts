@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import type { ShopSetting } from '@/database';
+import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import type { ShopSetting } from "../database";
 
 @Injectable()
 export class SettingsService {
@@ -33,7 +33,10 @@ export class SettingsService {
     });
   }
 
-  async setMany(shopId: string, entries: Record<string, string>): Promise<ShopSetting[]> {
+  async setMany(
+    shopId: string,
+    entries: Record<string, string>,
+  ): Promise<ShopSetting[]> {
     const results: ShopSetting[] = [];
     for (const [key, value] of Object.entries(entries)) {
       results.push(await this.set(shopId, key, value));

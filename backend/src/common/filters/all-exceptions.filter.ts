@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import type { Request, Response } from "express";
 
-import { ErrorCode } from "@/contract";
+import { ErrorCode } from "../../contract";
 
 import { AppException } from "../errors/app.exception";
 

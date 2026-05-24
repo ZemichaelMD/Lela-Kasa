@@ -5,7 +5,7 @@ import {
   Injectable,
 } from "@nestjs/common";
 import type { Request } from "express";
-import { UserRole } from "@/contract";
+import { UserRole } from "../../contract";
 
 import { PrismaService } from "../../prisma/prisma.service";
 import type { AuthenticatedUser } from "../types/authenticated-user";

@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus } from "@nestjs/common";
-import { ErrorCode } from "@/contract";
+import { ErrorCode } from "../../contract";
 
 export interface AppExceptionOptions {
   code: ErrorCode;
