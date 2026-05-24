@@ -1,0 +1,15 @@
+export const QK = {
+  dashboard: ['dashboard'] as const,
+  customers: (params?: object) => ['customers', params] as const,
+  customer: (id: string) => ['customers', id] as const,
+  customerLedger: (id: string) => ['customers', id, 'ledger'] as const,
+  sales: (params?: object) => ['sales', params] as const,
+  sale: (id: string) => ['sales', id] as const,
+  beverages: () => ['beverages'] as const,
+  priceTiers: () => ['price-tiers'] as const,
+  paymentAccounts: () => ['payment-accounts'] as const,
+  employees: () => ['employees'] as const,
+  subscription: () => ['subscription'] as const,
+  billingPlans: () => ['billing-plans'] as const,
+  reports: (params?: object) => ['reports', params] as const,
+};

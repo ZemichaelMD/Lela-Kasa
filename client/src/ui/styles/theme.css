@@ -1,0 +1,149 @@
+/* @kasa/ui — shared design tokens & base styles (Tailwind v4).
+ *
+ * A modern "Royal Indigo & Ink" theme.
+ * Indigo primary with violet accent over a soft pearl canvas in light mode,
+ * and a deep midnight-ink canvas with elevated surfaces in dark mode.
+ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+    --background: #f7f7fb; /* Soft pearl canvas */
+    --foreground: #1e1b2e; /* Ink text */
+    --card: #ffffff; /* Pure white surface */
+    --card-foreground: #1e1b2e;
+    --popover: #ffffff;
+    --popover-foreground: #1e1b2e;
+    --primary: #4f46e5; /* Royal Indigo */
+    --primary-foreground: #ffffff;
+    --secondary: #eeedf6;
+    --secondary-foreground: #2e2a45;
+    --muted: #f0eff7;
+    --muted-foreground: #6b6786;
+    --accent: #efeefb; /* Soft violet tint */
+    --accent-foreground: #2e2a45;
+    --destructive: #e11d48; /* Rose danger */
+    --destructive-foreground: #ffffff;
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --border: #e6e5f0;
+    --input: #e6e5f0;
+    --ring: #4f46e5;
+    --accent-strong: #8b5cf6; /* Violet accent */
+    --accent-strong-foreground: #ffffff;
+    --radius: 1rem; /* 16px radius for prominent floating cards */
+
+    /* brand scale — Royal Indigo palette */
+    --brand-50: #eef2ff;
+    --brand-100: #e0e7ff;
+    --brand-200: #c7d2fe;
+    --brand-300: #a5b4fc;
+    --brand-400: #818cf8;
+    --brand-500: #6366f1;
+    --brand-600: #4f46e5;
+    --brand-700: #4338ca;
+    --brand-800: #3730a3;
+    --brand-900: #312e81;
+    --brand-950: #1e1b4b;
+}
+
+.dark {
+    --background: #14131f; /* Midnight ink canvas */
+    --foreground: #eceaf6; /* Soft off-white text */
+    --card: #1d1b2e; /* Elevated surface, lighter than bg */
+    --card-foreground: #eceaf6;
+    --popover: #1d1b2e;
+    --popover-foreground: #eceaf6;
+    --primary: #818cf8; /* Bright indigo for dark contrast */
+    --primary-foreground: #14131f;
+    --secondary: #262438;
+    --secondary-foreground: #eceaf6;
+    --muted: #232133;
+    --muted-foreground: #9d99b8;
+    --accent: #2a2741; /* Violet-tinted accent */
+    --accent-foreground: #eceaf6;
+    --destructive: #fb7185;
+    --destructive-foreground: #14131f;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --border: #2e2c42;
+    --input: #2e2c42;
+    --ring: #818cf8;
+    --accent-strong: #a78bfa; /* Brighter violet for dark mode */
+    --accent-strong-foreground: #14131f;
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent-strong: var(--accent-strong);
+    --color-accent-strong-foreground: var(--accent-strong-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+
+    --color-brand-50: var(--brand-50);
+    --color-brand-100: var(--brand-100);
+    --color-brand-200: var(--brand-200);
+    --color-brand-300: var(--brand-300);
+    --color-brand-400: var(--brand-400);
+    --color-brand-500: var(--brand-500);
+    --color-brand-600: var(--brand-600);
+    --color-brand-700: var(--brand-700);
+    --color-brand-800: var(--brand-800);
+    --color-brand-900: var(--brand-900);
+    --color-brand-950: var(--brand-950);
+
+    --radius-sm: calc(var(--radius) - 8px);
+    --radius-md: calc(var(--radius) - 4px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+    --radius-2xl: calc(var(--radius) + 8px);
+
+    --font-sans: var(
+        --font-inter,
+        ui-sans-serif,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        "Helvetica Neue",
+        Arial,
+        sans-serif
+    );
+}
+
+@layer base {
+    * {
+        border-color: var(--border);
+    }
+    html {
+        -webkit-text-size-adjust: 100%;
+    }
+    body {
+        background-color: var(--background);
+        color: var(--foreground);
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+    }
+    ::selection {
+        background-color: color-mix(in oklab, var(--primary) 30%, transparent);
+    }
+}

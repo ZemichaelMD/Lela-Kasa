@@ -1,0 +1,723 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  OWNER
+  EMPLOYEE
+}
+
+enum SaleStatus {
+  OPEN
+  CONFIRMED
+  VOIDED
+}
+
+// Channels whose ownership can be verified for a user. New channels can be
+// added here without touching the verification machinery.
+enum VerificationChannel {
+  PHONE
+  EMAIL
+  TELEGRAM
+  WHATSAPP
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_MONEY
+  OTHER
+}
+
+enum PaymentAccountKind {
+  CASH_PERSON
+  BANK
+  MOBILE_MONEY
+  OTHER
+}
+
+enum PriceTierKind {
+  RETAIL
+  WHOLESALE
+  VIP
+  CUSTOM
+}
+
+enum StockMovementReason {
+  SALE
+  SALE_VOID
+  PURCHASE
+  ADJUSTMENT
+  RETURN
+}
+
+// ── Identity & tenancy ───────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  phone         String?
+  telegramChatId String?  @unique
+  role          UserRole  @default(EMPLOYEE)
+  isActive      Boolean   @default(true)
+  emailVerified Boolean   @default(false)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  username      String?   @unique
+  pinHash       String?
+
+  shopId String?
+  shop   Shop?   @relation("ShopEmployees", fields: [shopId], references: [id])
+
+  ownedShop               Shop?                    @relation("ShopOwner")
+  sessions                Session[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  salesCreated            Sale[]                   @relation("SaleCreatedBy")
+  salesVoided             Sale[]                   @relation("SaleVoidedBy")
+  paymentsRecorded        Payment[]                @relation("PaymentRecordedBy")
+  ordersConfirmed         CustomerOrder[]          @relation("OrderConfirmedBy")
+  stockMovements          StockMovement[]          @relation("StockMovementBy")
+  auditLogs               AuditLog[]
+  verifications           UserVerification[]       @relation("UserVerifications")
+  userPermissions         UserPermission[]         @relation("UserPermissions")
+
+  @@index([shopId])
+  @@index([email])
+  @@index([role])
+}
+
+// Per-user, per-channel verification record. A row exists only once a channel
+// has been verified; `identifier` stores exactly what was verified (the phone
+// number, email, or Telegram chat id) so that changing the underlying value
+// transparently invalidates the badge until the user re-verifies.
+model UserVerification {
+  id         String              @id @default(cuid())
+  userId     String
+  user       User                @relation("UserVerifications", fields: [userId], references: [id], onDelete: Cascade)
+  channel    VerificationChannel
+  identifier String
+  verifiedAt DateTime            @default(now())
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@unique([userId, channel])
+  @@index([userId])
+}
+
+model UserPermission {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("UserPermissions", fields: [userId], references: [id], onDelete: Cascade)
+  shopId    String
+  shop      Shop     @relation("ShopUserPermissions", fields: [shopId], references: [id], onDelete: Cascade)
+  slug      String
+  granted   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, shopId, slug])
+  @@index([userId, shopId])
+  @@index([shopId])
+}
+
+model Shop {
+  id                 String     @id @default(cuid())
+  name               String
+  ownerId            String     @unique
+  owner              User       @relation("ShopOwner", fields: [ownerId], references: [id])
+  phone              String?
+  address            String?
+  description        String?
+  email              String?
+  website            String?
+  facebook           String?
+  instagram          String?
+  tiktok             String?
+  latitude           Float?
+  longitude          Float?
+  mapUrl             String?
+  currency           String     @default("ETB")
+  timezone           String     @default("Africa/Addis_Ababa")
+  lowStockThreshold  Int        @default(2)
+  defaultPriceTierId String?
+  defaultPriceTier   PriceTier? @relation("ShopDefaultTier", fields: [defaultPriceTierId], references: [id])
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  users           User[]           @relation("ShopEmployees")
+  customers       Customer[]
+  beverages       Beverage[]
+  priceTiers      PriceTier[]      @relation("ShopPriceTiers")
+  paymentAccounts PaymentAccount[]
+  sales           Sale[]
+  stockMovements  StockMovement[]
+  auditLogs       AuditLog[]
+  settings        ShopSetting[]
+  payments        Payment[]
+  subscription    Subscription?
+  subscriptionLogs SubscriptionLog[]
+  orders          CustomerOrder[]
+  paymentTransactions PaymentTransaction[]
+  banners         SystemBanner[]
+  userPermissions UserPermission[] @relation("ShopUserPermissions")
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model OtpCode {
+  id        String    @id @default(cuid())
+  phone     String
+  purpose   String
+  codeHash  String
+  attempts  Int       @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([phone, purpose])
+  @@index([expiresAt])
+}
+
+// ── Master data ───────────────────────────────────────────────────────────────
+
+model Customer {
+  id     String  @id @default(cuid())
+  shopId String
+  shop   Shop    @relation(fields: [shopId], references: [id])
+  name   String
+  phone  String?
+  notes  String?
+
+  telegramChatId String?
+
+  username String? @unique
+  pinHash  String?
+
+  creditBalanceCents Int @default(0)
+  outstandingBoxes   Int @default(0)
+  outstandingBottles Int @default(0)
+
+  priceTierId     String?
+  priceTier       PriceTier? @relation(fields: [priceTierId], references: [id])
+  priceTierLocked Boolean   @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  sales    Sale[]
+  payments Payment[]
+  orders   CustomerOrder[]
+
+  @@index([shopId])
+  @@index([shopId, name])
+  @@index([shopId, creditBalanceCents])
+  @@index([deletedAt])
+  @@index([username])
+}
+
+model Beverage {
+  id            String  @id @default(cuid())
+  shopId        String
+  shop          Shop    @relation(fields: [shopId], references: [id])
+  name          String
+  brand         String?
+  sizeMl        Int?
+  bottlesPerBox Int     @default(24)
+  imageUrl      String?
+  isActive      Boolean @default(true)
+
+  stockBottles Int @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  prices    BeveragePrice[]
+  saleLines SaleLine[]
+  movements StockMovement[]
+
+  @@index([shopId])
+  orderLines         CustomerOrderLine[]
+  @@index([shopId, name])
+}
+
+model PriceTier {
+  id        String        @id @default(cuid())
+  shopId    String
+  shop      Shop          @relation("ShopPriceTiers", fields: [shopId], references: [id])
+  name      String
+  kind      PriceTierKind @default(CUSTOM)
+  isDefault Boolean       @default(false)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
+
+  prices            BeveragePrice[]
+  shopsUsingDefault Shop[]          @relation("ShopDefaultTier")
+  sales             Sale[]
+  customers         Customer[]
+
+  @@unique([shopId, name])
+  @@index([shopId])
+}
+
+model BeveragePrice {
+  id          String    @id @default(cuid())
+  beverageId  String
+  beverage    Beverage  @relation(fields: [beverageId], references: [id], onDelete: Cascade)
+  priceTierId String
+  priceTier   PriceTier @relation(fields: [priceTierId], references: [id])
+
+  pricePerBoxCents    Int
+  pricePerBottleCents Int
+
+  effectiveFrom DateTime @default(now())
+  createdAt     DateTime @default(now())
+  createdById   String?
+
+  @@index([beverageId, priceTierId, effectiveFrom])
+}
+
+model PaymentAccount {
+  id            String             @id @default(cuid())
+  shopId        String
+  shop          Shop               @relation(fields: [shopId], references: [id])
+  name          String
+  kind          PaymentAccountKind
+  holderName    String?
+  bankName      String?
+  accountNumber String?
+  isActive      Boolean            @default(true)
+  notes         String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  payments Payment[]
+
+  @@unique([shopId, name])
+  @@index([shopId])
+}
+
+// ── Sales ─────────────────────────────────────────────────────────────────────
+
+model Sale {
+  id         String   @id @default(cuid())
+  shopId     String
+  shop       Shop     @relation(fields: [shopId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  saleDate DateTime
+  status   SaleStatus @default(CONFIRMED)
+
+  priceTierId String
+  priceTier   PriceTier @relation(fields: [priceTierId], references: [id])
+
+  subtotalCents    Int @default(0)
+  paidCents        Int @default(0)
+  creditDeltaCents Int @default(0)
+
+  boxesOutDelta         Int @default(0)
+  boxesReturnedOnSale   Int @default(0)
+  bottlesOutDelta       Int @default(0)
+  bottlesReturnedOnSale Int @default(0)
+
+  notes String?
+
+  createdById String
+  createdBy   User      @relation("SaleCreatedBy", fields: [createdById], references: [id])
+  voidedAt    DateTime?
+  voidedById  String?
+  voidedBy    User?     @relation("SaleVoidedBy", fields: [voidedById], references: [id])
+  voidReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines          SaleLine[]
+  payments       Payment[]
+  stockMovements StockMovement[]
+
+  orders         CustomerOrder[]
+  @@index([shopId, saleDate])
+  @@index([shopId, customerId])
+  @@index([shopId, status])
+  @@index([shopId, createdAt])
+}
+
+model SaleLine {
+  id         String   @id @default(cuid())
+  saleId     String
+  sale       Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  beverageId String
+  beverage   Beverage @relation(fields: [beverageId], references: [id])
+
+  boxes   Int @default(0)
+  bottles Int @default(0)
+
+  pricePerBoxCents    Int
+  pricePerBottleCents Int
+  lineTotalCents      Int
+
+  @@index([saleId])
+  @@index([beverageId])
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  shopId     String
+  shop       Shop     @relation(fields: [shopId], references: [id])
+  saleId     String?
+  sale       Sale?    @relation(fields: [saleId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  amountCents      Int
+  method           PaymentMethod
+  paymentAccountId String
+  paymentAccount   PaymentAccount @relation(fields: [paymentAccountId], references: [id])
+  reference        String?
+  notes            String?
+  paidAt           DateTime       @default(now())
+
+  recordedById String
+  recordedBy   User   @relation("PaymentRecordedBy", fields: [recordedById], references: [id])
+
+  createdAt  DateTime  @default(now())
+  voidedAt   DateTime?
+  voidReason String?
+
+  @@index([shopId, paidAt])
+  @@index([shopId, customerId])
+  @@index([shopId, paymentAccountId])
+  @@index([saleId])
+}
+
+// ── Stock movements ───────────────────────────────────────────────────────────
+
+model StockMovement {
+  id         String              @id @default(cuid())
+  shopId     String
+  shop       Shop                @relation(fields: [shopId], references: [id])
+  beverageId String
+  beverage   Beverage            @relation(fields: [beverageId], references: [id])
+  reason     StockMovementReason
+
+  bottlesDelta Int
+
+  saleId String?
+  sale   Sale?   @relation(fields: [saleId], references: [id])
+  notes  String?
+
+  createdAt   DateTime @default(now())
+  createdById String?
+  createdBy   User?    @relation("StockMovementBy", fields: [createdById], references: [id])
+
+  @@index([shopId, beverageId, createdAt])
+  @@index([saleId])
+}
+
+// ── System Settings & Banners ───────────────────────────────────────────────
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  iv        String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ── Subscriptions ────────────────────────────────────────────────────────────
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIAL
+  PAST_DUE
+  CANCELLED
+  SUSPENDED
+  EXPIRED
+}
+
+model SubscriptionPlan {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  description      String?
+  monthlyPriceCents Int     @default(0)
+  yearlyPriceCents  Int     @default(0)
+  maxShops         Int      @default(1)
+  maxUsers         Int      @default(3)
+  maxCustomers     Int      @default(50)
+  features         String   @default("[]")
+  isDefault        Boolean  @default(false)
+  trialDays        Int      @default(14)
+  isActive         Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                  String             @id @default(cuid())
+  shopId              String             @unique
+  shop                Shop               @relation(fields: [shopId], references: [id])
+  planId              String
+  plan                SubscriptionPlan   @relation(fields: [planId], references: [id])
+  status              SubscriptionStatus @default(TRIAL)
+  billingCycle        String             @default("monthly")
+  amountCents         Int                @default(0)
+  startDate           DateTime           @default(now())
+  endDate             DateTime?
+  trialEndsAt         DateTime?
+  paidAt              DateTime?
+  paidUntil           DateTime?
+  cancelledAt         DateTime?
+  cancelledById       String?
+  suspendReason       String?
+  notes               String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  logs                SubscriptionLog[]
+
+  @@index([shopId])
+  @@index([status])
+}
+
+model SubscriptionLog {
+  id             String             @id @default(cuid())
+  subscriptionId String?
+  subscription   Subscription?      @relation(fields: [subscriptionId], references: [id])
+  shopId         String
+  shop           Shop               @relation(fields: [shopId], references: [id])
+  action         String
+  planId         String?
+  amountCents    Int?
+  prevStatus     String?
+  newStatus      String?
+  notes          String?
+  createdById    String?
+  createdAt      DateTime           @default(now())
+
+  @@index([shopId, createdAt])
+  @@index([subscriptionId, createdAt])
+}
+
+model PaymentProvider {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  kind        String   @default("MANUAL")
+  isActive    Boolean  @default(true)
+  instructions String?
+  contactInfo String?
+  logoUrl     String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  paymentTransactions PaymentTransaction[]
+}
+
+model PaymentTransaction {
+  id              String             @id @default(cuid())
+  shopId          String
+  shop            Shop               @relation(fields: [shopId], references: [id])
+  providerId      String
+  provider        PaymentProvider    @relation(fields: [providerId], references: [id])
+  amountCents     Int
+  status          String             @default("PENDING") // PENDING | CONFIRMED | REJECTED
+  reference       String?            // Transaction ID / screenshot ref
+  notes           String?
+  screenshotUrl   String?
+  confirmedById   String?
+  confirmedAt     DateTime?
+  createdAt       DateTime           @default(now())
+
+  @@index([shopId])
+  @@index([status])
+}
+
+// ── System Banners ────────────────────────────────────────────────────────────
+
+model SystemBanner {
+  id        String    @id @default(cuid())
+  message   String
+  type      String    @default("info") // info | warning | success | danger
+  shopId    String?   // null = global, set = shop-scoped
+  shop      Shop?     @relation(fields: [shopId], references: [id])
+  isActive  Boolean   @default(true)
+  startAt   DateTime?
+  endAt     DateTime?
+  createdBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([shopId, isActive])
+  @@index([isActive])
+}
+
+// ── Settings & audit ─────────────────────────────────────────────────────────
+
+model ShopSetting {
+  id        String   @id @default(cuid())
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id])
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shopId, key])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  shopId      String?
+  shop        Shop?    @relation(fields: [shopId], references: [id])
+  actorUserId String?
+  actorUser   User?    @relation(fields: [actorUserId], references: [id])
+  action      String
+  entityType  String
+  entityId    String?
+  beforeJson  String?
+  afterJson   String?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([shopId, createdAt])
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+}
+
+// ── Customer Orders ────────────────────────────────────────────────────────────
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+model CustomerOrder {
+  id         String      @id @default(cuid())
+  shopId     String
+  shop       Shop        @relation(fields: [shopId], references: [id])
+  customerId String
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  status     OrderStatus @default(PENDING)
+  notes      String?
+  subtotalCents Int      @default(0)
+
+  saleId  String?
+  sale    Sale?          @relation(fields: [saleId], references: [id])
+
+  confirmedAt   DateTime?
+  confirmedById String?
+  confirmedBy   User?    @relation("OrderConfirmedBy", fields: [confirmedById], references: [id])
+
+  rejectedAt     DateTime?
+  rejectedById   String?
+  rejectedReason String?
+
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines CustomerOrderLine[]
+
+  @@index([shopId, status])
+  @@index([shopId, customerId])
+  @@index([shopId, createdAt])
+}
+
+model CustomerOrderLine {
+  id         String        @id @default(cuid())
+  orderId    String
+  order      CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  beverageId String
+  beverage   Beverage      @relation(fields: [beverageId], references: [id])
+  boxes      Int           @default(0)
+  bottles    Int           @default(0)
+  pricePerBoxCents    Int  @default(0)
+  pricePerBottleCents Int  @default(0)
+  lineTotalCents      Int  @default(0)
+
+  @@index([orderId])
+}
+
+// Short-lived codes for the Telegram `t.me/<bot>?start=<code>` linking flow.
+// `kind` is "USER" (shop owner / employee) or "CUSTOMER"; `targetId` is the
+// User.id or Customer.id the resulting chat should be bound to.
+model TelegramLinkCode {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  kind      String
+  targetId  String
+  shopId    String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([targetId])
+  @@index([expiresAt])
+}
