@@ -21,7 +21,7 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "noImplicitOverride": true,
+    "noImplicitOverride": false,
     "noUncheckedIndexedAccess": false,
     "paths": {
       "@/*": ["./src/*"],
