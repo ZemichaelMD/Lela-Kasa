@@ -1,3 +1,4 @@
+import "./alias";
 import "reflect-metadata";
 import { Logger, VersioningType } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
