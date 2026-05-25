@@ -23,8 +23,9 @@ function OrdersBell() {
       } catch {}
     }
     void fetchCount();
-    const i = setInterval(fetchCount, 20000);
-    return () => clearInterval(i);
+    // TODO need to replace this with a socket connection or something, polling is not ideal
+    // const i = setInterval(fetchCount, 20000);
+    // return () => clearInterval(i);
   }, []);
 
   return (

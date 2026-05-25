@@ -1,5 +1,6 @@
-name = "lela-kasa"
-pages_build_output_dir = "dist"
+# client/wrangler.toml
+name = 'lela-kasa-owner'
+pages_build_output_dir = 'dist'
 
 [observability]
 enabled = false
