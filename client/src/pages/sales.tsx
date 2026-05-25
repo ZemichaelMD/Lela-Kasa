@@ -97,6 +97,14 @@ interface ContainerKasaRow {
   dropdownOpen: boolean;
 }
 
+interface ReturnedContainerRow {
+  beverageId: string;
+  boxes: number;
+  bottles: number;
+  searchInput: string;
+  dropdownOpen: boolean;
+}
+
 type PaymentMethod = "CASH" | "BANK_TRANSFER" | "MOBILE_MONEY" | "OTHER";
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -218,9 +226,7 @@ function SaleDrawer({
     { beverageId: "", boxes: 0, bottles: 0 },
   ]);
   const [paymentRows, setPaymentRows] = useState<SalePaymentRow[]>([]);
-  const [boxesReturned, setBoxesReturned] = useState(0);
-  const [bottlesReturned, setBottlesReturned] = useState(0);
-  const [boxBrand, setBoxBrand] = useState("");
+  const [returnedContainers, setReturnedContainers] = useState<ReturnedContainerRow[]>([]);
   const [containerKasas, setContainerKasas] = useState<ContainerKasaRow[]>([]);
   const [note, setNote] = useState("");
   const [applyCredit, setApplyCredit] = useState(false);
@@ -256,9 +262,15 @@ function SaleDrawer({
     setShowAddCustomer(false);
     setNewCustName("");
     setNewCustPhone("");
-    setBoxesReturned(0);
-    setBottlesReturned(0);
-    setBoxBrand("");
+    setReturnedContainers(
+      src?.returnedContainers?.map((r) => ({
+        beverageId: r.beverageId,
+        boxes: r.boxes,
+        bottles: r.bottles,
+        searchInput: "",
+        dropdownOpen: false,
+      })) ?? [],
+    );
     setContainerKasas(
       src?.containerKasas?.map((k) => ({
         beverageId: k.beverageId,
@@ -385,7 +397,7 @@ function SaleDrawer({
 
   // Container kasa helpers
   const totalBottles = lines.reduce((sum, l) => sum + l.bottles, 0);
-  const showContainerKasa = totalBottles >= 24 || containerKasas.length > 0;
+  const showContainerKasa = true;
 
   function addContainerKasa() {
     setContainerKasas((prev) => [
@@ -400,6 +412,21 @@ function SaleDrawer({
   }
   function removeContainerKasa(idx: number) {
     setContainerKasas((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function addReturnedContainer() {
+    setReturnedContainers((prev) => [
+      ...prev,
+      { beverageId: "", boxes: 0, bottles: 0, searchInput: "", dropdownOpen: false },
+    ]);
+  }
+  function updateReturnedContainer(idx: number, patch: Partial<ReturnedContainerRow>) {
+    setReturnedContainers((prev) =>
+      prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
+    );
+  }
+  function removeReturnedContainer(idx: number) {
+    setReturnedContainers((prev) => prev.filter((_, i) => i !== idx));
   }
 
   // Add new customer inline
@@ -452,13 +479,7 @@ function SaleDrawer({
     }
     setSubmitting(true);
     try {
-      // Box brand is stored as a "Box: <brand>" line prefix on notes (no schema change).
-      const composedNotes = [
-        boxBrand.trim() ? `Box: ${boxBrand.trim()}` : null,
-        note.trim() || null,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      const composedNotes = note.trim() || undefined;
       const validPayments = paymentRows.filter(
         (r) => r.amountCents > 0 && r.paymentAccountId,
       );
@@ -476,8 +497,6 @@ function SaleDrawer({
           bottles: l.bottles || 0,
         })),
         notes: composedNotes || undefined,
-        boxesReturnedOnSale: boxesReturned,
-        bottlesReturnedOnSale: bottlesReturned,
         applyCredit,
         payments: validPayments.map((r) => ({
           paymentAccountId: r.paymentAccountId,
@@ -488,6 +507,9 @@ function SaleDrawer({
           beverageId: k.beverageId,
           count: k.count,
         })),
+        returnedContainers: returnedContainers
+          .filter((r) => r.beverageId && (r.boxes > 0 || r.bottles > 0))
+          .map((r) => ({ beverageId: r.beverageId, boxes: r.boxes, bottles: r.bottles })),
       };
 
       if (isEdit && sale?.id) {
@@ -873,6 +895,8 @@ function SaleDrawer({
             </div>
           </div>
 
+          <hr className="border-border" />
+
           {/* Payments section */}
           <div className="space-y-2">
             <label className="text-sm font-medium">{t("payments")}</label>
@@ -947,51 +971,103 @@ function SaleDrawer({
             </button>
           </div>
 
-          {/* Container returns */}
+          <hr className="border-border" />
+
+          {/* Returned Containers */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">{t("containers")}?</label>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">
-                  {t("returnBoxes")}
-                </label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={boxesReturned}
-                  onChange={(e) => setBoxesReturned(Number(e.target.value))}
-                  className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">
-                  {t("returnBottles")}
-                </label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={bottlesReturned}
-                  onChange={(e) => setBottlesReturned(Number(e.target.value))}
-                  className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">
-                {t("boxBrandType")}{" "}
-                <span className="opacity-70">({t("optional")})</span>
-              </label>
-              <input
-                type="text"
-                value={boxBrand}
-                onChange={(e) => setBoxBrand(e.target.value)}
-                placeholder={t("boxBrandPlaceholder") as string}
-                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-              />
-            </div>
+            <label className="text-sm font-medium">{t("returnedContainersSection")}</label>
+            <p className="text-xs text-muted-foreground">{t("returnedContainersHint")}</p>
+            {returnedContainers.map((ret, idx) => {
+              const filteredBevs = ret.searchInput.trim()
+                ? beverages.filter((b) =>
+                    `${b.name} ${b.brand ?? ""}`.toLowerCase().includes(ret.searchInput.toLowerCase()),
+                  )
+                : beverages;
+              const selectedBev = beverages.find((b) => b.id === ret.beverageId);
+              return (
+                <div key={idx} className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={ret.dropdownOpen ? ret.searchInput : (selectedBev ? `${selectedBev.name}${selectedBev.brand ? ` (${selectedBev.brand})` : ""}` : ret.searchInput)}
+                        onChange={(e) => updateReturnedContainer(idx, { searchInput: e.target.value, dropdownOpen: true, beverageId: "" })}
+                        onFocus={() => updateReturnedContainer(idx, { dropdownOpen: true, searchInput: "" })}
+                        onBlur={() => window.setTimeout(() => updateReturnedContainer(idx, { dropdownOpen: false }), 120)}
+                        placeholder={t("selectReturnType") as string}
+                        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                      />
+                      {ret.dropdownOpen && (
+                        <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+                          {filteredBevs.length === 0 ? (
+                            <p className="px-3 py-2 text-xs text-muted-foreground">{t("noMatches")}</p>
+                          ) : (
+                            <ul className="py-1 text-sm">
+                              {filteredBevs.slice(0, 30).map((b) => (
+                                <li key={b.id}>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      updateReturnedContainer(idx, { beverageId: b.id, searchInput: "", dropdownOpen: false });
+                                    }}
+                                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent ${b.id === ret.beverageId ? "bg-accent/60" : ""}`}
+                                  >
+                                    <span className="truncate">{b.name}</span>
+                                    {b.brand && <span className="shrink-0 text-xs text-muted-foreground">{b.brand}</span>}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeReturnedContainer(idx)}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">{t("returnBoxes")}</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        value={ret.boxes}
+                        onChange={(e) => updateReturnedContainer(idx, { boxes: Math.max(0, Number(e.target.value)) })}
+                        className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">{t("returnBottles")}</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        value={ret.bottles}
+                        onChange={(e) => updateReturnedContainer(idx, { bottles: Math.max(0, Number(e.target.value)) })}
+                        className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={addReturnedContainer}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+            >
+              + {t("addReturnedContainer")}
+            </button>
           </div>
+
+          <hr className="border-border" />
 
           {/* Container Kasa (auto-shown when total loose bottles >= 24) */}
           {showContainerKasa && (
@@ -1086,6 +1162,8 @@ function SaleDrawer({
             </div>
           )}
 
+          <hr className="border-border" />
+
           {/* Note */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">{t("note")}</label>
@@ -1144,8 +1222,9 @@ function SaleDrawer({
                   {(() => {
                     const kasaBoxes = containerKasas.reduce((s, k) => s + (k.count || 0), 0);
                     const lineBoxes = lines.reduce((s, l) => s + (l.boxes || 0), 0);
-                    const projected = selectedCustomer.outstandingBoxes + lineBoxes + kasaBoxes - boxesReturned;
-                    const delta = lineBoxes + kasaBoxes - boxesReturned;
+                    const retBoxes = returnedContainers.reduce((s, r) => s + (r.boxes || 0), 0);
+                    const projected = selectedCustomer.outstandingBoxes + lineBoxes + kasaBoxes - retBoxes;
+                    const delta = lineBoxes + kasaBoxes - retBoxes;
                     return delta !== 0 ? (
                       <span>
                         {selectedCustomer.outstandingBoxes}{" "}

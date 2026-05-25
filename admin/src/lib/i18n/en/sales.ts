@@ -136,4 +136,10 @@ export const sales = {
   containerKasaType: 'Box type (beverage)',
   containerKasaCount: 'Count',
   selectKasaType: 'Select box type...',
+  returnedContainersSection: 'Returned Containers',
+  returnedContainersHint: 'Containers returned by the customer with this sale.',
+  addReturnedContainer: 'Add Returned Container',
+  selectReturnType: 'Select beverage...',
+  returnBoxes: 'Boxes',
+  returnBottles: 'Bottles',
 } as const;

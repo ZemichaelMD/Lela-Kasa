@@ -136,4 +136,10 @@ export const sales = {
   containerKasaType: 'የሳጥን ዓይነት',
   containerKasaCount: 'ብዛት',
   selectKasaType: 'ሳጥን ዓይነት ምረጥ...',
+  returnedContainersSection: 'የተመለሱ ዕቃዎች',
+  returnedContainersHint: 'ደንበኛው ከዚህ ሽያጭ ጋር የመለሳቸው ዕቃዎች።',
+  addReturnedContainer: 'ዕቃ ጨምር',
+  selectReturnType: 'መጠጥ ምረጥ...',
+  returnBoxes: 'ሳጥኖች',
+  returnBottles: 'ጠርሙሶች',
 } as const;

@@ -141,8 +141,6 @@ export class OrdersService {
       notes: order.notes
         ? `Order #${order.id.slice(0, 8)}: ${order.notes}`
         : `Order #${order.id.slice(0, 8)}`,
-      boxesReturnedOnSale: 0,
-      bottlesReturnedOnSale: 0,
     });
 
     await this.prisma.customerOrder.update({

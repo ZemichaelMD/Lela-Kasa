@@ -46,6 +46,11 @@ const SALE_INCLUDE = {
       beverage: { select: { id: true, name: true } },
     },
   },
+  returnedContainers: {
+    include: {
+      beverage: { select: { id: true, name: true } },
+    },
+  },
   createdBy: { select: { id: true, name: true } },
 } as const;
 
@@ -318,6 +323,8 @@ export class SalesService {
         (sum, l) => sum + l.bottles,
         0,
       );
+      const boxesReturnedOnSale = (dto.returnedContainers ?? []).reduce((sum, r) => sum + r.boxes, 0);
+      const bottlesReturnedOnSale = (dto.returnedContainers ?? []).reduce((sum, r) => sum + r.bottles, 0);
 
       // k. Insert Sale
       const sale = await tx.sale.create({
@@ -332,8 +339,8 @@ export class SalesService {
           creditDeltaCents,
           boxesOutDelta,
           bottlesOutDelta,
-          boxesReturnedOnSale: dto.boxesReturnedOnSale,
-          bottlesReturnedOnSale: dto.bottlesReturnedOnSale,
+          boxesReturnedOnSale,
+          bottlesReturnedOnSale,
           notes: dto.notes ?? null,
           createdById: userId,
         },
@@ -359,6 +366,18 @@ export class SalesService {
             saleId: sale.id,
             beverageId: k.beverageId,
             count: k.count,
+          })),
+        });
+      }
+
+      // l3. Insert ReturnedContainers
+      if (dto.returnedContainers && dto.returnedContainers.length > 0) {
+        await tx.saleReturnedContainer.createMany({
+          data: dto.returnedContainers.map((r) => ({
+            saleId: sale.id,
+            beverageId: r.beverageId,
+            boxes: r.boxes,
+            bottles: r.bottles,
           })),
         });
       }
@@ -418,8 +437,8 @@ export class SalesService {
       }
 
       // o. Update Customer
-      const netBoxDelta = boxesOutDelta - dto.boxesReturnedOnSale;
-      const netBottleDelta = bottlesOutDelta - dto.bottlesReturnedOnSale;
+      const netBoxDelta = boxesOutDelta - boxesReturnedOnSale;
+      const netBottleDelta = bottlesOutDelta - bottlesReturnedOnSale;
 
       await tx.customer.update({
         where: { id: dto.customerId },
@@ -511,9 +530,10 @@ export class SalesService {
         }
       }
 
-      // c. Delete old sale lines and container kasas
+      // c. Delete old sale lines, container kasas, and returned containers
       await tx.saleLine.deleteMany({ where: { saleId } });
       await tx.saleContainerKasa.deleteMany({ where: { saleId } });
+      await tx.saleReturnedContainer.deleteMany({ where: { saleId } });
 
       // d. Void old payments
       await tx.payment.updateMany({
@@ -617,6 +637,8 @@ export class SalesService {
         (sum, l) => sum + l.bottles,
         0,
       );
+      const boxesReturnedOnSale = (dto.returnedContainers ?? []).reduce((sum, r) => sum + r.boxes, 0);
+      const bottlesReturnedOnSale = (dto.returnedContainers ?? []).reduce((sum, r) => sum + r.bottles, 0);
 
       // j. Update sale record
       await tx.sale.update({
@@ -631,8 +653,8 @@ export class SalesService {
           creditDeltaCents,
           boxesOutDelta,
           bottlesOutDelta,
-          boxesReturnedOnSale: dto.boxesReturnedOnSale,
-          bottlesReturnedOnSale: dto.bottlesReturnedOnSale,
+          boxesReturnedOnSale,
+          bottlesReturnedOnSale,
           notes: dto.notes ?? null,
         },
       });
@@ -657,6 +679,18 @@ export class SalesService {
             saleId,
             beverageId: k.beverageId,
             count: k.count,
+          })),
+        });
+      }
+
+      // k3. Create new returned containers
+      if (dto.returnedContainers && dto.returnedContainers.length > 0) {
+        await tx.saleReturnedContainer.createMany({
+          data: dto.returnedContainers.map((r) => ({
+            saleId,
+            beverageId: r.beverageId,
+            boxes: r.boxes,
+            bottles: r.bottles,
           })),
         });
       }
@@ -716,8 +750,8 @@ export class SalesService {
       }
 
       // n. Update new customer balances
-      const newNetBoxDelta = boxesOutDelta - dto.boxesReturnedOnSale;
-      const newNetBottleDelta = bottlesOutDelta - dto.bottlesReturnedOnSale;
+      const newNetBoxDelta = boxesOutDelta - boxesReturnedOnSale;
+      const newNetBottleDelta = bottlesOutDelta - bottlesReturnedOnSale;
       await tx.customer.update({
         where: { id: dto.customerId },
         data: {

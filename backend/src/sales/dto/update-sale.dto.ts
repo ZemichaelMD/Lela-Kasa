@@ -17,6 +17,12 @@ export class ContainerKasaDto {
   @IsInt() @Min(1) declare count: number;
 }
 
+export class ReturnedContainerDto {
+  @IsString() declare beverageId: string;
+  @IsInt() @Min(0) declare boxes: number;
+  @IsInt() @Min(0) declare bottles: number;
+}
+
 export class UpdateSaleLineDto {
   @IsString() declare beverageId: string;
   @IsInt() @Min(0) declare boxes: number;
@@ -46,12 +52,15 @@ export class UpdateSaleDto {
   @ValidateNested({ each: true })
   @Type(() => UpdateSalePaymentDto)
   payments?: UpdateSalePaymentDto[];
-  @IsInt() @Min(0) declare boxesReturnedOnSale: number;
-  @IsInt() @Min(0) declare bottlesReturnedOnSale: number;
   @IsOptional() @IsBoolean() draft?: boolean;
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ContainerKasaDto)
   containerKasas?: ContainerKasaDto[];
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReturnedContainerDto)
+  returnedContainers?: ReturnedContainerDto[];
 }

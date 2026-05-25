@@ -11,7 +11,7 @@ export const nav = {
   main: "Main",
   masterData: "Master Data",
   admin: "Admin",
-  kasaPortInProgress: "Phase 8 — Lela Kasa port in progress.",
+  kasaPortInProgress: "LeLa Kasa by HaLePo - +251 927646246",
   adminSub: "Admin",
   closeMenu: "Close menu",
   openMenu: "Open menu",

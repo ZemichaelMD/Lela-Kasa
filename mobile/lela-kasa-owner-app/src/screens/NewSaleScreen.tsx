@@ -39,6 +39,13 @@ interface ContainerKasaItem {
   count: number;
 }
 
+interface ReturnedContainerItem {
+  beverageId: string;
+  beverageName: string;
+  boxes: number;
+  bottles: number;
+}
+
 interface TierPrice {
   beverageId: string;
   pricePerBoxCents: number;
@@ -68,10 +75,10 @@ export default function NewSaleScreen() {
   const [showTierPicker, setShowTierPicker] = useState(false);
   const [lines, setLines] = useState<SaleLineItem[]>([]);
   const [showBeveragePicker, setShowBeveragePicker] = useState(false);
-  const [returnBoxes, setReturnBoxes] = useState('0');
-  const [returnBottles, setReturnBottles] = useState('0');
   const [containerKasas, setContainerKasas] = useState<ContainerKasaItem[]>([]);
   const [showContainerKasaPicker, setShowContainerKasaPicker] = useState(false);
+  const [returnedContainers, setReturnedContainers] = useState<ReturnedContainerItem[]>([]);
+  const [showReturnedContainerPicker, setShowReturnedContainerPicker] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; name: string } | null>(null);
@@ -169,7 +176,7 @@ export default function NewSaleScreen() {
   }));
 
   const totalBottles = useMemo(() => lines.reduce((sum, l) => sum + l.bottles, 0), [lines]);
-  const showContainerKasa = totalBottles >= 24 || containerKasas.length > 0;
+  const showContainerKasa = true;
 
   const subtotalCents = useMemo(() => {
     return lines.reduce((sum, line) => {
@@ -249,6 +256,24 @@ export default function NewSaleScreen() {
     setContainerKasas(prev => prev.filter((_, i) => i !== index));
   }, []);
 
+  const handleAddReturnedContainer = useCallback((item: PickerItem) => {
+    const beverage = beveragesData?.data.find(b => b.id === item.id);
+    if (!beverage) return;
+    setReturnedContainers(prev => [...prev, { beverageId: beverage.id, beverageName: beverage.name, boxes: 0, bottles: 0 }]);
+  }, [beveragesData]);
+
+  const updateReturnedContainerQty = useCallback((index: number, field: 'boxes' | 'bottles', delta: number) => {
+    setReturnedContainers(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: Math.max(0, next[index][field] + delta) };
+      return next;
+    });
+  }, []);
+
+  const removeReturnedContainer = useCallback((index: number) => {
+    setReturnedContainers(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
   const handleSubmit = () => {
     if (!selectedCustomer) {
       showToast(t('newSale.pleaseSelectCustomer'), 'error');
@@ -289,8 +314,9 @@ export default function NewSaleScreen() {
       customerId: selectedCustomer.id,
       priceTierId: selectedTier.id,
       lines: saleLines,
-      boxesReturnedOnSale: parseInt(returnBoxes) || 0,
-      bottlesReturnedOnSale: parseInt(returnBottles) || 0,
+      returnedContainers: returnedContainers
+        .filter(r => r.beverageId && (r.boxes > 0 || r.bottles > 0))
+        .map(r => ({ beverageId: r.beverageId, boxes: r.boxes, bottles: r.bottles })),
       payments,
       containerKasas: validKasas.map(k => ({ beverageId: k.beverageId, count: k.count })),
     };
@@ -416,18 +442,62 @@ export default function NewSaleScreen() {
           </Text>
         </TouchableOpacity>
 
-        <View style={styles.returnsSection}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('newSale.returnsOnSale')}</Text>
-          <View style={styles.returnsRow}>
-            <View style={styles.returnInput}>
-              <Text style={[styles.returnLabel, { color: colors.textSecondary }]}>{t('newSale.boxes')}</Text>
-              <AmountInput value={returnBoxes} onChangeText={setReturnBoxes} style={styles.returnAmount} />
+        <View style={styles.returnedContainersSection}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('newSale.returnedContainersSection')}</Text>
+          <Text style={[styles.kasaHint, { color: colors.textSecondary }]}>{t('newSale.returnedContainersHint')}</Text>
+          {returnedContainers.map((ret, index) => (
+            <View key={index} style={[styles.kasaItem, { backgroundColor: colors.surface }]}>
+              <View style={styles.kasaItemHeader}>
+                <Text style={[styles.lineName, { color: colors.textPrimary }]}>{ret.beverageName}</Text>
+                <TouchableOpacity onPress={() => removeReturnedContainer(index)} hitSlop={8}>
+                  <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.lineInputs}>
+                <View style={styles.lineInput}>
+                  <Text style={[styles.lineInputLabel, { color: colors.textSecondary }]}>{t('newSale.returnBoxes')}</Text>
+                  <TouchableOpacity
+                    style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
+                    onPress={() => updateReturnedContainerQty(index, 'boxes', -1)}
+                  >
+                    <Ionicons name="remove" size={16} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                  <Text style={[styles.qtyValue, { color: colors.textPrimary }]}>{ret.boxes}</Text>
+                  <TouchableOpacity
+                    style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
+                    onPress={() => updateReturnedContainerQty(index, 'boxes', 1)}
+                  >
+                    <Ionicons name="add" size={16} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.lineInput}>
+                  <Text style={[styles.lineInputLabel, { color: colors.textSecondary }]}>{t('newSale.returnBottles')}</Text>
+                  <TouchableOpacity
+                    style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
+                    onPress={() => updateReturnedContainerQty(index, 'bottles', -1)}
+                  >
+                    <Ionicons name="remove" size={16} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                  <Text style={[styles.qtyValue, { color: colors.textPrimary }]}>{ret.bottles}</Text>
+                  <TouchableOpacity
+                    style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
+                    onPress={() => updateReturnedContainerQty(index, 'bottles', 1)}
+                  >
+                    <Ionicons name="add" size={16} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-            <View style={styles.returnInput}>
-              <Text style={[styles.returnLabel, { color: colors.textSecondary }]}>{t('newSale.bottles')}</Text>
-              <AmountInput value={returnBottles} onChangeText={setReturnBottles} style={styles.returnAmount} />
-            </View>
-          </View>
+          ))}
+          <TouchableOpacity
+            style={[styles.addLineButton, { borderColor: colors.primary }]}
+            onPress={() => setShowReturnedContainerPicker(true)}
+          >
+            <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.addLineText, { color: colors.primary }]}>
+              {t('newSale.addReturnedContainer')}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {showContainerKasa && (
@@ -556,6 +626,7 @@ export default function NewSaleScreen() {
       }} onClose={() => setShowAccountPicker(false)} />
 
       <PickerSheet visible={showContainerKasaPicker} title={t('newSale.containerKasaType')} items={beverageItems} onSelect={handleAddContainerKasa} onClose={() => setShowContainerKasaPicker(false)} />
+      <PickerSheet visible={showReturnedContainerPicker} title={t('newSale.returnedContainersSection')} items={beverageItems} onSelect={handleAddReturnedContainer} onClose={() => setShowReturnedContainerPicker(false)} />
     </SafeAreaView>
   );
 }
@@ -685,7 +756,7 @@ const styles = StyleSheet.create({
   addLineText: {
     ...type.bodyMedium,
   },
-  returnsSection: {
+  returnedContainersSection: {
     marginTop: spacing[4],
   },
   containerKasaSection: {

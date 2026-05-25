@@ -12,7 +12,7 @@ export const nav = {
   main: "ዋና",
   masterData: "መሰረታዊ መረጃዎች",
   admin: "አስተዳደር",
-  kasaPortInProgress: "ደረጃ 8 — የካሳ ሽግግር በመከናወን ላይ።",
+  kasaPortInProgress: "ሌላ ካሳ በሀለፖ - +251927646246",
   clientSub: "ባለቤት መተግበሪያ",
   closeMenu: "ዝጋ",
   openMenu: "ሜኑ ክፈት",

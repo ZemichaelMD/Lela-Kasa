@@ -9,6 +9,16 @@ export interface SaleContainerKasa {
   createdAt: string;
 }
 
+export interface SaleReturnedContainer {
+  id: string;
+  saleId: string;
+  beverageId: string;
+  boxes: number;
+  bottles: number;
+  beverage?: { id: string; name: string };
+  createdAt: string;
+}
+
 export interface SaleLine {
   id: string;
   saleId: string;
@@ -57,6 +67,7 @@ export interface Sale {
   lines: SaleLine[];
   payments: Payment[];
   containerKasas?: SaleContainerKasa[];
+  returnedContainers?: SaleReturnedContainer[];
   customer?: { id: string; name: string; phone?: string };
   priceTier?: { id: string; name: string };
   createdBy?: { id: string; name: string };
@@ -87,10 +98,9 @@ export interface CreateSaleDto {
   lines: CreateSaleLineDto[];
   notes?: string;
   applyCredit?: boolean;
-  boxesReturnedOnSale?: number;
-  bottlesReturnedOnSale?: number;
   payments?: CreateSalePaymentDto[];
   containerKasas?: { beverageId: string; count: number }[];
+  returnedContainers?: { beverageId: string; boxes: number; bottles: number }[];
 }
 
 export interface UpdateSaleLineDto {
