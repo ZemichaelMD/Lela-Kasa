@@ -164,4 +164,28 @@ export class AuthResource {
       options,
     );
   }
+
+  /** Customer portal login with username + PIN */
+  customerLogin(
+    username: string,
+    pin: string,
+    options?: RequestOptions,
+  ): Promise<CustomerLoginResponse> {
+    return this.client.post<CustomerLoginResponse>(
+      '/api/v1/auth/customer-login',
+      { username, pin },
+      { ...options, skipAuth: true },
+    );
+  }
+}
+
+export interface CustomerLoginResponse {
+  accessToken: string;
+  customer: {
+    id: string;
+    name: string;
+    phone?: string;
+    mustChangePassword?: boolean;
+    passwordChangedAt?: string | null;
+  };
 }

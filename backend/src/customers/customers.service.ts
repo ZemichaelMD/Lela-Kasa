@@ -82,6 +82,15 @@ export class CustomersService {
   }
 
   async create(shopId: string, dto: CreateCustomerDto, actorUserId: string) {
+    let pinHash: string | undefined;
+    if (dto.username && dto.pin) {
+      const existing = await this.prisma.customer.findUnique({
+        where: { username: dto.username.trim() },
+      });
+      if (existing) throw new ConflictException("Username is already taken");
+      pinHash = await argon2.hash(dto.pin);
+    }
+
     const customer = await this.prisma.customer.create({
       data: {
         shopId,
@@ -90,6 +99,9 @@ export class CustomersService {
         notes: dto.notes ?? null,
         priceTierId: dto.priceTierId ?? null,
         priceTierLocked: dto.priceTierLocked ?? false,
+        username: dto.username?.trim() ?? null,
+        pinHash: pinHash ?? null,
+        mustChangePassword: !!pinHash,
       },
     });
 
@@ -115,19 +127,48 @@ export class CustomersService {
   ) {
     await this.findOne(shopId, id);
 
+    const updateData: Record<string, unknown> = {};
+
+    if (dto.name !== undefined) updateData["name"] = dto.name;
+    if (dto.phone !== undefined) updateData["phone"] = dto.phone;
+    if (dto.notes !== undefined) updateData["notes"] = dto.notes;
+    if (dto.priceTierId !== undefined)
+      updateData["priceTierId"] = dto.priceTierId || null;
+    if (dto.priceTierLocked !== undefined)
+      updateData["priceTierLocked"] = dto.priceTierLocked;
+
+    if (dto.username !== undefined) {
+      if (dto.username.trim()) {
+        const existing = await this.prisma.customer.findUnique({
+          where: { username: dto.username.trim() },
+        });
+        if (existing && existing.id !== id) {
+          throw new ConflictException("Username is already taken");
+        }
+        updateData["username"] = dto.username.trim();
+      } else {
+        updateData["username"] = null;
+        updateData["pinHash"] = null;
+        updateData["mustChangePassword"] = false;
+        updateData["passwordChangedAt"] = null;
+      }
+    }
+
+    if (dto.pin !== undefined) {
+      if (dto.pin.trim()) {
+        updateData["pinHash"] = await argon2.hash(dto.pin);
+        updateData["mustChangePassword"] = true;
+        updateData["passwordChangedAt"] = null;
+      } else {
+        updateData["pinHash"] = null;
+        updateData["mustChangePassword"] = false;
+        updateData["passwordChangedAt"] = null;
+      }
+    }
+
     const customer = await this.prisma.customer.update({
       where: { id },
-      data: {
-        ...(dto.name !== undefined ? { name: dto.name } : {}),
-        ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
-        ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
-        ...(dto.priceTierId !== undefined
-          ? { priceTierId: dto.priceTierId || null }
-          : {}),
-        ...(dto.priceTierLocked !== undefined
-          ? { priceTierLocked: dto.priceTierLocked }
-          : {}),
-      },
+      data: updateData,
     });
 
     await this.prisma.auditLog.create({
@@ -538,8 +579,19 @@ export class CustomersService {
     const pinHash = await argon2.hash(pin);
     return this.prisma.customer.update({
       where: { id: customerId },
-      data: { username: username.trim(), pinHash },
-      select: { id: true, name: true, username: true, phone: true },
+      data: {
+        username: username.trim(),
+        pinHash,
+        mustChangePassword: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        phone: true,
+        mustChangePassword: true,
+        passwordChangedAt: true,
+      },
     });
   }
 

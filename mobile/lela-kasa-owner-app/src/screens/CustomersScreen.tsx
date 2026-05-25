@@ -1,16 +1,22 @@
 import React, { useCallback, useState } from 'react';
 import {
   FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 
 import type { RootStackParamList } from '../navigation/types';
 import { getSdk } from '../lib/sdk';
@@ -20,6 +26,7 @@ import { CustomerRow } from '../components/CustomerRow';
 import { NewSaleFAB } from '../components/NewSaleFAB';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
+import { showToast } from '../components/Toast';
 import { useTheme } from '../context/ThemeContext';
 import { t } from '../lib/i18n';
 import { radius, spacing, type } from '../theme';
@@ -27,8 +34,34 @@ import { radius, spacing, type } from '../theme';
 export default function CustomersScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [hasCredit, setHasCredit] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  // Create customer modal state
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createPhone, setCreatePhone] = useState('');
+  const [createNotes, setCreateNotes] = useState('');
+  const [createUsername, setCreateUsername] = useState('');
+  const [createPin, setCreatePin] = useState('');
+
+  const createMutation = useMutation({
+    mutationFn: (dto: { name: string; phone?: string; notes?: string; username?: string; pin?: string }) =>
+      getSdk().customers.create(dto),
+    onSuccess: () => {
+      setShowCreateSheet(false);
+      setCreateName('');
+      setCreatePhone('');
+      setCreateNotes('');
+      setCreateUsername('');
+      setCreatePin('');
+      queryClient.invalidateQueries({ queryKey: QK.customers({ search, hasCredit }) });
+      showToast(t('customerCreated'), 'success');
+    },
+    onError: (err: any) => showToast(err?.message ?? 'Failed to create customer', 'error'),
+  });
 
   const {
     data,
@@ -73,6 +106,12 @@ export default function CustomersScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>{t('customers')}</Text>
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: colors.primary }]}
+          onPress={() => setShowCreateSheet(true)}
+        >
+          <Ionicons name="add" size={22} color={colors.textInverse} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
@@ -134,17 +173,109 @@ export default function CustomersScreen() {
       />
 
       <NewSaleFAB />
+
+      {/* Create Customer Modal */}
+      <Modal visible={showCreateSheet} transparent animationType="slide" onRequestClose={() => setShowCreateSheet(false)}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.scrim }]}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, spacing[6]) }]}>
+            <View style={[styles.modalHeader, { paddingTop: Math.max(insets.top, spacing[4]), borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('newCustomer')}</Text>
+              <TouchableOpacity onPress={() => setShowCreateSheet(false)}>
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalContent}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('fullName')}</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                value={createName}
+                onChangeText={setCreateName}
+                placeholder={t('fullName')}
+                placeholderTextColor={colors.textMuted}
+              />
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('phoneNumber')}</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                value={createPhone}
+                onChangeText={setCreatePhone}
+                placeholder={t('phonePlaceholder') as any}
+                placeholderTextColor={colors.textMuted}
+                keyboardType="phone-pad"
+              />
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('customerNotes')}</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                value={createNotes}
+                onChangeText={setCreateNotes}
+                placeholder={t('optionalNotes') as any}
+                placeholderTextColor={colors.textMuted}
+                multiline
+              />
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Customer Portal Access</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Username</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                value={createUsername}
+                onChangeText={setCreateUsername}
+                placeholder="Auto-generated from name if empty"
+                placeholderTextColor={colors.textMuted}
+              />
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Portal PIN</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                value={createPin}
+                onChangeText={setCreatePin}
+                placeholder="Set a numeric PIN"
+                placeholderTextColor={colors.textMuted}
+                secureTextEntry
+                maxLength={10}
+              />
+              <TouchableOpacity
+                style={[styles.saveButton, { backgroundColor: colors.primary, marginTop: spacing[4], opacity: createMutation.isPending ? 0.6 : 1 }]}
+                onPress={() => {
+                  if (!createName.trim()) { showToast('Name is required', 'error'); return; }
+                  createMutation.mutate({
+                    name: createName.trim(),
+                    phone: createPhone.trim() || undefined,
+                    notes: createNotes.trim() || undefined,
+                    username: createUsername.trim() || undefined,
+                    pin: createPin.trim() || undefined,
+                  });
+                }}
+                disabled={createMutation.isPending}
+              >
+                <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>
+                  {createMutation.isPending ? t('saving') : t('create')}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[3] },
+  header: { paddingHorizontal: spacing[5], paddingTop: spacing[4], paddingBottom: spacing[3], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { ...type.h1 },
+  addButton: { width: 36, height: 36, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   searchContainer: { paddingHorizontal: spacing[5], paddingBottom: spacing[3] },
   filters: { flexDirection: 'row', paddingHorizontal: spacing[5], paddingBottom: spacing[3], gap: spacing[2] },
   filterChip: { paddingHorizontal: spacing[4], paddingVertical: spacing[2], borderRadius: radius.full },
   filterText: { ...type.caption },
   footer: { paddingHorizontal: spacing[5], paddingVertical: spacing[2] },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  modalSheet: { borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: '90%' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing[5], paddingVertical: spacing[4], borderBottomWidth: 1 },
+  modalTitle: { ...type.h3 },
+  modalContent: { paddingHorizontal: spacing[5], paddingVertical: spacing[4] },
+  fieldLabel: { ...type.caption, marginBottom: spacing[2], marginTop: spacing[2] },
+  input: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing[3], paddingVertical: spacing[3], ...type.body },
+  sectionLabel: { ...type.bodyBold, marginBottom: spacing[2], marginTop: spacing[3] },
+  saveButton: { borderRadius: radius.md, paddingVertical: spacing[3], alignItems: 'center' },
+  saveButtonText: { ...type.bodyBold },
 });

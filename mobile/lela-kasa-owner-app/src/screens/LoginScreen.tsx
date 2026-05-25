@@ -210,6 +210,17 @@ export default function LoginScreen() {
                 {t("signUp")}
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.customerLoginLink}
+              onPress={() => navigation.navigate("CustomerLogin")}
+            >
+              <Text
+                style={[styles.customerLoginText, { color: colors.textSecondary }]}
+              >
+                {t("customerPortal")}
+              </Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -305,4 +316,13 @@ const styles = StyleSheet.create({
   },
   registerText: { ...type.body },
   registerTextBold: { ...type.bodyBold },
+  customerLoginLink: {
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: spacing[4],
+  },
+  customerLoginText: {
+    ...type.body,
+    fontSize: 13,
+  },
 });

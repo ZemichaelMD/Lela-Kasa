@@ -6,7 +6,7 @@ import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { PermissionGate } from "@/components/permission-gate";
 import { sdk } from "@/lib/sdk";
-import type { Customer } from "@/sdk";
+import type { Customer, PriceTier } from "@/sdk";
 import { ApiError } from "@/sdk";
 import { formatMoneyCents } from "@/utils/money";
 import { useI18n } from "@/lib/i18n";
@@ -25,28 +25,49 @@ function CustomerDrawer({ open, onClose, editing, onSaved }: DrawerProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [username, setUsername] = useState("");
+  const [portalPin, setPortalPin] = useState("");
+  const [tierId, setTierId] = useState("");
+  const [tierLocked, setTierLocked] = useState(false);
+  const [tiers, setTiers] = useState<PriceTier[]>([]);
   const [saving, setSaving] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+
+  const pinReadOnly = editing?.passwordChangedAt != null;
 
   useEffect(() => {
     if (open) {
       setName(editing?.name ?? "");
       setPhone(editing?.phone ?? "");
       setNotes(editing?.notes ?? "");
+      setUsername((editing as any)?.username ?? "");
+      setPortalPin("");
+      setTierId(editing?.priceTierId ?? "");
+      setTierLocked(editing?.priceTierLocked ?? false);
       setTimeout(() => nameRef.current?.focus(), 50);
     }
   }, [open, editing]);
+
+  useEffect(() => {
+    sdk.priceTiers.list().then(setTiers).catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const dto = {
+      const dto: any = {
         name: name.trim(),
         phone: phone.trim() || undefined,
         notes: notes.trim() || undefined,
+        priceTierId: tierId || undefined,
+        priceTierLocked: tierLocked,
       };
+
+      if (username.trim()) dto.username = username.trim();
+      if (portalPin.trim()) dto.pin = portalPin.trim();
+
       const saved = editing
         ? await sdk.customers.update(editing.id, dto)
         : await sdk.customers.create(dto);
@@ -121,6 +142,59 @@ function CustomerDrawer({ open, onClose, editing, onSaved }: DrawerProps) {
               placeholder={t("optionalNotes")}
             />
           </div>
+
+          {/* Price Tier */}
+          <div className="border-t border-border pt-3 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("priceTier")}</p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("defaultPriceTier")}</label>
+              <select
+                value={tierId}
+                onChange={(e) => setTierId(e.target.value)}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+              >
+                <option value="">— {t("none")} —</option>
+                {tiers.map((tier) => (
+                  <option key={tier.id} value={tier.id}>{tier.name} ({tier.kind.toLowerCase()})</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">{t("autoFilledOnNewSale")}</p>
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" checked={tierLocked} onChange={(e) => setTierLocked(e.target.checked)} className="rounded border-border h-4 w-4" />
+              <span className="text-sm">{t("lockPriceTier")}</span>
+            </label>
+          </div>
+
+          {/* Portal Access */}
+          <div className="border-t border-border pt-3 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("customerPortalAccess")}</p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("username")}</label>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                placeholder="Auto-generated from name if empty"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("portalPin")}</label>
+              <input
+                value={portalPin}
+                onChange={(e) => setPortalPin(e.target.value)}
+                type="password"
+                maxLength={10}
+                disabled={pinReadOnly}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder={pinReadOnly ? "Customer has changed their PIN" : "Set a numeric PIN for customer login"}
+              />
+              {pinReadOnly && (
+                <p className="text-xs text-muted-foreground">{t("pinReadOnlyHint")}</p>
+              )}
+            </div>
+          </div>
+
           <div className="mt-auto flex justify-end gap-2 pt-4">
             <button
               type="button"

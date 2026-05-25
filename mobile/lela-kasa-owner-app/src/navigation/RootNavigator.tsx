@@ -8,6 +8,8 @@ import SubscriptionGate from '../components/SubscriptionGate';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/LoginScreen';
+import CustomerLoginScreen from '../screens/CustomerLoginScreen';
+import CustomerPortalScreen from '../screens/CustomerPortalScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import VerifyPhoneScreen from '../screens/VerifyPhoneScreen';
@@ -62,6 +64,8 @@ export default function RootNavigator() {
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
           <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="Login" component={LoginScreen} options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="CustomerLogin" component={CustomerLoginScreen} options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="CustomerPortal" component={CustomerPortalScreen} options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="Register" component={RegisterScreen} options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ animation: 'slide_from_right' }} />
         </>

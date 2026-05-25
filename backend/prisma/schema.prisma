@@ -254,6 +254,9 @@ model Customer {
   priceTier       PriceTier? @relation(fields: [priceTierId], references: [id])
   priceTierLocked Boolean   @default(false)
 
+  mustChangePassword Boolean  @default(false)
+  passwordChangedAt  DateTime?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?

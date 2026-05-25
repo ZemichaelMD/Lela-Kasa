@@ -33,6 +33,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         name: customer.name,
         role: "CUSTOMER",
         shopId: customer.shopId ?? undefined,
+        changePinRequired: payload.changePinRequired,
       };
     }
 

@@ -534,6 +534,8 @@ function EditCustomerModal({
   const [tiers, setTiers] = useState<PriceTier[]>([]);
   const [saving, setSaving] = useState(false);
 
+  const pinReadOnly = (customer as any).passwordChangedAt != null;
+
   useEffect(() => {
     sdk.priceTiers.list().then(setTiers).catch(() => {});
   }, []);
@@ -542,14 +544,19 @@ function EditCustomerModal({
     e.preventDefault();
     setSaving(true);
     try {
-      const updated = await sdk.customers.update(customer.id, {
+      const dto: any = {
         name: name.trim() || undefined,
         phone: phone.trim() || undefined,
         notes: notes.trim() || undefined,
         priceTierId: tierId || undefined,
         priceTierLocked: tierLocked,
-      });
-      if (portalPin.trim()) {
+      };
+
+      if (username.trim()) dto.username = username.trim();
+
+      const updated = await sdk.customers.update(customer.id, dto);
+
+      if (portalPin.trim() && !pinReadOnly) {
         await sdk.customers.setCredentials(customer.id, {
           username: username.trim() || name.trim().toLowerCase().replace(/\s+/g, "_"),
           pin: portalPin.trim(),
@@ -626,7 +633,7 @@ function EditCustomerModal({
           </label>
         </div>
 
-        <div className="border-t border-border pt-3 space-y-3">
+          <div className="border-t border-border pt-3 space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Customer Portal Access</p>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Username</label>
@@ -634,7 +641,13 @@ function EditCustomerModal({
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Portal PIN</label>
-            <input value={portalPin} onChange={e => setPortalPin(e.target.value)} type="password" maxLength={10} className={ic} placeholder="Set a numeric PIN for customer login" />
+            <input value={portalPin} onChange={e => setPortalPin(e.target.value)} type="password" maxLength={10}
+              disabled={pinReadOnly}
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-50 disabled:cursor-not-allowed"
+              placeholder={pinReadOnly ? "Customer has changed their PIN" : "Set a numeric PIN for customer login"} />
+            {pinReadOnly && (
+              <p className="text-xs text-muted-foreground">Customer has changed their PIN — only they can change it from the portal.</p>
+            )}
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">

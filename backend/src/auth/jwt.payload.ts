@@ -4,6 +4,7 @@ export interface JwtPayload {
   sessionId: string;
   shopId?: string;   // present for OWNER and EMPLOYEE users
   ver: number;       // token version for future revocation
+  changePinRequired?: boolean;
   iat?: number;
   exp?: number;
 }

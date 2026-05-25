@@ -3,6 +3,8 @@ import {
   Banknote,
   Box,
   Coins,
+  Eye,
+  EyeOff,
   MessageSquare,
   Package,
   Pencil,
@@ -517,17 +519,35 @@ function EditCustomerModal({
   const [name, setName] = useState(customer.name);
   const [phone, setPhone] = useState(customer.phone ?? "");
   const [notes, setNotes] = useState(customer.notes ?? "");
+  const [username, setUsername] = useState((customer as any).username ?? "");
+  const [portalPin, setPortalPin] = useState("");
+  const [tierId, setTierId] = useState((customer as any).priceTierId ?? "");
+  const [tierLocked, setTierLocked] = useState((customer as any).priceTierLocked ?? false);
+  const [tiers, setTiers] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const pinReadOnly = (customer as any).passwordChangedAt != null;
+
+  useEffect(() => {
+    sdk.priceTiers.list().then(setTiers).catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      const updated = await sdk.customers.update(customer.id, {
+      const dto: any = {
         name: name.trim() || undefined,
         phone: phone.trim() || undefined,
         notes: notes.trim() || undefined,
-      });
+        priceTierId: tierId || undefined,
+        priceTierLocked: tierLocked,
+      };
+
+      if (username.trim()) dto.username = username.trim();
+      if (portalPin.trim() && !pinReadOnly) dto.pin = portalPin.trim();
+
+      const updated = await sdk.customers.update(customer.id, dto);
       toast.success(t("customerUpdated"));
       onSaved(updated);
     } catch {
@@ -579,6 +599,45 @@ function EditCustomerModal({
             placeholder={t("optionalNotes") as string}
           />
         </div>
+
+        {/* Price Tier */}
+        <div className="border-t border-border pt-3 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("priceTier")}</p>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">{t("defaultPriceTier")}</label>
+            <select value={tierId} onChange={(e) => setTierId(e.target.value)} className={ic}>
+              <option value="">— {t("none")} —</option>
+              {tiers.map((tier: any) => (
+                <option key={tier.id} value={tier.id}>{tier.name} ({tier.kind.toLowerCase()})</option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">{t("autoFilledOnNewSale")}</p>
+          </div>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked={tierLocked} onChange={(e) => setTierLocked(e.target.checked)} className="rounded border-border h-4 w-4" />
+            <span className="text-sm">{t("lockPriceTier")}</span>
+          </label>
+        </div>
+
+        {/* Portal Access */}
+        <div className="border-t border-border pt-3 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("customerPortalAccess")}</p>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">{t("username")}</label>
+            <input value={username} onChange={e => setUsername(e.target.value)} className={ic} placeholder="Auto-generated from name if empty" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">{t("portalPin")}</label>
+            <input value={portalPin} onChange={e => setPortalPin(e.target.value)} type="password" maxLength={10}
+              disabled={pinReadOnly}
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-50 disabled:cursor-not-allowed"
+              placeholder={pinReadOnly ? "Customer has changed their PIN" : "Set a numeric PIN for customer login"} />
+            {pinReadOnly && (
+              <p className="text-xs text-muted-foreground">{t("pinReadOnlyHint")}</p>
+            )}
+          </div>
+        </div>
+
         <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"
@@ -917,6 +976,7 @@ export default function CustomerDetailPage() {
 
   const [dateFrom, setDateFrom] = useState(getFirstOfMonthStr);
   const [dateTo, setDateTo] = useState(getTodayStr);
+  const [showVoided, setShowVoided] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -948,10 +1008,15 @@ export default function CustomerDetailPage() {
     to.setHours(23, 59, 59, 999);
     const filtered = ledger.filter((e) => {
       const d = new Date(e.date);
-      return d >= from && d <= to;
+      if (d < from || d > to) return false;
+      if (!showVoided) {
+        if (e.type === "sale" && (e as LedgerSaleEntry).data.status === "VOIDED") return false;
+        if (e.type === "payment" && (e as LedgerPaymentEntry).data.voidedAt) return false;
+      }
+      return true;
     });
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [ledger, dateFrom, dateTo]);
+  }, [ledger, dateFrom, dateTo, showVoided]);
 
   const sales = useMemo(
     () => filteredLedger.filter((e) => e.type === "sale") as LedgerSaleEntry[],
@@ -1087,9 +1152,21 @@ export default function CustomerDetailPage() {
         <button
           type="button"
           onClick={() => { setDateFrom(getFirstOfMonthStr()); setDateTo(getTodayStr()); }}
-          className="ml-auto text-xs text-primary hover:underline"
+          className="text-xs text-primary hover:underline"
         >
           {t("thisMonth")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowVoided((v) => !v)}
+          className={`ml-auto inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+            showVoided
+              ? "border-primary/40 bg-primary/10 text-primary"
+              : "border-border text-muted-foreground hover:bg-accent"
+          }`}
+        >
+          {showVoided ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          {t("showVoided")}
         </button>
       </div>
 

@@ -952,6 +952,8 @@ export class AuthService {
         creditBalanceCents: true,
         outstandingBoxes: true,
         outstandingBottles: true,
+        mustChangePassword: true,
+        passwordChangedAt: true,
         shop: { select: { name: true } },
       },
     });
@@ -967,6 +969,7 @@ export class AuthService {
       role: "CUSTOMER",
       shopId: customer.shopId,
       ver: 1,
+      changePinRequired: customer.mustChangePassword,
     };
     const accessToken = this.jwt.sign(payload, { expiresIn: "7d" });
 
@@ -981,6 +984,8 @@ export class AuthService {
         creditBalanceCents: customer.creditBalanceCents,
         outstandingBoxes: customer.outstandingBoxes,
         outstandingBottles: customer.outstandingBottles,
+        mustChangePassword: customer.mustChangePassword,
+        passwordChangedAt: customer.passwordChangedAt,
       },
     };
   }

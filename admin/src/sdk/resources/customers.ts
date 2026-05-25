@@ -9,6 +9,9 @@ export interface Customer {
   creditBalanceCents: number;
   outstandingBoxes: number;
   outstandingBottles: number;
+  username?: string | null;
+  mustChangePassword?: boolean;
+  passwordChangedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
@@ -18,12 +21,20 @@ export interface CreateCustomerDto {
   name: string;
   phone?: string;
   notes?: string;
+  priceTierId?: string;
+  priceTierLocked?: boolean;
+  username?: string;
+  pin?: string;
 }
 
 export interface UpdateCustomerDto {
   name?: string;
   phone?: string;
   notes?: string;
+  priceTierId?: string;
+  priceTierLocked?: boolean;
+  username?: string;
+  pin?: string;
 }
 
 export interface ListCustomersParams {

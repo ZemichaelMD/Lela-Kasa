@@ -11,6 +11,9 @@ export interface Customer {
   outstandingBottles: number;
   priceTierId?: string | null;
   priceTierLocked: boolean;
+  username?: string | null;
+  mustChangePassword?: boolean;
+  passwordChangedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
@@ -22,6 +25,8 @@ export interface CreateCustomerDto {
   notes?: string;
   priceTierId?: string;
   priceTierLocked?: boolean;
+  username?: string;
+  pin?: string;
 }
 
 export interface UpdateCustomerDto {
@@ -30,6 +35,8 @@ export interface UpdateCustomerDto {
   notes?: string;
   priceTierId?: string;
   priceTierLocked?: boolean;
+  username?: string;
+  pin?: string;
 }
 
 export interface ListCustomersParams {
@@ -173,6 +180,14 @@ export class CustomersResource {
 
   sendSms(id: string, dto: SendSmsDto, options?: RequestOptions): Promise<{ sent: boolean }> {
     return this.client.post<{ sent: boolean }>(`/api/v1/customers/${id}/sms`, dto, options);
+  }
+
+  setCredentials(id: string, dto: { username: string; pin: string }, options?: RequestOptions): Promise<any> {
+    return this.client.patch<any>(`/api/v1/customers/${id}/credentials`, dto, options);
+  }
+
+  remove(id: string, options?: RequestOptions): Promise<void> {
+    return this.client.delete<void>(`/api/v1/customers/${id}`, options);
   }
 
   /** Sends a payment / container reminder across SMS, WhatsApp and Telegram. */

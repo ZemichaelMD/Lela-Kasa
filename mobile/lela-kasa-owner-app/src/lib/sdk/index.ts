@@ -15,6 +15,9 @@ import { TelegramResource } from './resources/telegram';
 import { PermissionsResource } from './resources/permissions';
 import { tokenStore } from './token-store-rn';
 import { emitAuthLogout } from '../event-emitter';
+import { BASE_URL } from './client';
+
+export const API_URL = BASE_URL;
 
 export type { SdkConfig, RequestOptions } from './client';
 export { SdkClient } from './client';

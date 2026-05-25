@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.kasa.owner"
+      "bundleIdentifier": "com.kasa.owner",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -29,7 +32,10 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiUrl": "https://api.kasa.app"
+      "apiUrl": "https://lela-kasa.vercel.app",
+      "eas": {
+        "projectId": "863ca630-31cf-47aa-aa80-7502b3d0feb9"
+      }
     },
     "plugins": ["expo-secure-store"]
   }

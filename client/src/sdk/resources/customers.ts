@@ -11,6 +11,9 @@ export interface Customer {
   outstandingBottles: number;
   priceTierId?: string | null;
   priceTierLocked: boolean;
+  username?: string | null;
+  mustChangePassword?: boolean;
+  passwordChangedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
@@ -22,6 +25,8 @@ export interface CreateCustomerDto {
   notes?: string;
   priceTierId?: string;
   priceTierLocked?: boolean;
+  username?: string;
+  pin?: string;
 }
 
 export interface UpdateCustomerDto {
@@ -30,6 +35,8 @@ export interface UpdateCustomerDto {
   notes?: string;
   priceTierId?: string;
   priceTierLocked?: boolean;
+  username?: string;
+  pin?: string;
 }
 
 export interface ListCustomersParams {

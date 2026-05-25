@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateCustomerDto {
   @IsOptional()
@@ -23,4 +23,15 @@ export class UpdateCustomerDto {
   @IsOptional()
   @IsBoolean()
   priceTierLocked?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(4)
+  @MaxLength(10)
+  pin?: string;
 }

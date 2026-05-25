@@ -28,13 +28,20 @@ import { AmountInput } from '../components/AmountInput';
 import { PickerSheet, type PickerItem } from '../components/PickerSheet';
 import { showToast } from '../components/Toast';
 import { Skeleton } from '../components/Skeleton';
-import { DateFilter, type DatePreset } from '../components/DateFilter';
 import { t } from '../lib/i18n';
 import { useTheme } from '../context/ThemeContext';
 import { radius, spacing, type } from '../theme';
 
 function formatCurrency(cents: number): string {
   return (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 });
+}
+
+function getTodayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+function getFirstOfMonthStr() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
 }
 
 export default function CustomerDetailScreen() {
@@ -53,10 +60,8 @@ export default function CustomerDetailScreen() {
   const [paymentMethod, setPaymentMethod] = useState<RecordPaymentDto['method']>('CASH');
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; name: string } | null>(null);
-  const [datePreset, setDatePreset] = useState<string>('all');
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo, setCustomTo] = useState('');
-  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [dateFrom, setDateFrom] = useState(getFirstOfMonthStr);
+  const [dateTo, setDateTo] = useState(getTodayStr);
   const [showReturnSheet, setShowReturnSheet] = useState(false);
   const [returnBoxes, setReturnBoxes] = useState('');
   const [returnBottles, setReturnBottles] = useState('');
@@ -67,37 +72,8 @@ export default function CustomerDetailScreen() {
   const [editNotes, setEditNotes] = useState('');
   const [editTierId, setEditTierId] = useState('');
   const [editTierLocked, setEditTierLocked] = useState(false);
-
-  const getDateRange = () => {
-    const now = new Date();
-    let from: string | undefined;
-    let to: string | undefined;
-
-    switch (datePreset) {
-      case 'today':
-        from = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().split('T')[0];
-        to = now.toISOString().split('T')[0];
-        break;
-      case 'week':
-        const weekAgo = new Date(now);
-        weekAgo.setDate(now.getDate() - 7);
-        from = weekAgo.toISOString().split('T')[0];
-        to = now.toISOString().split('T')[0];
-        break;
-      case 'month':
-        from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-        to = now.toISOString().split('T')[0];
-        break;
-      case 'custom':
-        from = customFrom || undefined;
-        to = customTo || undefined;
-        break;
-    }
-
-    return { from, to };
-  };
-
-  const dateRange = getDateRange();
+  const [editUsername, setEditUsername] = useState('');
+  const [editPin, setEditPin] = useState('');
 
   const { data: customer, isLoading: loadingCustomer } = useQuery({
     queryKey: QK.customer(customerId),
@@ -166,12 +142,25 @@ export default function CustomerDetailScreen() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (dto: { name?: string; phone?: string; notes?: string; priceTierId?: string; priceTierLocked?: boolean }) =>
+    mutationFn: (dto: { name?: string; phone?: string; notes?: string; priceTierId?: string; priceTierLocked?: boolean; username?: string; pin?: string }) =>
       getSdk().customers.update(customerId, dto),
     onSuccess: (updated) => {
       queryClient.setQueryData(QK.customer(customerId), (old: any) => ({ ...old, ...updated }));
+      // If a PIN was provided, call setCredentials separately
+      if (editPin.trim() && !customer?.passwordChangedAt) {
+        getSdk().customers.setCredentials(customerId, {
+          username: editUsername.trim() || editName.trim().toLowerCase().replace(/\s+/g, '_'),
+          pin: editPin.trim(),
+        }).then(() => {
+          showToast(t('customerUpdated') as any, 'success');
+        }).catch((err: any) => {
+          showToast(err?.message ?? 'Failed', 'error');
+        });
+      } else {
+        showToast(t('customerUpdated') as any, 'success');
+      }
       setShowEditSheet(false);
-      showToast(t('customerUpdated') as any, 'success');
+      setEditPin('');
     },
     onError: (err: any) => showToast(err?.message ?? 'Failed', 'error'),
   });
@@ -183,6 +172,8 @@ export default function CustomerDetailScreen() {
     setEditNotes(customer.notes ?? '');
     setEditTierId(customer.priceTierId ?? '');
     setEditTierLocked(customer.priceTierLocked ?? false);
+    setEditUsername((customer as any).username ?? '');
+    setEditPin('');
     setShowEditSheet(true);
   }
 
@@ -194,13 +185,14 @@ export default function CustomerDetailScreen() {
     if (entry.type === 'payment') return !entry.data.voidedAt;
     return true;
   }).filter(entry => {
-    if (!dateRange.from && !dateRange.to) return true;
-    const entryDate = entry.type === 'sale' ? entry.data.saleDate : entry.type === 'payment' ? entry.data.paidAt : entry.data.createdAt;
-    if (!entryDate) return true;
-    if (dateRange.from && entryDate < dateRange.from) return false;
-    if (dateRange.to && entryDate > dateRange.to) return false;
+    const from = new Date(dateFrom);
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(dateTo);
+    to.setHours(23, 59, 59, 999);
+    const d = new Date(entry.date);
+    if (d < from || d > to) return false;
     return true;
-  });
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const salesEntries = filteredLedger.filter(e => e.type === 'sale');
   const paymentEntries = filteredLedger.filter(e => e.type === 'payment');
@@ -317,33 +309,42 @@ export default function CustomerDetailScreen() {
         onChange={setActiveTab}
       />
 
-      <TouchableOpacity
-        style={[styles.dateFilterButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-        onPress={() => setShowDateFilter(true)}
-      >
-        <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
-        <Text style={[styles.dateFilterText, { color: colors.textSecondary }]}>
-          {datePreset === 'all' ? t('allTime') : datePreset === 'today' ? t('today') : datePreset === 'week' ? t('thisWeek') : datePreset === 'month' ? t('thisMonth') : t('custom')}
-        </Text>
-        <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
-      </TouchableOpacity>
-
-      {showVoided && activeTab === 0 && (
+      <View style={[styles.dateFilterBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.dateFilterLabel, { color: colors.textSecondary }]}>{t('filterByDate')}</Text>
+        <View style={styles.dateInputRow}>
+          <Text style={[styles.dateInputLabel, { color: colors.textMuted }]}>{t('from')}</Text>
+          <EthiopianDatePicker value={dateFrom} onChange={setDateFrom} placeholder="From" />
+        </View>
+        <View style={styles.dateInputRow}>
+          <Text style={[styles.dateInputLabel, { color: colors.textMuted }]}>{t('to')}</Text>
+          <EthiopianDatePicker value={dateTo} onChange={setDateTo} placeholder="To" />
+        </View>
         <TouchableOpacity
-          style={styles.voidedToggle}
-          onPress={() => setShowVoided(false)}
+          onPress={() => { setDateFrom(getFirstOfMonthStr()); setDateTo(getTodayStr()); }}
+          style={styles.thisMonthBtn}
         >
-          <Text style={[styles.voidedToggleText, { color: colors.primary }]}>{t('hideVoided')}</Text>
+          <Text style={[styles.thisMonthBtnText, { color: colors.primary }]}>{t('thisMonth')}</Text>
         </TouchableOpacity>
-      )}
-      {!showVoided && activeTab === 0 && filteredLedger.length < ledger.length && (
         <TouchableOpacity
-          style={styles.voidedToggle}
-          onPress={() => setShowVoided(true)}
+          onPress={() => setShowVoided((v) => !v)}
+          style={[
+            styles.voidedBtn,
+            {
+              backgroundColor: showVoided ? colors.primary + '1A' : 'transparent',
+              borderColor: showVoided ? colors.primary + '40' : colors.border,
+            },
+          ]}
         >
-          <Text style={[styles.voidedToggleText, { color: colors.primary }]}>{t('showVoided')} ({ledger.length - filteredLedger.length})</Text>
+          <Ionicons
+            name={showVoided ? 'eye-outline' : 'eye-off-outline'}
+            size={14}
+            color={showVoided ? colors.primary : colors.textMuted}
+          />
+          <Text style={[styles.voidedBtnText, { color: showVoided ? colors.primary : colors.textMuted }]}>
+            {t('showVoided')}
+          </Text>
         </TouchableOpacity>
-      )}
+      </View>
 
       <ScrollView style={styles.list}>
         {activeTab === 0 && filteredLedger.map((entry, i) => {
@@ -588,18 +589,6 @@ export default function CustomerDetailScreen() {
         onClose={() => setShowAccountPicker(false)}
       />
 
-      <DateFilter
-        visible={showDateFilter}
-        selected={datePreset === 'all' ? 'today' : datePreset as DatePreset}
-        onSelect={(p) => { setDatePreset(p); }}
-        onClose={() => setShowDateFilter(false)}
-        showCustom
-        customFrom={customFrom}
-        customTo={customTo}
-        onCustomChange={(from, to) => { setCustomFrom(from); setCustomTo(to); }}
-        onApplyCustom={() => { if (customFrom && customTo) { setDatePreset('custom'); } }}
-      />
-
       {/* Edit Customer Modal */}
       <Modal visible={showEditSheet} transparent animationType="slide" onRequestClose={() => setShowEditSheet(false)}>
         <View style={[styles.modalOverlay, { backgroundColor: colors.scrim }]}>
@@ -637,6 +626,29 @@ export default function CustomerDetailScreen() {
                 placeholderTextColor={colors.textMuted}
                 multiline
               />
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginTop: spacing[3] }]}>Customer Portal Access</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Username</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                value={editUsername}
+                onChangeText={setEditUsername}
+                placeholder="Auto-generated from name if empty"
+                placeholderTextColor={colors.textMuted}
+              />
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Portal PIN</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border, opacity: customer?.passwordChangedAt ? 0.5 : 1 }]}
+                value={editPin}
+                onChangeText={setEditPin}
+                placeholder={customer?.passwordChangedAt ? "Customer has changed their PIN" : "Set a numeric PIN"}
+                placeholderTextColor={colors.textMuted}
+                editable={!customer?.passwordChangedAt}
+                secureTextEntry
+                maxLength={10}
+              />
+              {customer?.passwordChangedAt && (
+                <Text style={[styles.fieldLabel, { color: colors.textMuted, fontSize: 11, marginTop: 2 }]}>Customer has changed their PIN — only they can change it from the portal.</Text>
+              )}
               <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Default Price Tier</Text>
               {tiers.map(tier => (
                 <TouchableOpacity
@@ -672,6 +684,8 @@ export default function CustomerDetailScreen() {
                   notes: editNotes.trim() || undefined,
                   priceTierId: editTierId || undefined,
                   priceTierLocked: editTierLocked,
+                  username: editUsername.trim() || undefined,
+                  pin: editPin.trim() || undefined,
                 })}
                 disabled={updateMutation.isPending}
               >
@@ -763,6 +777,44 @@ const styles = StyleSheet.create({
   voidedToggleText: {
     ...type.caption,
   },
+  dateFilterBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing[2],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[3],
+    marginHorizontal: spacing[5],
+    marginVertical: spacing[2],
+    borderRadius: radius.lg,
+    borderWidth: 1,
+  },
+  dateFilterLabel: {
+    ...type.bodyMedium,
+    marginRight: spacing[1],
+  },
+  dateInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+  },
+  dateInputLabel: { ...type.caption },
+  thisMonthBtn: {
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1],
+  },
+  thisMonthBtnText: { ...type.caption, fontSize: 12 },
+  voidedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    marginLeft: 'auto',
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1] + 1,
+  },
+  voidedBtnText: { ...type.caption, fontSize: 12 },
   list: {
     flex: 1,
   },
@@ -855,18 +907,6 @@ const styles = StyleSheet.create({
     ...type.bodyBold,
     fontSize: 16,
   },
-  dateFilterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[2],
-    marginHorizontal: spacing[5],
-    marginVertical: spacing[2],
-    borderRadius: radius.md,
-    borderWidth: 1,
-  },
-  dateFilterText: { ...type.bodyMedium, flex: 1 },
   input: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing[3], paddingVertical: spacing[3], ...type.body },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
   tierRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing[1], gap: spacing[2] },

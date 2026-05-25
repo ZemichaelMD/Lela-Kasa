@@ -92,4 +92,11 @@ export const customers = {
   telegramNotConfigured: 'Telegram is not configured yet',
   telegramLinkCopied: 'Telegram link copied — share it with the customer',
   telegramLinkFailed: 'Failed to create Telegram link',
+  customerPortalAccess: 'Customer Portal Access',
+  portalPin: 'Portal PIN',
+  pinReadOnlyHint: 'Customer has changed their PIN — only they can change it from the portal.',
+  lockPriceTier: 'Lock price tier (employees can\'t change it on sale)',
+  autoFilledOnNewSale: 'Auto-filled on new sales for this customer',
+  defaultPriceTier: 'Default Price Tier',
+  username: 'Username',
 } as const;

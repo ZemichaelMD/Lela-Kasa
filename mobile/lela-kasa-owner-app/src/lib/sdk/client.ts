@@ -9,6 +9,8 @@ const BASE_URL =
   // Constants.expoConfig?.extra?.apiUrl ??
   process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.0.186:3000";
 
+export { BASE_URL };
+
 export interface SdkConfig {
   baseUrl?: string;
   tokenStore?: TokenStore;

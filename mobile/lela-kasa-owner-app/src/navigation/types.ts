@@ -2,6 +2,8 @@ export type RootStackParamList = {
   Welcome: undefined;
   Onboarding: undefined;
   Login: undefined;
+  CustomerLogin: undefined;
+  CustomerPortal: { customerId: string; accessToken: string };
   Register: undefined;
   ForgotPassword: undefined;
   VerifyPhone: { phone: string };

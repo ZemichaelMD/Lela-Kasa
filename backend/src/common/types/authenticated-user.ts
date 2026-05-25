@@ -5,4 +5,5 @@ export interface AuthenticatedUser {
   role: string;
   sessionId?: string;
   shopId?: string;
+  changePinRequired?: boolean;
 }

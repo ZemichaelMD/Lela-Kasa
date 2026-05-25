@@ -92,5 +92,12 @@ export const customers = {
   telegramNotConfigured: 'ቴሌግራም ገና አልተዋቀረም',
   telegramLinkCopied: 'የቴሌግራም ሊንክ ተቀድቷል — ለደንበኛው ያጋሩ',
   telegramLinkFailed: 'የቴሌግራም ሊንክ መፍጠር አልተሳካም',
+  customerPortalAccess: 'የደንበኛ ፖርታል መግቢያ',
+  portalPin: 'የፖርታል ፒን',
+  pinReadOnlyHint: 'ደንበኛው ፒን ቀይሯል — ከፖርታሉ ብቻ መቀየር ይችላሉ።',
+  lockPriceTier: 'የዋጋ ደረጃን ይቆልፉ (ሠራተኞች በሽያጭ ጊዜ መቀየር አይችሉም)',
+  autoFilledOnNewSale: 'ለዚህ ደንበኛ አዲስ ሽያጭ ሲፈጠር በራስ-ሰር ይሞላል',
+  defaultPriceTier: 'ነባሪ የዋጋ ደረጃ',
+  username: 'የተጠቃሚ ስም',
 } as const;
 
