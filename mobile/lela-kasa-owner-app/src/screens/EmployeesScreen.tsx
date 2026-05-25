@@ -152,7 +152,7 @@ export default function EmployeesScreen() {
   };
 
   const renderEmployeeCard = (item: { id: string; name: string; email: string; phone?: string | null; isActive: boolean; username?: string; hasPin: boolean }) => (
-    <TouchableOpacity style={[styles.card, { backgroundColor: colors.surface }]} onPress={() => openEdit(item)} activeOpacity={0.7}>
+    <TouchableOpacity style={[styles.card, { backgroundColor: colors.surface }]} onPress={() => navigation.navigate('EmployeeDetail', { employeeId: item.id, employeeName: item.name })} activeOpacity={0.7}>
       <View style={styles.cardHeader}>
         <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
           <Ionicons name="person" size={20} color={colors.primary} />

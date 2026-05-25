@@ -88,6 +88,7 @@ export type { ReportParams } from "./resources/reports";
 export { EmployeesResource } from "./resources/employees";
 export type {
   Employee,
+  EmployeeDetail,
   InviteEmployeeDto,
   UpdateEmployeeDto,
 } from "./resources/employees";

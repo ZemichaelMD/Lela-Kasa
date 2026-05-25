@@ -26,6 +26,7 @@ export interface SaleListQuery {
   beverageId?: string;
   hasCredit?: boolean;
   search?: string;
+  createdById?: string;
 }
 
 const SALE_INCLUDE = {
@@ -38,6 +39,11 @@ const SALE_INCLUDE = {
   payments: {
     include: {
       paymentAccount: { select: { id: true, name: true } },
+    },
+  },
+  containerKasas: {
+    include: {
+      beverage: { select: { id: true, name: true } },
     },
   },
   createdBy: { select: { id: true, name: true } },
@@ -103,6 +109,10 @@ export class SalesService {
       where["customer"] = {
         name: { contains: query.search, mode: "insensitive" },
       };
+    }
+
+    if (query.createdById) {
+      where["createdById"] = query.createdById;
     }
 
     const [data, total] = await this.prisma.$transaction([
@@ -302,7 +312,8 @@ export class SalesService {
       const creditDeltaCents = subtotalCents - paidCents;
 
       // j. container deltas
-      const boxesOutDelta = resolvedLines.reduce((sum, l) => sum + l.boxes, 0);
+      const containerKasaTotal = (dto.containerKasas ?? []).reduce((sum, k) => sum + k.count, 0);
+      const boxesOutDelta = resolvedLines.reduce((sum, l) => sum + l.boxes, 0) + containerKasaTotal;
       const bottlesOutDelta = resolvedLines.reduce(
         (sum, l) => sum + l.bottles,
         0,
@@ -340,6 +351,17 @@ export class SalesService {
           lineTotalCents: l.lineTotalCents,
         })),
       });
+
+      // l2. Insert ContainerKasas
+      if (dto.containerKasas && dto.containerKasas.length > 0) {
+        await tx.saleContainerKasa.createMany({
+          data: dto.containerKasas.map((k) => ({
+            saleId: sale.id,
+            beverageId: k.beverageId,
+            count: k.count,
+          })),
+        });
+      }
 
       // m. Insert Payments
       if (dto.payments && dto.payments.length > 0) {
@@ -489,8 +511,9 @@ export class SalesService {
         }
       }
 
-      // c. Delete old sale lines
+      // c. Delete old sale lines and container kasas
       await tx.saleLine.deleteMany({ where: { saleId } });
+      await tx.saleContainerKasa.deleteMany({ where: { saleId } });
 
       // d. Void old payments
       await tx.payment.updateMany({
@@ -588,7 +611,8 @@ export class SalesService {
         0,
       );
       const creditDeltaCents = subtotalCents - paidCents;
-      const boxesOutDelta = resolvedLines.reduce((sum, l) => sum + l.boxes, 0);
+      const containerKasaTotal = (dto.containerKasas ?? []).reduce((sum, k) => sum + k.count, 0);
+      const boxesOutDelta = resolvedLines.reduce((sum, l) => sum + l.boxes, 0) + containerKasaTotal;
       const bottlesOutDelta = resolvedLines.reduce(
         (sum, l) => sum + l.bottles,
         0,
@@ -625,6 +649,17 @@ export class SalesService {
           lineTotalCents: l.lineTotalCents,
         })),
       });
+
+      // k2. Create new container kasas
+      if (dto.containerKasas && dto.containerKasas.length > 0) {
+        await tx.saleContainerKasa.createMany({
+          data: dto.containerKasas.map((k) => ({
+            saleId,
+            beverageId: k.beverageId,
+            count: k.count,
+          })),
+        });
+      }
 
       // l. Create new payments
       if (dto.payments && dto.payments.length > 0) {

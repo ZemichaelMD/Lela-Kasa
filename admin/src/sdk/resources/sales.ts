@@ -1,5 +1,14 @@
 import type { SdkClient, RequestOptions } from '../client';
 
+export interface SaleContainerKasa {
+  id: string;
+  saleId: string;
+  beverageId: string;
+  count: number;
+  beverage?: { id: string; name: string };
+  createdAt: string;
+}
+
 export interface SaleLine {
   id: string;
   saleId: string;
@@ -47,6 +56,7 @@ export interface Sale {
   updatedAt: string;
   lines: SaleLine[];
   payments: Payment[];
+  containerKasas?: SaleContainerKasa[];
   customer?: { id: string; name: string; phone?: string };
   priceTier?: { id: string; name: string };
   createdBy?: { id: string; name: string };
@@ -80,6 +90,7 @@ export interface CreateSaleDto {
   boxesReturnedOnSale?: number;
   bottlesReturnedOnSale?: number;
   payments?: CreateSalePaymentDto[];
+  containerKasas?: { beverageId: string; count: number }[];
 }
 
 export interface UpdateSaleDto {
@@ -92,6 +103,7 @@ export interface UpdateSaleDto {
   boxesReturnedOnSale: number;
   bottlesReturnedOnSale: number;
   draft?: boolean;
+  containerKasas?: { beverageId: string; count: number }[];
 }
 
 export interface AddPaymentDto {
@@ -164,8 +176,12 @@ export class SalesResource {
     return this.client.post<Payment>(`/api/v1/sales/${saleId}/payments`, dto, options);
   }
 
-  voidPayment(saleId: string, paymentId: string, options?: RequestOptions): Promise<void> {
-    return this.client.post<void>(`/api/v1/sales/${saleId}/payments/${paymentId}/void`, undefined, options);
+  voidPayment(saleId: string, paymentId: string, reason?: string, options?: RequestOptions): Promise<void> {
+    return this.client.post<void>(
+      `/api/v1/sales/${saleId}/payments/${paymentId}/void`,
+      reason ? { reason } : undefined,
+      options,
+    );
   }
 
   exportCsv(params?: ListSalesParams, options?: RequestOptions): Promise<Response> {

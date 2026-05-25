@@ -17,6 +17,7 @@ export type RootStackParamList = {
   PriceTiersManagement: undefined;
   PaymentAccountsManagement: undefined;
   EmployeesManagement: undefined;
+  EmployeeDetail: { employeeId: string; employeeName: string };
   EmployeePermissions: { employeeId: string; employeeName: string };
 };
 

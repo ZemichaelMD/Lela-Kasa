@@ -22,6 +22,7 @@ import BeveragesScreen from '../screens/BeveragesScreen';
 import PriceTiersScreen from '../screens/PriceTiersScreen';
 import PaymentAccountsScreen from '../screens/PaymentAccountsScreen';
 import EmployeesScreen from '../screens/EmployeesScreen';
+import EmployeeDetailScreen from '../screens/EmployeeDetailScreen';
 import EmployeePermissionsScreen from '../screens/EmployeePermissionsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -57,6 +58,7 @@ export default function RootNavigator() {
           <Stack.Screen name="PriceTiersManagement" component={PriceTiersScreen} options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="PaymentAccountsManagement" component={PaymentAccountsScreen} options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="EmployeesManagement" component={EmployeesScreen} options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="EmployeeDetail" component={EmployeeDetailScreen} options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="EmployeePermissions" component={EmployeePermissionsScreen} options={{ animation: 'slide_from_right' }} />
         </>
       ) : (

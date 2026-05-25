@@ -75,7 +75,7 @@ export { PaymentAccountsResource } from './resources/payment-accounts';
 export type { PaymentAccount } from './resources/payment-accounts';
 
 export { EmployeesResource } from './resources/employees';
-export type { Employee, CreateEmployeeDto, UpdateEmployeeDto } from './resources/employees';
+export type { Employee, EmployeeDetail, CreateEmployeeDto, UpdateEmployeeDto } from './resources/employees';
 
 export { SubscriptionsResource } from './resources/subscriptions';
 export type { SubscriptionData, SubscriptionHistoryEntry, SubscriptionProvider, NotifyPaymentInput } from './resources/subscriptions';

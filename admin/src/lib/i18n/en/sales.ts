@@ -130,4 +130,10 @@ export const sales = {
   clearAll: 'Clear all',
   quantity: 'Quantity',
   customerCreated: 'Customer created',
+  containerKasaSection: 'Container Kasa (Mixed Box)',
+  containerKasaHint: 'loose bottles — specify the container box type below.',
+  addContainerKasa: 'Add Container Kasa',
+  containerKasaType: 'Box type (beverage)',
+  containerKasaCount: 'Count',
+  selectKasaType: 'Select box type...',
 } as const;

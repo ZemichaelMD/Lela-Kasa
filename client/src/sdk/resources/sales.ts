@@ -1,5 +1,14 @@
 import type { SdkClient, RequestOptions } from '../client';
 
+export interface SaleContainerKasa {
+  id: string;
+  saleId: string;
+  beverageId: string;
+  count: number;
+  beverage?: { id: string; name: string };
+  createdAt: string;
+}
+
 export interface SaleLine {
   id: string;
   saleId: string;
@@ -47,6 +56,7 @@ export interface Sale {
   updatedAt: string;
   lines: SaleLine[];
   payments: Payment[];
+  containerKasas?: SaleContainerKasa[];
   customer?: { id: string; name: string; phone?: string };
   priceTier?: { id: string; name: string };
   createdBy?: { id: string; name: string };
@@ -80,6 +90,7 @@ export interface CreateSaleDto {
   boxesReturnedOnSale?: number;
   bottlesReturnedOnSale?: number;
   payments?: CreateSalePaymentDto[];
+  containerKasas?: { beverageId: string; count: number }[];
 }
 
 export interface UpdateSaleDto {
@@ -92,6 +103,7 @@ export interface UpdateSaleDto {
   boxesReturnedOnSale: number;
   bottlesReturnedOnSale: number;
   draft?: boolean;
+  containerKasas?: { beverageId: string; count: number }[];
 }
 
 export interface AddPaymentDto {
@@ -115,6 +127,7 @@ export interface ListSalesParams {
   beverageId?: string;
   status?: string;
   hasCredit?: boolean;
+  createdById?: string;
 }
 
 export interface PaginatedSales {
@@ -140,6 +153,7 @@ export class SalesResource {
     if (params?.beverageId) query.set('beverageId', params.beverageId);
     if (params?.status) query.set('status', params.status);
     if (params?.hasCredit !== undefined) query.set('hasCredit', String(params.hasCredit));
+    if (params?.createdById) query.set('createdById', params.createdById);
     const qs = query.toString();
     return this.client.get<PaginatedSales>(`/api/v1/sales${qs ? `?${qs}` : ''}`, options);
   }

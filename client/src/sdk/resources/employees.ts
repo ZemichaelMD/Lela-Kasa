@@ -17,6 +17,13 @@ export interface InviteEmployeeDto {
   phone?: string;
 }
 
+export interface EmployeeDetail extends Employee {
+  username?: string | null;
+  hasPin: boolean;
+  emailVerified: boolean;
+  updatedAt: string;
+}
+
 export interface UpdateEmployeeDto {
   name?: string;
   phone?: string;
@@ -28,6 +35,10 @@ export class EmployeesResource {
 
   list(options?: RequestOptions): Promise<Employee[]> {
     return this.client.get<Employee[]>('/api/v1/users', options);
+  }
+
+  findOne(id: string, options?: RequestOptions): Promise<EmployeeDetail> {
+    return this.client.get<EmployeeDetail>(`/api/v1/users/${id}`, options);
   }
 
   invite(dto: InviteEmployeeDto, options?: RequestOptions): Promise<Employee> {

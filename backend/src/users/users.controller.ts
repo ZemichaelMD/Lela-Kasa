@@ -88,7 +88,7 @@ export class UsersController {
     return this.usersService.getEmployee(shopId, id);
   }
 
-  @Post()
+  @Post('invite')
   @ApiOperation({ summary: 'Invite / create an employee account (OWNER only)' })
   inviteEmployee(
     @CurrentShopId() shopId: string,

@@ -289,9 +289,10 @@ model Beverage {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  prices    BeveragePrice[]
-  saleLines SaleLine[]
-  movements StockMovement[]
+  prices          BeveragePrice[]
+  saleLines       SaleLine[]
+  movements       StockMovement[]
+  containerKasas  SaleContainerKasa[]
 
   @@index([shopId])
   orderLines         CustomerOrderLine[]
@@ -393,9 +394,10 @@ model Sale {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  lines          SaleLine[]
-  payments       Payment[]
-  stockMovements StockMovement[]
+  lines           SaleLine[]
+  payments        Payment[]
+  stockMovements  StockMovement[]
+  containerKasas  SaleContainerKasa[]
 
   orders         CustomerOrder[]
   @@index([shopId, saleDate])
@@ -420,6 +422,18 @@ model SaleLine {
 
   @@index([saleId])
   @@index([beverageId])
+}
+
+model SaleContainerKasa {
+  id         String   @id @default(cuid())
+  saleId     String
+  sale       Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  beverageId String
+  beverage   Beverage @relation(fields: [beverageId], references: [id])
+  count      Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  @@index([saleId])
 }
 
 model Payment {

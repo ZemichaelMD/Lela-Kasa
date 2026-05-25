@@ -90,6 +90,13 @@ interface SaleLine {
   bottles: number;
 }
 
+interface ContainerKasaRow {
+  beverageId: string;
+  count: number;
+  searchInput: string;
+  dropdownOpen: boolean;
+}
+
 type PaymentMethod = "CASH" | "BANK_TRANSFER" | "MOBILE_MONEY" | "OTHER";
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -214,6 +221,7 @@ function SaleDrawer({
   const [boxesReturned, setBoxesReturned] = useState(0);
   const [bottlesReturned, setBottlesReturned] = useState(0);
   const [boxBrand, setBoxBrand] = useState("");
+  const [containerKasas, setContainerKasas] = useState<ContainerKasaRow[]>([]);
   const [note, setNote] = useState("");
   const [applyCredit, setApplyCredit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -251,6 +259,14 @@ function SaleDrawer({
     setBoxesReturned(0);
     setBottlesReturned(0);
     setBoxBrand("");
+    setContainerKasas(
+      src?.containerKasas?.map((k) => ({
+        beverageId: k.beverageId,
+        count: k.count,
+        searchInput: "",
+        dropdownOpen: false,
+      })) ?? [],
+    );
 
     if (src && src.lines.length > 0) {
       setLines(
@@ -367,6 +383,25 @@ function SaleDrawer({
     setPaymentRows((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  // Container kasa helpers
+  const totalBottles = lines.reduce((sum, l) => sum + l.bottles, 0);
+  const showContainerKasa = totalBottles >= 24 || containerKasas.length > 0;
+
+  function addContainerKasa() {
+    setContainerKasas((prev) => [
+      ...prev,
+      { beverageId: "", count: 1, searchInput: "", dropdownOpen: false },
+    ]);
+  }
+  function updateContainerKasa(idx: number, patch: Partial<ContainerKasaRow>) {
+    setContainerKasas((prev) =>
+      prev.map((k, i) => (i === idx ? { ...k, ...patch } : k)),
+    );
+  }
+  function removeContainerKasa(idx: number) {
+    setContainerKasas((prev) => prev.filter((_, i) => i !== idx));
+  }
+
   // Add new customer inline
   async function handleAddCustomer(e: React.FormEvent) {
     e.preventDefault();
@@ -428,6 +463,9 @@ function SaleDrawer({
         (r) => r.amountCents > 0 && r.paymentAccountId,
       );
 
+      const validKasas = containerKasas.filter(
+        (k) => k.beverageId && k.count > 0,
+      );
       const dto = {
         saleDate,
         customerId,
@@ -445,6 +483,10 @@ function SaleDrawer({
           paymentAccountId: r.paymentAccountId,
           amountCents: r.amountCents,
           method: r.method,
+        })),
+        containerKasas: validKasas.map((k) => ({
+          beverageId: k.beverageId,
+          count: k.count,
         })),
       };
 
@@ -951,6 +993,99 @@ function SaleDrawer({
             </div>
           </div>
 
+          {/* Container Kasa (auto-shown when total loose bottles >= 24) */}
+          {showContainerKasa && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">
+                  {t("containerKasaSection")}
+                </label>
+              </div>
+              {totalBottles >= 24 && (
+                <p className="text-xs text-muted-foreground">
+                  {totalBottles} {t("containerKasaHint")}
+                </p>
+              )}
+              {containerKasas.map((kasa, idx) => {
+                const filtered = kasa.searchInput.trim()
+                  ? beverages.filter((b) =>
+                      `${b.name} ${b.brand ?? ""}`.toLowerCase().includes(kasa.searchInput.toLowerCase()),
+                    )
+                  : beverages;
+                const selected = beverages.find((b) => b.id === kasa.beverageId);
+                return (
+                  <div key={idx} className="rounded-lg border border-border p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      {/* Searchable beverage dropdown */}
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={kasa.dropdownOpen ? kasa.searchInput : (selected ? `${selected.name}${selected.brand ? ` (${selected.brand})` : ""}` : kasa.searchInput)}
+                          onChange={(e) => updateContainerKasa(idx, { searchInput: e.target.value, dropdownOpen: true, beverageId: "" })}
+                          onFocus={() => updateContainerKasa(idx, { dropdownOpen: true, searchInput: "" })}
+                          onBlur={() => window.setTimeout(() => updateContainerKasa(idx, { dropdownOpen: false }), 120)}
+                          placeholder={t("selectKasaType") as string}
+                          className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                        />
+                        {kasa.dropdownOpen && (
+                          <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+                            {filtered.length === 0 ? (
+                              <p className="px-3 py-2 text-xs text-muted-foreground">{t("noMatches")}</p>
+                            ) : (
+                              <ul className="py-1 text-sm">
+                                {filtered.slice(0, 30).map((b) => (
+                                  <li key={b.id}>
+                                    <button
+                                      type="button"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        updateContainerKasa(idx, { beverageId: b.id, searchInput: "", dropdownOpen: false });
+                                      }}
+                                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent ${b.id === kasa.beverageId ? "bg-accent/60" : ""}`}
+                                    >
+                                      <span className="truncate">{b.name}</span>
+                                      {b.brand && <span className="shrink-0 text-xs text-muted-foreground">{b.brand}</span>}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {/* Count input */}
+                      <div className="flex items-center gap-1">
+                        <label className="text-xs text-muted-foreground shrink-0">{t("containerKasaCount")}</label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={1}
+                          value={kasa.count}
+                          onChange={(e) => updateContainerKasa(idx, { count: Math.max(1, Number(e.target.value)) })}
+                          className="h-9 w-16 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeContainerKasa(idx)}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              <button
+                type="button"
+                onClick={addContainerKasa}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+              >
+                + {t("addContainerKasa")}
+              </button>
+            </div>
+          )}
+
           {/* Note */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">{t("note")}</label>
@@ -1005,7 +1140,22 @@ function SaleDrawer({
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>{t("boxesOutstanding")}</span>
-                <span>{selectedCustomer.outstandingBoxes}</span>
+                <span>
+                  {(() => {
+                    const kasaBoxes = containerKasas.reduce((s, k) => s + (k.count || 0), 0);
+                    const lineBoxes = lines.reduce((s, l) => s + (l.boxes || 0), 0);
+                    const projected = selectedCustomer.outstandingBoxes + lineBoxes + kasaBoxes - boxesReturned;
+                    const delta = lineBoxes + kasaBoxes - boxesReturned;
+                    return delta !== 0 ? (
+                      <span>
+                        {selectedCustomer.outstandingBoxes}{" "}
+                        <span className={projected > selectedCustomer.outstandingBoxes ? "text-destructive font-medium" : "text-success font-medium"}>
+                          → {projected}
+                        </span>
+                      </span>
+                    ) : selectedCustomer.outstandingBoxes;
+                  })()}
+                </span>
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>{t("bottlesOutstanding")}</span>

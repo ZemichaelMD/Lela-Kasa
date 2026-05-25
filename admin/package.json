@@ -9,7 +9,9 @@
     "preview": "vite preview --port 5175",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json --incremental false",
-    "clean": "rm -rf dist node_modules"
+    "clean": "rm -rf dist node_modules",
+    "deploy": "pnpm build && wrangler pages deploy",
+    "deploy:prod": "pnpm build && wrangler pages deploy --branch main"
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^2.2.2",

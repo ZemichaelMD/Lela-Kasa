@@ -29,11 +29,19 @@ export interface UpdateEmployeeDto {
   pin?: string;
 }
 
+export interface EmployeeDetail extends Employee {
+  emailVerified: boolean;
+}
+
 export class EmployeesResource {
   constructor(private readonly client: SdkClient) {}
 
   list(options?: RequestOptions): Promise<Employee[]> {
     return this.client.get<Employee[]>('/api/v1/users', options);
+  }
+
+  findOne(id: string, options?: RequestOptions): Promise<EmployeeDetail> {
+    return this.client.get<EmployeeDetail>(`/api/v1/users/${id}`, options);
   }
 
   create(dto: CreateEmployeeDto, options?: RequestOptions): Promise<Employee> {

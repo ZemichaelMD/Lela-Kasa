@@ -12,6 +12,11 @@ import {
 } from "class-validator";
 import { PaymentMethod } from "../../database";
 
+export class ContainerKasaDto {
+  @IsString() declare beverageId: string;
+  @IsInt() @Min(1) declare count: number;
+}
+
 export class UpdateSaleLineDto {
   @IsString() declare beverageId: string;
   @IsInt() @Min(0) declare boxes: number;
@@ -44,4 +49,9 @@ export class UpdateSaleDto {
   @IsInt() @Min(0) declare boxesReturnedOnSale: number;
   @IsInt() @Min(0) declare bottlesReturnedOnSale: number;
   @IsOptional() @IsBoolean() draft?: boolean;
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ContainerKasaDto)
+  containerKasas?: ContainerKasaDto[];
 }

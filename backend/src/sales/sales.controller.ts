@@ -46,6 +46,7 @@ export class SalesController {
     @Query("beverageId") beverageId?: string,
     @Query("hasCredit") hasCredit?: string,
     @Query("search") search?: string,
+    @Query("createdById") createdById?: string,
   ) {
     return this.salesService.list(shopId, {
       page: page ? parseInt(page, 10) : undefined,

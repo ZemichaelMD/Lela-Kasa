@@ -32,6 +32,7 @@ const SettingsPage = lazy(() => import('@/pages/settings'));
 const ReportsPage = lazy(() => import('@/pages/reports'));
 const SubscriptionPage = lazy(() => import('@/pages/subscription'));
 const EmployeePermissionsPage = lazy(() => import('@/pages/employee-permissions'));
+const EmployeeDetailPage = lazy(() => import('@/pages/employee-detail'));
 
 function PageLoader() {
   return (
@@ -214,6 +215,16 @@ export const router = createBrowserRouter([
           <RequireOwner>
             <Suspense fallback={<PageLoader />}>
               <EmployeesPage />
+            </Suspense>
+          </RequireOwner>
+        ),
+      },
+      {
+        path: 'employees/:id',
+        element: (
+          <RequireOwner>
+            <Suspense fallback={<PageLoader />}>
+              <EmployeeDetailPage />
             </Suspense>
           </RequireOwner>
         ),

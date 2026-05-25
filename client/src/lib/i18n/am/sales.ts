@@ -130,4 +130,10 @@ export const sales = {
   clearAll: 'ሁሉንም ያጽዉ',
   quantity: 'ብዛት',
   customerCreated: 'ደንበኛ ተፈጠረ',
+  containerKasaSection: 'ኮንቴይነር ካሳ (ድብልቅ ሳጥን)',
+  containerKasaHint: 'ጠርሙሶች አሉ — ከዚህ በታች የሚጠቀሙበትን ሳጥን ዓይነት ይምረጡ',
+  addContainerKasa: 'ካሳ ጨምር',
+  containerKasaType: 'የሳጥን ዓይነት',
+  containerKasaCount: 'ብዛት',
+  selectKasaType: 'ሳጥን ዓይነት ምረጥ...',
 } as const;
