@@ -25,17 +25,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup npm
-        uses: npm/action-setup@v4
-        with:
-          version: latest
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22.13"
-          cache: "npm"
-          cache-dependency-path: admin/npm-lock.yaml
 
       - name: Install dependencies
         working-directory: admin
@@ -53,5 +46,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name lala-kasa-admin${{ github.ref == 'refs/heads/main' && ' --branch main' || '' }}
+          command: pages deploy dist --project-name lela-kasa-admin${{ github.ref == 'refs/heads/main' && ' --branch main' || '' }}
           workingDirectory: admin
