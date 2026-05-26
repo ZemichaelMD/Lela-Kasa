@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json --incremental false",
     "clean": "rm -rf dist node_modules",
     "deploy": "pnpm build && wrangler pages deploy",
-    "deploy:prod": "pnpm build && wrangler pages deploy --branch main",
+    "deploy:prod": "pnpm build &&npx wrangler pages deploy dist --project-name lela-kasa-admin --branch main",
     "generate-pwa-assets": "pwa-assets-generator --preset minimal ./src/assets/logo.svg"
   },
   "dependencies": {

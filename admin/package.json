@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json --incremental false",
     "clean": "rm -rf dist node_modules",
     "deploy": "pnpm build && wrangler pages deploy",
-    "deploy:prod": "pnpm build && wrangler pages deploy --branch main"
+    "deploy:prod": "pnpm build &&npx wrangler pages deploy dist --project-name lela-kasa-owner --branch main"
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^2.2.2",
