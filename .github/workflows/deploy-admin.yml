@@ -4,13 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'admin/**'
-      - '.github/workflows/deploy-admin.yml'
+      - "admin/**"
+      - ".github/workflows/deploy-admin.yml"
   pull_request:
     branches: [main]
     paths:
-      - 'admin/**'
-      - '.github/workflows/deploy-admin.yml'
+      - "admin/**"
+      - ".github/workflows/deploy-admin.yml"
 
 jobs:
   deploy:
@@ -33,8 +33,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: "22.13"
+          cache: "pnpm"
           cache-dependency-path: admin/pnpm-lock.yaml
 
       - name: Install dependencies
