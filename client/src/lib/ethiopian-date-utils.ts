@@ -22,6 +22,14 @@ export const ethMonths = [
 
 export const shortDays = ["እ", "ሰ", "ማ", "ረ", "ሐ", "ዓ", "ቅ"];
 
+const TIME_PERIODS = [
+  { label: "ማታ", minH: 18 },
+  { label: "ማታ", minH: 0 },
+  { label: "ጠዋት", minH: 6 },
+  { label: "ቀትር", minH: 12 },
+  { label: "ከሰአት", minH: 13 },
+];
+
 export function isLeapYearEt(y: number): boolean {
   return y % 4 === 3;
 }
@@ -168,7 +176,7 @@ export function getEtMonthName(m: number): string {
 
 export function ethiopianDayDiff(
   date1: EthiopianDate,
-  date2: EthiopianDate
+  date2: EthiopianDate,
 ): number {
   const day1 = getDayNoEthiopian(date1);
   const day2 = getDayNoEthiopian(date2);
@@ -187,7 +195,7 @@ function isValid(date: EthiopianDate): boolean {
 export function addYears(etDate: EthiopianDate, years: number): EthiopianDate {
   if (!isValid(etDate))
     throw new Error(
-      `Invalid ethiopian date ${etDate.Day}-${etDate.Month}-${etDate.Year}`
+      `Invalid ethiopian date ${etDate.Day}-${etDate.Month}-${etDate.Year}`,
     );
   const newYear = etDate.Year + years;
   if (etDate.Month === 13 && etDate.Day === 6) {
@@ -198,9 +206,33 @@ export function addYears(etDate: EthiopianDate, years: number): EthiopianDate {
   return { Day: etDate.Day, Month: etDate.Month, Year: newYear };
 }
 
+export function formatEthiopianTime(date: Date): string {
+  const h = date.getHours();
+  const m = date.getMinutes();
+
+  // Ethiopian hours are offset by 6 hours
+  const ethHour = (h - 6 + 24) % 12 || 12;
+
+  let period = "ማታ"; // Default fallback
+
+  if (h >= 6 && h < 12) {
+    period = "ጠዋት"; // 6:00 AM - 11:59 AM
+  } else if (h === 12) {
+    period = "ቀትር"; // 12:00 PM (Noon)
+  } else if (h >= 13 && h < 18) {
+    period = "ከሰአት"; // 1:00 PM - 5:59 PM
+  } else if (h >= 18 && h < 24) {
+    period = "ማታ"; // 6:00 PM - 11:59 PM
+  } else if (h >= 0 && h < 6) {
+    period = "ለሊት"; // 12:00 AM - 5:59 AM
+  }
+
+  return `${period} ${ethHour}:${m.toString().padStart(2, "0")}`;
+}
+
 export function formatEthiopianDate(
   dateObj: Date | undefined,
-  formatStr: string
+  formatStr: string,
 ): string {
   const etDate = dateObj ? toEth(dateObj) : undefined;
   if (!etDate) return "";

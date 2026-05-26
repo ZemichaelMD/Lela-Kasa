@@ -1,11 +1,18 @@
 /**
- * Date helpers — timezone-aware, using date-fns and date-fns-tz.
+ * Date helpers · timezone-aware, using date-fns and date-fns-tz.
  */
 
-import { format, formatISO, parseISO, addMinutes, differenceInMinutes, isWithinInterval } from 'date-fns';
-import { toZonedTime, fromZonedTime } from 'date-fns-tz';
+import {
+  format,
+  formatISO,
+  parseISO,
+  addMinutes,
+  differenceInMinutes,
+  isWithinInterval,
+} from "date-fns";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
-export const DEFAULT_TIMEZONE = 'Africa/Addis_Ababa';
+export const DEFAULT_TIMEZONE = "Africa/Addis_Ababa";
 
 /** Get current time in a given timezone */
 export function nowInTz(tz = DEFAULT_TIMEZONE): Date {
@@ -41,7 +48,7 @@ export function isOpenNow(
 ): boolean {
   const now = toZonedTime(at ?? new Date(), tz);
   const dayOfWeek = now.getDay(); // 0 = Sunday
-  const currentTime = format(now, 'HH:mm');
+  const currentTime = format(now, "HH:mm");
 
   const todayHours = hours.filter((h) => h.dayOfWeek === dayOfWeek);
   if (todayHours.length === 0) return false;
@@ -51,7 +58,8 @@ export function isOpenNow(
     if (currentTime >= slot.opensAt && currentTime < slot.closesAt) return true;
     // Handle overnight slots (e.g. 22:00–02:00)
     if (slot.closesAt < slot.opensAt) {
-      if (currentTime >= slot.opensAt || currentTime < slot.closesAt) return true;
+      if (currentTime >= slot.opensAt || currentTime < slot.closesAt)
+        return true;
     }
   }
   return false;
@@ -71,4 +79,10 @@ export function formatDuration(minutes: number): string {
   return remaining > 0 ? `${hours} hr ${remaining} min` : `${hours} hr`;
 }
 
-export { toZonedTime, fromZonedTime, differenceInMinutes, isWithinInterval, format };
+export {
+  toZonedTime,
+  fromZonedTime,
+  differenceInMinutes,
+  isWithinInterval,
+  format,
+};

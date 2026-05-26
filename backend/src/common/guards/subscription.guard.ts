@@ -54,7 +54,7 @@ export class SubscriptionGuard implements CanActivate {
     if (sub.status === "ACTIVE" || sub.status === "TRIAL") return true;
 
     throw new HttpException(
-      "Your subscription is not active. Please renew to continue using Lela Kasa.",
+      "Your subscription is not active. Please renew to continue using LeLa Kasa.",
       HttpStatus.PAYMENT_REQUIRED,
     );
   }

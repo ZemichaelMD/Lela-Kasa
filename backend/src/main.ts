@@ -73,10 +73,10 @@ async function bootstrap(): Promise<void> {
 
   // OpenAPI / Swagger
   const swaggerConfig = new DocumentBuilder()
-    .setTitle("Lela Kasa API")
+    .setTitle("LeLa Kasa API")
     .setDescription(
       [
-        "REST API for the Lela Kasa platform.",
+        "REST API for the LeLa Kasa platform.",
         "",
         "**Base URL**: `/api/v1`",
         "",
@@ -88,7 +88,7 @@ async function bootstrap(): Promise<void> {
       ].join("\n"),
     )
     .setVersion("1.0")
-    .setContact("Lela Kasa", "https://lelakasa.com", "support@kasa.com")
+    .setContact("LeLa Kasa", "https://lelakasa.com", "support@kasa.com")
     .setLicense("Proprietary", "")
     .addServer("/", "API v1")
     .addBearerAuth(
@@ -125,7 +125,7 @@ async function bootstrap(): Promise<void> {
       operationsSorter: "alpha",
       tryItOutEnabled: true,
     },
-    customSiteTitle: "Lela Kasa API Docs",
+    customSiteTitle: "LeLa Kasa API Docs",
   });
 
   app.enableShutdownHooks();
@@ -140,9 +140,9 @@ async function bootstrap(): Promise<void> {
   const localUrl = `http://localhost:${port}`;
   const lanUrl = lanIp ? `http://${lanIp}:${port}` : null;
 
-  Logger.log(`Lela Kasa API ready → ${localUrl}/api/v1`, "Bootstrap");
+  Logger.log(`LeLa Kasa API ready → ${localUrl}/api/v1`, "Bootstrap");
   if (host === "0.0.0.0" && lanUrl) {
-    Logger.log(`Lela Kasa API network URL → ${lanUrl}/api/v1`, "Bootstrap");
+    Logger.log(`LeLa Kasa API network URL → ${lanUrl}/api/v1`, "Bootstrap");
     Logger.log(`Swagger docs (network) → ${lanUrl}/docs`, "Bootstrap");
   }
   Logger.log(`Swagger docs → ${localUrl}/docs`, "Bootstrap");

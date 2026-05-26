@@ -1,5 +1,5 @@
 /**
- * Pagination helpers — supports both offset-based and cursor-based pagination.
+ * Pagination helpers · supports both offset-based and cursor-based pagination.
  */
 
 const DEFAULT_LIMIT = 20;
@@ -22,7 +22,7 @@ export interface OffsetPaginationMeta {
 export interface CursorPaginationParams {
   cursor?: string;
   limit?: number;
-  direction?: 'forward' | 'backward';
+  direction?: "forward" | "backward";
 }
 
 export interface CursorPaginationMeta {
@@ -33,7 +33,11 @@ export interface CursorPaginationMeta {
   limit: number;
 }
 
-export function clampLimit(limit?: number, max = MAX_LIMIT, defaultVal = DEFAULT_LIMIT): number {
+export function clampLimit(
+  limit?: number,
+  max = MAX_LIMIT,
+  defaultVal = DEFAULT_LIMIT,
+): number {
   if (limit === undefined || limit === null) return defaultVal;
   return Math.max(1, Math.min(max, Math.floor(limit)));
 }

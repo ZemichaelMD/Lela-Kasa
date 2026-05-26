@@ -105,7 +105,7 @@ export class MailService {
     try {
       await this.send({
         to,
-        subject: "Lela Kasa — test email",
+        subject: "LeLa Kasa — test email",
         html: "<p>This is a test email from Kasa. Your email integration is working.</p>",
         text: "This is a test email from Kasa. Your email integration is working.",
       });
@@ -185,7 +185,7 @@ export class MailService {
     const link = `${opts.clientUrl}/verify-email?token=${opts.token}`;
     await this.send({
       to,
-      subject: "Verify your Lela Kasa account",
+      subject: "Verify your LeLa Kasa account",
       html: `<p>Hello ${opts.name},</p><p>Click the link below to verify your email address. This link expires in 24 hours.</p><p><a href="${link}">${link}</a></p><p>If you didn't create an account, you can ignore this email.</p>`,
       text: `Verify your email: ${link}`,
     });
@@ -198,7 +198,7 @@ export class MailService {
     const link = `${opts.clientUrl}/reset-password?token=${opts.token}`;
     await this.send({
       to,
-      subject: "Reset your Lela Kasa password",
+      subject: "Reset your LeLa Kasa password",
       html: `<p>Someone requested a password reset for your account.</p><p>Click below to set a new password. This link expires in 1 hour.</p><p><a href="${link}">${link}</a></p><p>If you didn't request this, you can ignore this email.</p>`,
       text: `Reset your password: ${link}`,
     });
@@ -207,7 +207,7 @@ export class MailService {
   async sendWelcome(to: string, opts: { name: string }): Promise<void> {
     await this.send({
       to,
-      subject: "Welcome to Lela Kasa!",
+      subject: "Welcome to LeLa Kasa!",
       html: `<p>Hello ${opts.name}, welcome to Kasa! We're excited to have you.</p>`,
       text: `Hello ${opts.name}, welcome to Kasa!`,
     });

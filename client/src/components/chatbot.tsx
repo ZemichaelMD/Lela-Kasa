@@ -1,20 +1,34 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bot, X, Send, Sparkles, RotateCcw } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { useI18n } from '@/lib/i18n';
-import { sdk } from '@/lib/sdk';
-import type { ChatMessageResponse } from '@/sdk/resources/chatbot';
-import type { Components } from 'react-markdown';
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Bot, X, Send, Sparkles, RotateCcw } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { useI18n } from "@/lib/i18n";
+import { sdk } from "@/lib/sdk";
+import type { ChatMessageResponse } from "@/sdk/resources/chatbot";
+import type { Components } from "react-markdown";
 
 const mdComponents: Components = {
   p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
-  ul: ({ children }) => <ul className="mb-1 list-disc pl-4 last:mb-0">{children}</ul>,
-  ol: ({ children }) => <ol className="mb-1 list-decimal pl-4 last:mb-0">{children}</ol>,
+  ul: ({ children }) => (
+    <ul className="mb-1 list-disc pl-4 last:mb-0">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-1 list-decimal pl-4 last:mb-0">{children}</ol>
+  ),
   li: ({ children }) => <li className="leading-snug">{children}</li>,
-  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-  code: ({ children }) => <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">{children}</code>,
-  pre: ({ children }) => <pre className="mb-1 overflow-x-auto rounded bg-muted/60 p-2 text-[10px] last:mb-0">{children}</pre>,
+  strong: ({ children }) => (
+    <strong className="font-semibold">{children}</strong>
+  ),
+  code: ({ children }) => (
+    <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">
+      {children}
+    </code>
+  ),
+  pre: ({ children }) => (
+    <pre className="mb-1 overflow-x-auto rounded bg-muted/60 p-2 text-[10px] last:mb-0">
+      {children}
+    </pre>
+  ),
 };
 
 function ChatMarkdown({ children }: { children: string }) {
@@ -26,28 +40,28 @@ function ChatMarkdown({ children }: { children: string }) {
 }
 
 type UIMessage =
-  | { role: 'user'; text: string; id: string }
-  | { role: 'ai'; text: string; id: string }
-  | { role: 'confirmation'; sessionId: string; message: string; id: string }
-  | { role: 'clarify'; question: string; options?: string[]; id: string }
-  | { role: 'error'; text: string; id: string }
-  | { role: 'success'; text: string; id: string };
+  | { role: "user"; text: string; id: string }
+  | { role: "ai"; text: string; id: string }
+  | { role: "confirmation"; sessionId: string; message: string; id: string }
+  | { role: "clarify"; question: string; options?: string[]; id: string }
+  | { role: "error"; text: string; id: string }
+  | { role: "success"; text: string; id: string };
 
 function generateId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
 const SUGGESTIONS = [
-  '🧾 Tigist took 5 boxes of Harar and paid 250',
-  '💰 Tigist paid 500 birr via bank',
-  '👤 How much does Tigist owe?',
-  '📦 What is low on stock?',
-  '📊 What happened today?',
+  "🧾 Tigist took 5 boxes of Harar and paid 250",
+  "💰 Tigist paid 500 birr via bank",
+  "👤 How much does Tigist owe?",
+  "📦 What is low on stock?",
+  "📊 What happened today?",
 ];
 
-function BotAvatar({ size = 'sm' }: { size?: 'sm' | 'md' }) {
-  const dim = size === 'md' ? 'h-7 w-7' : 'h-6 w-6';
-  const icon = size === 'md' ? 'h-4 w-4' : 'h-3.5 w-3.5';
+function BotAvatar({ size = "sm" }: { size?: "sm" | "md" }) {
+  const dim = size === "md" ? "h-7 w-7" : "h-6 w-6";
+  const icon = size === "md" ? "h-4 w-4" : "h-3.5 w-3.5";
   return (
     <div
       className={`${dim} flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent-strong text-white shadow-sm`}
@@ -61,7 +75,7 @@ export function ChatFab() {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<UIMessage[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [sessionId, setSessionId] = useState(generateId());
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -72,11 +86,11 @@ export function ChatFab() {
 
   // ── Drag state ──────────────────────────────────────────────────────────────
   const [pos, setPos] = useState(() => {
-    const saved = localStorage.getItem('kasa_chat_pos');
+    const saved = localStorage.getItem("kasa_chat_pos");
     if (saved) {
       try {
         const p = JSON.parse(saved);
-        if (typeof p.x === 'number' && typeof p.y === 'number') return p;
+        if (typeof p.x === "number" && typeof p.y === "number") return p;
       } catch {}
     }
     // default: near-bottom right, but higher than before
@@ -88,19 +102,24 @@ export function ChatFab() {
   const isDragging = useRef(false);
 
   const savePosition = useCallback((p: { x: number; y: number }) => {
-    try { localStorage.setItem('kasa_chat_pos', JSON.stringify(p)); } catch {}
+    try {
+      localStorage.setItem("kasa_chat_pos", JSON.stringify(p));
+    } catch {}
   }, []);
 
-  const clampPos = useCallback((x: number, y: number) => ({
-    x: Math.max(0, Math.min(x, window.innerWidth - 48)),
-    y: Math.max(0, Math.min(y, window.innerHeight - 48)),
-  }), []);
+  const clampPos = useCallback(
+    (x: number, y: number) => ({
+      x: Math.max(0, Math.min(x, window.innerWidth - 48)),
+      y: Math.max(0, Math.min(y, window.innerHeight - 48)),
+    }),
+    [],
+  );
 
   useEffect(() => {
     function onMove(e: MouseEvent | TouchEvent) {
       if (!isDragging.current) return;
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+      const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
       const newPos = clampPos(
         clientX - dragOffset.current.x,
         clientY - dragOffset.current.y,
@@ -116,20 +135,20 @@ export function ChatFab() {
       const dx = Math.abs(pos.x - dragStartPos.current.x);
       const dy = Math.abs(pos.y - dragStartPos.current.y);
       if (dx < 5 && dy < 5) {
-        setOpen(o => !o);
+        setOpen((o) => !o);
       }
     }
-    window.addEventListener('mousemove', onMove, { passive: true });
-    window.addEventListener('touchmove', onMove, { passive: true });
-    window.addEventListener('mouseup', onUp);
-    window.addEventListener('touchend', onUp);
-    window.addEventListener('touchcancel', onUp);
+    window.addEventListener("mousemove", onMove, { passive: true });
+    window.addEventListener("touchmove", onMove, { passive: true });
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchend", onUp);
+    window.addEventListener("touchcancel", onUp);
     return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      window.removeEventListener('touchend', onUp);
-      window.removeEventListener('touchcancel', onUp);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchend", onUp);
+      window.removeEventListener("touchcancel", onUp);
     };
   }, [clampPos, pos, savePosition]);
 
@@ -141,7 +160,7 @@ export function ChatFab() {
   };
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
   useEffect(() => {
@@ -149,10 +168,10 @@ export function ChatFab() {
       try {
         const [c, vis] = await Promise.all([
           sdk.chatbot.getConfig(),
-          sdk.shops.getSetting('chat_bubble_visible').catch(() => null),
+          sdk.shops.getSetting("chat_bubble_visible").catch(() => null),
         ]);
         const globallyEnabled = c.enabled;
-        const userDisabled = vis === 'false';
+        const userDisabled = vis === "false";
         setEnabled(globallyEnabled && !userDisabled);
       } catch {
         setEnabled(false);
@@ -172,40 +191,65 @@ export function ChatFab() {
   const handleSend = async (text: string) => {
     if (!text.trim() || sending) return;
 
-    const userMsg: UIMessage = { role: 'user', text: text.trim(), id: generateId() };
+    const userMsg: UIMessage = {
+      role: "user",
+      text: text.trim(),
+      id: generateId(),
+    };
     setMessages((prev) => [...prev, userMsg]);
-    setInput('');
+    setInput("");
     setSending(true);
 
     try {
-      const response: ChatMessageResponse = await sdk.chatbot.sendMessage(text.trim(), sessionId);
+      const response: ChatMessageResponse = await sdk.chatbot.sendMessage(
+        text.trim(),
+        sessionId,
+      );
 
-      if (response.type === 'answer') {
-        setMessages((prev) => [...prev, { role: 'ai', text: response.message || '', id: generateId() }]);
-      } else if (response.type === 'confirmation') {
-        setMessages((prev) => [...prev, {
-          role: 'confirmation',
-          sessionId: response.sessionId,
-          message: response.message || '',
-          id: generateId(),
-        }]);
+      if (response.type === "answer") {
+        setMessages((prev) => [
+          ...prev,
+          { role: "ai", text: response.message || "", id: generateId() },
+        ]);
+      } else if (response.type === "confirmation") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "confirmation",
+            sessionId: response.sessionId,
+            message: response.message || "",
+            id: generateId(),
+          },
+        ]);
         setSessionId(response.sessionId);
-      } else if (response.type === 'clarify') {
-        setMessages((prev) => [...prev, {
-          role: 'clarify',
-          question: response.question || '',
-          options: response.options,
-          id: generateId(),
-        }]);
+      } else if (response.type === "clarify") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "clarify",
+            question: response.question || "",
+            options: response.options,
+            id: generateId(),
+          },
+        ]);
         setSessionId(response.sessionId);
-      } else if (response.type === 'error') {
-        setMessages((prev) => [...prev, { role: 'error', text: response.message || '', id: generateId() }]);
+      } else if (response.type === "error") {
+        setMessages((prev) => [
+          ...prev,
+          { role: "error", text: response.message || "", id: generateId() },
+        ]);
         setSessionId(response.sessionId);
-      } else if (response.type === 'success') {
-        setMessages((prev) => [...prev, { role: 'success', text: response.message || '', id: generateId() }]);
+      } else if (response.type === "success") {
+        setMessages((prev) => [
+          ...prev,
+          { role: "success", text: response.message || "", id: generateId() },
+        ]);
       }
     } catch {
-      setMessages((prev) => [...prev, { role: 'error', text: t('error'), id: generateId() }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "error", text: t("error"), id: generateId() },
+      ]);
     } finally {
       setSending(false);
     }
@@ -214,17 +258,32 @@ export function ChatFab() {
   const handleConfirm = async (confirm: boolean, msgSessionId: string) => {
     setSending(true);
     try {
-      const response: ChatMessageResponse = await sdk.chatbot.confirm(msgSessionId, confirm);
+      const response: ChatMessageResponse = await sdk.chatbot.confirm(
+        msgSessionId,
+        confirm,
+      );
 
-      if (response.type === 'success') {
-        setMessages((prev) => [...prev, { role: 'success', text: response.message || '', id: generateId() }]);
-      } else if (response.type === 'answer') {
-        setMessages((prev) => [...prev, { role: 'ai', text: response.message || '', id: generateId() }]);
-      } else if (response.type === 'error') {
-        setMessages((prev) => [...prev, { role: 'error', text: response.message || '', id: generateId() }]);
+      if (response.type === "success") {
+        setMessages((prev) => [
+          ...prev,
+          { role: "success", text: response.message || "", id: generateId() },
+        ]);
+      } else if (response.type === "answer") {
+        setMessages((prev) => [
+          ...prev,
+          { role: "ai", text: response.message || "", id: generateId() },
+        ]);
+      } else if (response.type === "error") {
+        setMessages((prev) => [
+          ...prev,
+          { role: "error", text: response.message || "", id: generateId() },
+        ]);
       }
     } catch {
-      setMessages((prev) => [...prev, { role: 'error', text: t('error'), id: generateId() }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "error", text: t("error"), id: generateId() },
+      ]);
     } finally {
       setSending(false);
     }
@@ -233,7 +292,7 @@ export function ChatFab() {
   const resetChat = () => {
     setMessages([]);
     setSessionId(generateId());
-    setInput('');
+    setInput("");
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
@@ -243,25 +302,31 @@ export function ChatFab() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend(input);
     }
-    if (e.key === 'Escape') handleClose();
+    if (e.key === "Escape") handleClose();
   };
 
   if (!enabled) return null;
 
   return (
     <>
-      {/* Floating action button — draggable */}
+      {/* Floating action button · draggable */}
       <button
         ref={fabRef}
-        onMouseDown={(e) => { e.preventDefault(); startDrag(e.clientX, e.clientY); }}
-        onTouchStart={(e) => { e.preventDefault(); startDrag(e.touches[0].clientX, e.touches[0].clientY); }}
-        className={`fixed z-50 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent-strong text-white shadow-lg shadow-primary/30 transition-all ${dragging ? 'scale-110 cursor-grabbing' : 'cursor-grab hover:scale-105'} active:scale-95 ${open ? 'rotate-90' : ''}`}
-        style={{ left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' }}
-        aria-label={t('title')}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          startDrag(e.clientX, e.clientY);
+        }}
+        onTouchStart={(e) => {
+          e.preventDefault();
+          startDrag(e.touches[0].clientX, e.touches[0].clientY);
+        }}
+        className={`fixed z-50 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent-strong text-white shadow-lg shadow-primary/30 transition-all ${dragging ? "scale-110 cursor-grabbing" : "cursor-grab hover:scale-105"} active:scale-95 ${open ? "rotate-90" : ""}`}
+        style={{ left: pos.x, top: pos.y, right: "auto", bottom: "auto" }}
+        aria-label={t("title")}
       >
         {open ? <X className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
         {!open && (
@@ -282,18 +347,25 @@ export function ChatFab() {
           <div
             ref={panelRef}
             className="fixed inset-0 z-50 flex flex-col bg-card sm:inset-auto sm:h-[440px] sm:max-h-[70vh] sm:w-[20rem] sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl"
-            style={window.innerWidth < 640 ? {} : {
-              left: Math.max(8, Math.min(pos.x - 256, window.innerWidth - 336)),
-              top: Math.max(8, pos.y - 460),
-              right: 'auto',
-              bottom: 'auto',
-            }}
+            style={
+              window.innerWidth < 640
+                ? {}
+                : {
+                    left: Math.max(
+                      8,
+                      Math.min(pos.x - 256, window.innerWidth - 336),
+                    ),
+                    top: Math.max(8, pos.y - 460),
+                    right: "auto",
+                    bottom: "auto",
+                  }
+            }
           >
             {/* Header */}
             <div className="flex items-center gap-2 rounded-t-none bg-gradient-to-r from-primary to-accent-strong px-3 py-2 text-white sm:rounded-t-2xl">
               <BotAvatar size="md" />
               <div className="min-w-0 flex-1">
-                <h2 className="truncate text-xs font-semibold">{t('title')}</h2>
+                <h2 className="truncate text-xs font-semibold">{t("title")}</h2>
                 <p className="flex items-center gap-1 text-[10px] text-white/80">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
                   Online
@@ -321,10 +393,10 @@ export function ChatFab() {
                 <div className="flex flex-col items-center px-1 py-4 text-center">
                   <BotAvatar size="md" />
                   <p className="mt-2 text-xs font-semibold text-foreground">
-                    {t('title')}
+                    {t("title")}
                   </p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    {t('helpIntro')}
+                    {t("helpIntro")}
                   </p>
                   <div className="mt-3 flex w-full flex-col gap-1.5">
                     {SUGGESTIONS.map((s) => (
@@ -341,7 +413,7 @@ export function ChatFab() {
               )}
 
               {messages.map((msg) => {
-                if (msg.role === 'user') {
+                if (msg.role === "user") {
                   return (
                     <div key={msg.id} className="flex justify-end">
                       <div className="max-w-[82%] whitespace-pre-wrap rounded-xl rounded-br-md bg-primary px-2.5 py-1.5 text-xs text-primary-foreground shadow-sm">
@@ -350,7 +422,7 @@ export function ChatFab() {
                     </div>
                   );
                 }
-                if (msg.role === 'ai') {
+                if (msg.role === "ai") {
                   return (
                     <div key={msg.id} className="flex items-end gap-1.5">
                       <BotAvatar />
@@ -360,7 +432,7 @@ export function ChatFab() {
                     </div>
                   );
                 }
-                if (msg.role === 'confirmation') {
+                if (msg.role === "confirmation") {
                   return (
                     <div key={msg.id} className="flex items-end gap-1.5">
                       <BotAvatar />
@@ -374,26 +446,28 @@ export function ChatFab() {
                             disabled={sending}
                             className="flex-1 rounded-lg bg-primary px-2 py-1.5 text-[11px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                           >
-                            {t('confirm')}
+                            {t("confirm")}
                           </button>
                           <button
                             onClick={() => handleConfirm(false, msg.sessionId)}
                             disabled={sending}
                             className="flex-1 rounded-lg border border-border bg-card px-2 py-1.5 text-[11px] font-semibold transition-colors hover:bg-accent disabled:opacity-50"
                           >
-                            {t('cancel')}
+                            {t("cancel")}
                           </button>
                         </div>
                       </div>
                     </div>
                   );
                 }
-                if (msg.role === 'clarify') {
+                if (msg.role === "clarify") {
                   return (
                     <div key={msg.id} className="flex items-end gap-1.5">
                       <BotAvatar />
                       <div className="w-full max-w-[88%] rounded-xl rounded-bl-md border border-border bg-card px-2.5 py-2.5 text-xs">
-                        <div className="mb-1.5 text-foreground"><ChatMarkdown>{msg.question}</ChatMarkdown></div>
+                        <div className="mb-1.5 text-foreground">
+                          <ChatMarkdown>{msg.question}</ChatMarkdown>
+                        </div>
                         {msg.options && msg.options.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {msg.options.map((opt) => (
@@ -411,7 +485,7 @@ export function ChatFab() {
                     </div>
                   );
                 }
-                if (msg.role === 'error') {
+                if (msg.role === "error") {
                   return (
                     <div key={msg.id} className="flex justify-center">
                       <div className="max-w-[90%] rounded-lg border border-destructive/20 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
@@ -457,7 +531,7 @@ export function ChatFab() {
                   value={input}
                   onChange={(e) => setInput(e.target.value.slice(0, 500))}
                   onKeyDown={handleKeyDown}
-                  placeholder={t('placeholder')}
+                  placeholder={t("placeholder")}
                   maxLength={500}
                   disabled={sending}
                   className="h-9 flex-1 rounded-full border border-border bg-background px-3 text-xs outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"

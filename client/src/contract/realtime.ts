@@ -3,33 +3,33 @@
  * Clients subscribe to these events; the backend emits them.
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
 // ── Event name constants ──────────────────────────────────────────────────────
 
 export const REALTIME_EVENTS = {
   // Connection
-  CONNECT: 'connect',
-  DISCONNECT: 'disconnect',
-  ERROR: 'error',
+  CONNECT: "connect",
+  DISCONNECT: "disconnect",
+  ERROR: "error",
 
   // Notifications (user-scoped room: `user:{userId}`)
-  NOTIFICATION_NEW: 'notification:new',
+  NOTIFICATION_NEW: "notification:new",
 
   // Messages (user-scoped room)
-  MESSAGE_NEW: 'message:new',
-  MESSAGE_READ: 'message:read',
+  MESSAGE_NEW: "message:new",
+  MESSAGE_READ: "message:read",
 
-  // Orders — Phase 2 (order-scoped room: `order:{orderId}`)
-  ORDER_STATUS_CHANGED: 'order:status_changed',
-  ORDER_ITEM_UPDATED: 'order:item_updated',
+  // Orders · Phase 2 (order-scoped room: `order:{orderId}`)
+  ORDER_STATUS_CHANGED: "order:status_changed",
+  ORDER_ITEM_UPDATED: "order:item_updated",
 
-  // Driver location — Phase 2 (order-scoped room)
-  DRIVER_LOCATION_UPDATED: 'driver:location_updated',
+  // Driver location · Phase 2 (order-scoped room)
+  DRIVER_LOCATION_UPDATED: "driver:location_updated",
 
   // Restaurant real-time (restaurant-scoped room: `restaurant:{restaurantId}`)
-  NEW_ORDER: 'restaurant:new_order',
-  ORDER_UPDATED: 'restaurant:order_updated',
+  NEW_ORDER: "restaurant:new_order",
+  ORDER_UPDATED: "restaurant:order_updated",
 } as const;
 
 export type RealtimeEventName =

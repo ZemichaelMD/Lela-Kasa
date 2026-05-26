@@ -28,7 +28,7 @@ export {
 export { AuthResource } from "./resources/auth";
 export type { VerificationStatus, ChannelVerification } from "./resources/auth";
 export { ShopsResource } from "./resources/shops";
-export type { Shop, UpdateShopDto } from "./resources/shops";
+export type { Shop, UpdateShopDto, Banner } from "./resources/shops";
 export { CustomersResource } from "./resources/customers";
 export type {
   Customer,
@@ -102,7 +102,7 @@ export type { TelegramLinkInfo } from "./resources/telegram";
 export type { ReminderResult } from "./resources/customers";
 
 /**
- * The main Lela Kasa SDK instance.
+ * The main LeLa Kasa SDK instance.
  * Create once and reuse across your app.
  *
  * @example

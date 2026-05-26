@@ -17,4 +17,13 @@ export const dashboard = {
   noRecentVoids: 'ምንም የቅርብ ጊዜ ስረዛዎች የሉም',
   belowThreshold: 'ከመጠን በታች',
   salesKpiNote: 'የሽያጭ መረጃዎች ለተመረጠው ጊዜ ናቸው። ጊዜውን ለመቀየር ከላይ ያለውን መምረጫ ይጠቀሙ።',
+  salesTrend: 'የሽያጭ አዝማሚያ',
+  orders: 'ትዕዛዞች',
+  revenue: 'ገቢ',
+  bottles: 'ጠርሙሶች',
+  boxes: 'ሳጥኖች',
+  customersWithCredit: 'ዕዳ ያለባቸው ደንበኞች',
+  stockLevel: 'የክምችት ደረጃ',
+  salesDate: 'የሽያጭ ቀን',
+  voidedAt: 'የተሰረዘበት',
 } as const;

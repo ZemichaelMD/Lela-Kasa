@@ -1,76 +1,79 @@
-/* @kasa/ui — shared design tokens & base styles (Tailwind v4).
+/* @kasa/ui · shared design tokens & base styles (Tailwind v4).
  *
- * A modern "Royal Indigo & Ink" theme.
- * Indigo primary with violet accent over a soft pearl canvas in light mode,
- * and a deep midnight-ink canvas with elevated surfaces in dark mode.
+ * A modern "Forest & Stone" theme.
+ * Deep emerald primary (#096136) over a clean, neutral canvas in light mode,
+ * and a deep charcoal-slate canvas with elevated surfaces in dark mode.
+ * Optimized for a tight, mobile-friendly aesthetic.
  */
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-    --background: #f7f7fb; /* Soft pearl canvas */
-    --foreground: #1e1b2e; /* Ink text */
+    --background: #fafaf9; /* Clean, natural off-white canvas */
+    --foreground: #1c1917; /* Deep stone text */
     --card: #ffffff; /* Pure white surface */
-    --card-foreground: #1e1b2e;
+    --card-foreground: #1c1917;
     --popover: #ffffff;
-    --popover-foreground: #1e1b2e;
-    --primary: #4f46e5; /* Royal Indigo */
+    --popover-foreground: #1c1917;
+    --primary: #096136; /* Brand Emerald */
     --primary-foreground: #ffffff;
-    --secondary: #eeedf6;
-    --secondary-foreground: #2e2a45;
-    --muted: #f0eff7;
-    --muted-foreground: #6b6786;
-    --accent: #efeefb; /* Soft violet tint */
-    --accent-foreground: #2e2a45;
-    --destructive: #e11d48; /* Rose danger */
+    --secondary: #f4f4f5; /* Clean neutral */
+    --secondary-foreground: #27272a;
+    --muted: #f4f4f5;
+    --muted-foreground: #71717a;
+    --accent: #eef2f0; /* Very subtle sage tint for hovers */
+    --accent-foreground: #096136;
+    --destructive: #ef4444; /* Standard clean red */
     --destructive-foreground: #ffffff;
-    --success: #16a34a;
+    --success: #10b981;
     --warning: #f59e0b;
-    --border: #e6e5f0;
-    --input: #e6e5f0;
-    --ring: #4f46e5;
-    --accent-strong: #8b5cf6; /* Violet accent */
+    --border: #e4e4e7;
+    --input: #e4e4e7;
+    --ring: #096136;
+    --accent-strong: #0d834a; /* Slightly brighter emerald for active states */
     --accent-strong-foreground: #ffffff;
-    --radius: 1rem; /* 16px radius for prominent floating cards */
 
-    /* brand scale — Royal Indigo palette */
-    --brand-50: #eef2ff;
-    --brand-100: #e0e7ff;
-    --brand-200: #c7d2fe;
-    --brand-300: #a5b4fc;
-    --brand-400: #818cf8;
-    --brand-500: #6366f1;
-    --brand-600: #4f46e5;
-    --brand-700: #4338ca;
-    --brand-800: #3730a3;
-    --brand-900: #312e81;
-    --brand-950: #1e1b4b;
+    /* Tighter radius for a crisp, mobile-friendly UI */
+    --radius: 0.75rem;
+
+    /* brand scale · Emerald palette centered around #096136 */
+    --brand-50: #f2fbf5;
+    --brand-100: #e0f6e8;
+    --brand-200: #c2ead2;
+    --brand-300: #91d7b3;
+    --brand-400: #5bbd90;
+    --brand-500: #349e6f;
+    --brand-600: #237e56;
+    --brand-700: #096136; /* Core Logo Color */
+    --brand-800: #174d32;
+    --brand-900: #143f2a;
+    --brand-950: #0b2418;
 }
 
 .dark {
-    --background: #14131f; /* Midnight ink canvas */
-    --foreground: #eceaf6; /* Soft off-white text */
-    --card: #1d1b2e; /* Elevated surface, lighter than bg */
-    --card-foreground: #eceaf6;
-    --popover: #1d1b2e;
-    --popover-foreground: #eceaf6;
-    --primary: #818cf8; /* Bright indigo for dark contrast */
-    --primary-foreground: #14131f;
-    --secondary: #262438;
-    --secondary-foreground: #eceaf6;
-    --muted: #232133;
-    --muted-foreground: #9d99b8;
-    --accent: #2a2741; /* Violet-tinted accent */
-    --accent-foreground: #eceaf6;
-    --destructive: #fb7185;
-    --destructive-foreground: #14131f;
-    --success: #4ade80;
+    --background: #111113; /* Deep natural charcoal */
+    --foreground: #ededed; /* Crisp off-white text */
+    --card: #18181b; /* Elevated dark surface */
+    --card-foreground: #ededed;
+    --popover: #18181b;
+    --popover-foreground: #ededed;
+    --primary: #349e6f; /* Lighter emerald for dark mode visibility */
+    --primary-foreground: #ffffff;
+    --secondary: #27272a;
+    --secondary-foreground: #ededed;
+    --muted: #27272a;
+    --muted-foreground: #a1a1aa;
+    --accent: #1f2924; /* Subtle dark green-tinted gray */
+    --accent-foreground: #ededed;
+    --destructive: #f87171;
+    --destructive-foreground: #111113;
+    --success: #34d399;
     --warning: #fbbf24;
-    --border: #2e2c42;
-    --input: #2e2c42;
-    --ring: #818cf8;
-    --accent-strong: #a78bfa; /* Brighter violet for dark mode */
-    --accent-strong-foreground: #14131f;
+    --border: #3f3f46;
+    --input: #3f3f46;
+    --ring: #349e6f;
+    --accent-strong: #5bbd90;
+    --accent-strong-foreground: #111113;
 }
 
 @theme inline {
@@ -110,8 +113,8 @@
     --color-brand-900: var(--brand-900);
     --color-brand-950: var(--brand-950);
 
-    --radius-sm: calc(var(--radius) - 8px);
-    --radius-md: calc(var(--radius) - 4px);
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
     --radius-lg: var(--radius);
     --radius-xl: calc(var(--radius) + 4px);
     --radius-2xl: calc(var(--radius) + 8px);
@@ -144,6 +147,6 @@
         text-rendering: optimizeLegibility;
     }
     ::selection {
-        background-color: color-mix(in oklab, var(--primary) 30%, transparent);
+        background-color: color-mix(in oklab, var(--primary) 20%, transparent);
     }
 }

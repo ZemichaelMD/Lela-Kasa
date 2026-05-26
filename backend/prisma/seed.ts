@@ -14,36 +14,36 @@ const prisma = new PrismaClient();
 
 // Inline permission registry for seeding (mirrors permissions.registry.ts)
 const PERMISSION_REGISTRY = [
-  { slug: 'sales:view', defaultGranted: true },
-  { slug: 'sales:create', defaultGranted: true },
-  { slug: 'sales:void', defaultGranted: false },
-  { slug: 'customers:view', defaultGranted: true },
-  { slug: 'customers:create', defaultGranted: true },
-  { slug: 'customers:edit', defaultGranted: false },
-  { slug: 'customers:delete', defaultGranted: false },
-  { slug: 'beverages:view', defaultGranted: true },
-  { slug: 'beverages:create', defaultGranted: false },
-  { slug: 'beverages:edit', defaultGranted: false },
-  { slug: 'beverages:delete', defaultGranted: false },
-  { slug: 'beverages:stock', defaultGranted: false },
-  { slug: 'price-tiers:view', defaultGranted: true },
-  { slug: 'price-tiers:create', defaultGranted: false },
-  { slug: 'price-tiers:edit', defaultGranted: false },
-  { slug: 'price-tiers:delete', defaultGranted: false },
-  { slug: 'payment-accounts:view', defaultGranted: true },
-  { slug: 'payment-accounts:create', defaultGranted: false },
-  { slug: 'payment-accounts:edit', defaultGranted: false },
-  { slug: 'payment-accounts:delete', defaultGranted: false },
-  { slug: 'payments:view', defaultGranted: true },
-  { slug: 'payments:record', defaultGranted: true },
-  { slug: 'payments:void', defaultGranted: false },
-  { slug: 'orders:view', defaultGranted: true },
-  { slug: 'orders:confirm', defaultGranted: true },
-  { slug: 'orders:reject', defaultGranted: false },
-  { slug: 'reports:view', defaultGranted: false },
-  { slug: 'settings:view', defaultGranted: false },
-  { slug: 'settings:edit', defaultGranted: false },
-  { slug: 'employees:view', defaultGranted: false },
+  { slug: "sales:view", defaultGranted: true },
+  { slug: "sales:create", defaultGranted: true },
+  { slug: "sales:void", defaultGranted: false },
+  { slug: "customers:view", defaultGranted: true },
+  { slug: "customers:create", defaultGranted: true },
+  { slug: "customers:edit", defaultGranted: false },
+  { slug: "customers:delete", defaultGranted: false },
+  { slug: "beverages:view", defaultGranted: true },
+  { slug: "beverages:create", defaultGranted: false },
+  { slug: "beverages:edit", defaultGranted: false },
+  { slug: "beverages:delete", defaultGranted: false },
+  { slug: "beverages:stock", defaultGranted: false },
+  { slug: "price-tiers:view", defaultGranted: true },
+  { slug: "price-tiers:create", defaultGranted: false },
+  { slug: "price-tiers:edit", defaultGranted: false },
+  { slug: "price-tiers:delete", defaultGranted: false },
+  { slug: "payment-accounts:view", defaultGranted: true },
+  { slug: "payment-accounts:create", defaultGranted: false },
+  { slug: "payment-accounts:edit", defaultGranted: false },
+  { slug: "payment-accounts:delete", defaultGranted: false },
+  { slug: "payments:view", defaultGranted: true },
+  { slug: "payments:record", defaultGranted: true },
+  { slug: "payments:void", defaultGranted: false },
+  { slug: "orders:view", defaultGranted: true },
+  { slug: "orders:confirm", defaultGranted: true },
+  { slug: "orders:reject", defaultGranted: false },
+  { slug: "reports:view", defaultGranted: false },
+  { slug: "settings:view", defaultGranted: false },
+  { slug: "settings:edit", defaultGranted: false },
+  { slug: "employees:view", defaultGranted: false },
 ];
 
 async function main() {
@@ -396,17 +396,23 @@ async function main() {
 
   // ── Subscription Plans ────────────────────────────────────────────────────
   const featuresStarter = JSON.stringify([
-    "Up to 5 employees", "Up to 100 customers",
-    "Basic sales tracking", "Payment recording",
+    "Up to 5 employees",
+    "Up to 100 customers",
+    "Basic sales tracking",
+    "Payment recording",
   ]);
   const featuresGrowth = JSON.stringify([
-    "Up to 15 employees", "Up to 500 customers",
-    "All Starter features", "Reports & analytics",
+    "Up to 15 employees",
+    "Up to 500 customers",
+    "All Starter features",
+    "Reports & analytics",
     "Customer orders portal",
   ]);
   const featuresBusiness = JSON.stringify([
-    "Unlimited employees", "Unlimited customers",
-    "All Growth features", "Priority support",
+    "Unlimited employees",
+    "Unlimited customers",
+    "All Growth features",
+    "Priority support",
     "Advanced reports",
   ]);
 
@@ -416,8 +422,8 @@ async function main() {
     create: {
       name: "Starter",
       description: "Perfect for small beverage shops getting started.",
-      monthlyPriceCents: 29900,   // 299 ETB
-      yearlyPriceCents: 299000,   // 2,990 ETB
+      monthlyPriceCents: 29900, // 299 ETB
+      yearlyPriceCents: 299000, // 2,990 ETB
       maxUsers: 5,
       maxCustomers: 100,
       features: featuresStarter,
@@ -433,9 +439,10 @@ async function main() {
     update: {},
     create: {
       name: "Growth",
-      description: "For growing shops that need more team members and insights.",
-      monthlyPriceCents: 59900,   // 599 ETB
-      yearlyPriceCents: 599000,   // 5,990 ETB
+      description:
+        "For growing shops that need more team members and insights.",
+      monthlyPriceCents: 59900, // 599 ETB
+      yearlyPriceCents: 599000, // 5,990 ETB
       maxUsers: 15,
       maxCustomers: 500,
       features: featuresGrowth,
@@ -452,8 +459,8 @@ async function main() {
     create: {
       name: "Business",
       description: "For established shops that need unlimited everything.",
-      monthlyPriceCents: 119900,  // 1,199 ETB
-      yearlyPriceCents: 1199000,  // 11,990 ETB
+      monthlyPriceCents: 119900, // 1,199 ETB
+      yearlyPriceCents: 1199000, // 11,990 ETB
       maxUsers: -1,
       maxCustomers: -1,
       features: featuresBusiness,
@@ -471,7 +478,8 @@ async function main() {
     create: {
       name: "CBE Bank Transfer",
       kind: "MANUAL",
-      instructions: "Transfer to: CBE Account 1000012345678\nAccount Name: Lela Kasa Tech\nAfter transfer, enter the transaction reference below.",
+      instructions:
+        "Transfer to: CBE Account 1000012345678\nAccount Name: LeLa Kasa Tech\nAfter transfer, enter the transaction reference below.",
       sortOrder: 1,
       isActive: true,
     },
@@ -483,7 +491,8 @@ async function main() {
     create: {
       name: "Telebirr Mobile Money",
       kind: "MANUAL",
-      instructions: "Send to Telebirr: 0911 000 000\nAccount Name: Lela Kasa\nTake a screenshot of the confirmation and enter the reference.",
+      instructions:
+        "Send to Telebirr: 0911 000 000\nAccount Name: LeLa Kasa\nTake a screenshot of the confirmation and enter the reference.",
       sortOrder: 2,
       isActive: true,
     },

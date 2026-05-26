@@ -195,7 +195,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
               <div className="px-3 py-2 text-xs text-muted-foreground">
                 Signed in as
                 <span className="block truncate font-medium text-foreground">
-                  {user?.email ?? "—"}
+                  {user?.email ?? "·"}
                 </span>
                 <span className="mt-0.5 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
                   {user?.role ?? "USER"}

@@ -1,9 +1,9 @@
 /**
- * API path constants — single source of truth for all endpoint paths.
+ * API path constants · single source of truth for all endpoint paths.
  * Use these in both the backend (route decorators) and the SDK (fetch URLs).
  */
 
-export const API_VERSION = 'v1' as const;
+export const API_VERSION = "v1" as const;
 export const API_BASE = `/api/${API_VERSION}` as const;
 
 export const PATHS = {
@@ -61,7 +61,8 @@ export const PATHS = {
     list: `${API_BASE}/restaurants`,
     create: `${API_BASE}/restaurants`,
     byId: (id: number) => `${API_BASE}/restaurants/${id}`,
-    bySlugOrId: (slugOrId: string | number) => `${API_BASE}/restaurants/${slugOrId}`,
+    bySlugOrId: (slugOrId: string | number) =>
+      `${API_BASE}/restaurants/${slugOrId}`,
     mine: `${API_BASE}/restaurants/mine`,
     update: (id: number) => `${API_BASE}/restaurants/${id}`,
     delete: (id: number) => `${API_BASE}/restaurants/${id}`,
@@ -91,22 +92,28 @@ export const PATHS = {
 
   // Menu
   menuSections: {
-    list: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/menu-sections`,
-    create: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/menu-sections`,
+    list: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/menu-sections`,
+    create: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/menu-sections`,
     byId: (restaurantId: number, id: string) =>
       `${API_BASE}/restaurants/${restaurantId}/menu-sections/${id}`,
   },
   menuItems: {
-    list: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/menu-items`,
-    listAll: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/menu-items/all`,
-    create: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/menu-items`,
+    list: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/menu-items`,
+    listAll: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/menu-items/all`,
+    create: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/menu-items`,
     byId: (restaurantId: number, id: number) =>
       `${API_BASE}/restaurants/${restaurantId}/menu-items/${id}`,
     approve: (id: number) => `${API_BASE}/menu-items/${id}/approve`,
     reject: (id: number) => `${API_BASE}/menu-items/${id}/reject`,
   },
   modifierGroups: {
-    list: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/modifier-groups`,
+    list: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/modifier-groups`,
     create: (restaurantId: number) =>
       `${API_BASE}/restaurants/${restaurantId}/modifier-groups`,
     byId: (restaurantId: number, id: string) =>
@@ -171,9 +178,12 @@ export const PATHS = {
 
   // Reviews
   restaurantReviews: {
-    list: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/reviews`,
-    create: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/reviews`,
-    summary: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/reviews/summary`,
+    list: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/reviews`,
+    create: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/reviews`,
+    summary: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/reviews/summary`,
     byId: (restaurantId: number, id: string) =>
       `${API_BASE}/restaurants/${restaurantId}/reviews/${id}`,
     reply: (restaurantId: number, id: string) =>
@@ -184,9 +194,12 @@ export const PATHS = {
       `${API_BASE}/restaurants/${restaurantId}/reviews/${id}/report`,
   },
   menuItemReviews: {
-    list: (menuItemId: number) => `${API_BASE}/menu-items/${menuItemId}/reviews`,
-    create: (menuItemId: number) => `${API_BASE}/menu-items/${menuItemId}/reviews`,
-    summary: (menuItemId: number) => `${API_BASE}/menu-items/${menuItemId}/reviews/summary`,
+    list: (menuItemId: number) =>
+      `${API_BASE}/menu-items/${menuItemId}/reviews`,
+    create: (menuItemId: number) =>
+      `${API_BASE}/menu-items/${menuItemId}/reviews`,
+    summary: (menuItemId: number) =>
+      `${API_BASE}/menu-items/${menuItemId}/reviews/summary`,
     byId: (menuItemId: number, id: string) =>
       `${API_BASE}/menu-items/${menuItemId}/reviews/${id}`,
     reply: (menuItemId: number, id: string) =>
@@ -202,7 +215,8 @@ export const PATHS = {
     list: `${API_BASE}/admin/reviews`,
     byId: (id: string) => `${API_BASE}/admin/reviews/${id}`,
     moderate: (id: string) => `${API_BASE}/admin/reviews/${id}/moderate`,
-    moderateMenuItem: (id: string) => `${API_BASE}/admin/reviews/menu-item/${id}/moderate`,
+    moderateMenuItem: (id: string) =>
+      `${API_BASE}/admin/reviews/menu-item/${id}/moderate`,
     bulkModerate: `${API_BASE}/admin/reviews/bulk-moderate`,
     stats: `${API_BASE}/admin/reviews/stats`,
   },
@@ -212,8 +226,10 @@ export const PATHS = {
     restaurants: `${API_BASE}/users/me/bookmarks/restaurants`,
     menuItems: `${API_BASE}/users/me/bookmarks/menu-items`,
     status: `${API_BASE}/users/me/bookmarks/status`,
-    toggleRestaurant: (id: number) => `${API_BASE}/users/me/bookmarks/restaurants/${id}`,
-    toggleMenuItem: (id: number) => `${API_BASE}/users/me/bookmarks/menu-items/${id}`,
+    toggleRestaurant: (id: number) =>
+      `${API_BASE}/users/me/bookmarks/restaurants/${id}`,
+    toggleMenuItem: (id: number) =>
+      `${API_BASE}/users/me/bookmarks/menu-items/${id}`,
   },
 
   // Collections
@@ -222,8 +238,10 @@ export const PATHS = {
     create: `${API_BASE}/users/me/collections`,
     byId: (id: string) => `${API_BASE}/users/me/collections/${id}`,
     items: (id: string) => `${API_BASE}/users/me/collections/${id}/items`,
-    item: (id: string, itemId: string) => `${API_BASE}/users/me/collections/${id}/items/${itemId}`,
-    reorder: (id: string) => `${API_BASE}/users/me/collections/${id}/items/reorder`,
+    item: (id: string, itemId: string) =>
+      `${API_BASE}/users/me/collections/${id}/items/${itemId}`,
+    reorder: (id: string) =>
+      `${API_BASE}/users/me/collections/${id}/items/reorder`,
     public: (id: string) => `${API_BASE}/collections/${id}`,
   },
 
@@ -297,7 +315,8 @@ export const PATHS = {
     mine: `${API_BASE}/owner-requests/mine`,
     withdraw: (id: string) => `${API_BASE}/owner-requests/${id}`,
     adminList: `${API_BASE}/admin/owner-requests`,
-    adminReview: (id: string) => `${API_BASE}/admin/owner-requests/${id}/review`,
+    adminReview: (id: string) =>
+      `${API_BASE}/admin/owner-requests/${id}/review`,
   },
 
   // AI assistant
@@ -305,7 +324,7 @@ export const PATHS = {
     chat: `${API_BASE}/ai/chat`,
   },
 
-  // Orders (Phase 2 — behind feature flag)
+  // Orders (Phase 2 · behind feature flag)
   orders: {
     list: `${API_BASE}/orders`,
     create: `${API_BASE}/orders`,
@@ -326,9 +345,12 @@ export const PATHS = {
 
   // Restaurant order endpoints (staff/owner)
   restaurantOrders: {
-    board: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/orders/board`,
-    kitchen: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/orders/kitchen`,
-    reports: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/orders/reports`,
+    board: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/orders/board`,
+    kitchen: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/orders/kitchen`,
+    reports: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/orders/reports`,
   },
 
   // Admin order management
@@ -339,10 +361,14 @@ export const PATHS = {
 
   // Delivery zones & fee tiers
   delivery: {
-    zones: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/delivery/zones`,
-    zone: (restaurantId: number, zoneId: string) => `${API_BASE}/restaurants/${restaurantId}/delivery/zones/${zoneId}`,
-    feeTiers: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/delivery/fee-tiers`,
-    settings: (restaurantId: number) => `${API_BASE}/restaurants/${restaurantId}/delivery/settings`,
+    zones: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/delivery/zones`,
+    zone: (restaurantId: number, zoneId: string) =>
+      `${API_BASE}/restaurants/${restaurantId}/delivery/zones/${zoneId}`,
+    feeTiers: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/delivery/fee-tiers`,
+    settings: (restaurantId: number) =>
+      `${API_BASE}/restaurants/${restaurantId}/delivery/settings`,
     quote: `${API_BASE}/delivery/quote`,
   },
 
@@ -364,8 +390,10 @@ export const PATHS = {
     list: `${API_BASE}/admin/drivers`,
     byId: (userId: string) => `${API_BASE}/admin/drivers/${userId}`,
     verify: (userId: string) => `${API_BASE}/admin/drivers/${userId}/verify`,
-    forceStatus: (userId: string) => `${API_BASE}/admin/drivers/${userId}/force-status`,
-    runPayout: (userId: string) => `${API_BASE}/admin/drivers/${userId}/payouts/run`,
+    forceStatus: (userId: string) =>
+      `${API_BASE}/admin/drivers/${userId}/force-status`,
+    runPayout: (userId: string) =>
+      `${API_BASE}/admin/drivers/${userId}/payouts/run`,
     payouts: `${API_BASE}/admin/drivers/payouts`,
   },
 
@@ -378,12 +406,14 @@ export const PATHS = {
   // Admin payouts (restaurant side)
   adminPayouts: {
     restaurants: `${API_BASE}/admin/payouts/restaurants`,
-    restaurantById: (id: string) => `${API_BASE}/admin/payouts/restaurants/${id}`,
-    runRestaurant: (id: string) => `${API_BASE}/admin/payouts/restaurants/${id}/run`,
+    restaurantById: (id: string) =>
+      `${API_BASE}/admin/payouts/restaurants/${id}`,
+    runRestaurant: (id: string) =>
+      `${API_BASE}/admin/payouts/restaurants/${id}/run`,
     driversList: `${API_BASE}/admin/payouts/drivers`,
   },
 
-  // Billing — owner endpoints
+  // Billing · owner endpoints
   billing: {
     plans: `${API_BASE}/billing/plans`,
     mySubscription: `${API_BASE}/billing/me/subscription`,
@@ -405,7 +435,7 @@ export const PATHS = {
     chapaWebhook: `${API_BASE}/billing/chapa/webhook`,
   },
 
-  // Billing — admin endpoints
+  // Billing · admin endpoints
   adminBilling: {
     overview: `${API_BASE}/admin/billing/overview`,
     // Features
@@ -414,8 +444,7 @@ export const PATHS = {
     // Plans
     plans: `${API_BASE}/admin/billing/plans`,
     plan: (id: string) => `${API_BASE}/admin/billing/plans/${id}`,
-    planPrices: (id: string) =>
-      `${API_BASE}/admin/billing/plans/${id}/prices`,
+    planPrices: (id: string) => `${API_BASE}/admin/billing/plans/${id}/prices`,
     planPrice: (id: string, priceId: string) =>
       `${API_BASE}/admin/billing/plans/${id}/prices/${priceId}`,
     planFeatures: (id: string) =>
@@ -425,7 +454,8 @@ export const PATHS = {
     coupon: (id: string) => `${API_BASE}/admin/billing/coupons/${id}`,
     // Subscriptions
     subscriptions: `${API_BASE}/admin/billing/subscriptions`,
-    subscription: (id: string) => `${API_BASE}/admin/billing/subscriptions/${id}`,
+    subscription: (id: string) =>
+      `${API_BASE}/admin/billing/subscriptions/${id}`,
     adminSubPause: (id: string) =>
       `${API_BASE}/admin/billing/subscriptions/${id}/pause`,
     adminSubResume: (id: string) =>
@@ -439,8 +469,7 @@ export const PATHS = {
     invoice: (id: string) => `${API_BASE}/admin/billing/invoices/${id}`,
     invoiceVoid: (id: string) =>
       `${API_BASE}/admin/billing/invoices/${id}/void`,
-    invoicePdf: (id: string) =>
-      `${API_BASE}/admin/billing/invoices/${id}/pdf`,
+    invoicePdf: (id: string) => `${API_BASE}/admin/billing/invoices/${id}/pdf`,
     invoiceRegenPdf: (id: string) =>
       `${API_BASE}/admin/billing/invoices/${id}/regenerate-pdf`,
     // Refund requests

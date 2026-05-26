@@ -1,6 +1,6 @@
-# Lela Kasa
+# LeLa Kasa
 
-A modern beverage sales management application for Ethiopian shop owners and their employees. Track customers, beverage sales (by the box and bottle), credit/debt, container returns, and payments across multiple accounts — all in one place.
+A modern beverage sales management application for Ethiopian shop owners and their employees. Track customers, beverage sales (by the box and bottle), credit/debt, container returns, and payments across multiple accounts · all in one place.
 
 ## Tech Stack
 
@@ -21,24 +21,24 @@ A modern beverage sales management application for Ethiopian shop owners and the
 
 ## Features
 
-- **Interactive Sales Table** — core feature. Create multi-line sales with customer selection, beverages (boxes/bottles), price tiers, payment method, payment account, and container return tracking. Supports draft (OPEN) and CONFIRMED statuses, voiding with reason, editing, and duplication.
-- **Dashboard & KPIs** — time-period-selectable KPIs: total sales, outstanding credit, containers out, low stock alerts. Top customers, top beverages, recent voids.
+- **Interactive Sales Table** · core feature. Create multi-line sales with customer selection, beverages (boxes/bottles), price tiers, payment method, payment account, and container return tracking. Supports draft (OPEN) and CONFIRMED statuses, voiding with reason, editing, and duplication.
+- **Dashboard & KPIs** · time-period-selectable KPIs: total sales, outstanding credit, containers out, low stock alerts. Top customers, top beverages, recent voids.
 - **CRUD Master Data Management**
-  - **Customers** — name, phone, credit balance, container tracking, price tier lock, full ledger.
-  - **Beverages** — name, brand, bottles-per-box, stock tracking, active/inactive.
-  - **Price Tiers** — multi-tier pricing per beverage with price-per-box and price-per-bottle, history preserved.
-  - **Payment Accounts** — named accounts (e.g., "Cash - Dagim", "CBE Bereket").
-  - **Employees** — invite, manage, assign granular permissions (e.g., `sales:view`, `sales:create`, `sales:void`).
-- **RBAC** — Owner and Employee roles. Owners have full access; employees have permission slugs gating UI and routes.
-- **Authentication** — email/password login, JWT access + refresh token flow, auto-refresh, forgot/reset password, shop owner registration.
-- **Customer Portal** — separate customer login for self-service order placement.
-- **Subscription & Billing** — subscription management with Chapa (Ethiopian payment processor) integration and a payment wall.
-- **Internationalization** — English and Amharic locales with 17 translation modules covering all pages.
-- **Ethiopian Calendar** — Ethiopian date input component with conversion utilities and Amharic month names.
-- **Reporting & Export** — report generation page and CSV export for sales data.
-- **AI Chatbot** — floating chat assistant in the app shell.
-- **Dark Mode** — "Royal Indigo & Ink" theme with light/dark variants.
-- **Responsive Design** — mobile-first, works on phones and tablets.
+  - **Customers** · name, phone, credit balance, container tracking, price tier lock, full ledger.
+  - **Beverages** · name, brand, bottles-per-box, stock tracking, active/inactive.
+  - **Price Tiers** · multi-tier pricing per beverage with price-per-box and price-per-bottle, history preserved.
+  - **Payment Accounts** · named accounts (e.g., "Cash - Dagim", "CBE Bereket").
+  - **Employees** · invite, manage, assign granular permissions (e.g., `sales:view`, `sales:create`, `sales:void`).
+- **RBAC** · Owner and Employee roles. Owners have full access; employees have permission slugs gating UI and routes.
+- **Authentication** · email/password login, JWT access + refresh token flow, auto-refresh, forgot/reset password, shop owner registration.
+- **Customer Portal** · separate customer login for self-service order placement.
+- **Subscription & Billing** · subscription management with Chapa (Ethiopian payment processor) integration and a payment wall.
+- **Internationalization** · English and Amharic locales with 17 translation modules covering all pages.
+- **Ethiopian Calendar** · Ethiopian date input component with conversion utilities and Amharic month names.
+- **Reporting & Export** · report generation page and CSV export for sales data.
+- **AI Chatbot** · floating chat assistant in the app shell.
+- **Dark Mode** · "Royal Indigo & Ink" theme with light/dark variants.
+- **Responsive Design** · mobile-first, works on phones and tablets.
 
 ## Getting Started
 
@@ -66,7 +66,7 @@ cp .env.example .env
 |---|---|---|---|
 | `VITE_API_URL` | Yes | `http://localhost:3001` | Backend API base URL |
 | `VITE_WS_URL` | Yes | `http://localhost:3001` | WebSocket URL |
-| `VITE_ADMIN_ACCESS_TOKEN` | No | — | Dev-time bootstrap token for testing without login |
+| `VITE_ADMIN_ACCESS_TOKEN` | No | · | Dev-time bootstrap token for testing without login |
 
 ### Development
 
@@ -165,7 +165,7 @@ client/
 
 ## Design Theme
 
-"Royal Indigo & Ink" — indigo primary with violet accent on a soft pearl canvas (light mode) and deep midnight-ink canvas (dark mode). All CSS custom properties are defined in `src/ui/styles/theme.css` and exposed as Tailwind v4 theme tokens.
+"Royal Indigo & Ink" · indigo primary with violet accent on a soft pearl canvas (light mode) and deep midnight-ink canvas (dark mode). All CSS custom properties are defined in `src/ui/styles/theme.css` and exposed as Tailwind v4 theme tokens.
 
 ## License
 

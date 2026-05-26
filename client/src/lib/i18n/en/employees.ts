@@ -58,4 +58,27 @@ export const employees = {
   username: 'Username',
   notSet: 'Not set',
   view: 'View',
+
+  // Password strength checks
+  pwMinChars: 'Min. 8 characters',
+  pwContainsLowercase: 'Contains lowercase',
+  pwContainsUppercase: 'Contains uppercase',
+  pwContainsNumber: 'Contains number',
+  pwContainsSymbol: 'Contains symbol',
+  pwMinClasses: 'At least 3 of: lowercase, uppercase, numbers, symbols',
+
+  // Password validation errors
+  pwErrorMinLength: 'Password must be at least 8 characters',
+  pwErrorMaxLength: 'Password must be at most 128 characters',
+  pwErrorMinClasses: 'Use at least 3 of: lowercase, uppercase, numbers, symbols',
+  pwErrorRequired: 'New password is required',
+  pwResetSuccess: 'Password reset. Employee sessions revoked.',
+  pwResetFailed: 'Failed to reset password',
+  contactRequired: 'Either email or phone is required',
+  pwRequired: 'Password is required',
+
+  // Reset password section
+  resetPassword: 'Reset Password',
+  resetPasswordDesc: 'Set a new password. Active sessions will be revoked.',
+  resetting: 'Resetting...',
 } as const;

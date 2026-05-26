@@ -25,6 +25,6 @@ export const billing = {
   bank: "ባንክ",
   mobileMoney: "የሞባይል ገንዘብ",
   other: "ሌላ",
-  activeClickToDeactivate: "ንቁ — ለማቦዘን ይጫኑ",
-  inactiveClickToActivate: "ያልነቃ — ለማንቀሳቀስ ይጫኑ",
+  activeClickToDeactivate: "ንቁ · ለማቦዘን ይጫኑ",
+  inactiveClickToActivate: "ያልነቃ · ለማንቀሳቀስ ይጫኑ",
 } as const;

@@ -374,7 +374,7 @@ export default function SettingsPage() {
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">
                     {t('phoneLabel')}
                   </p>
-                  <p className="text-sm font-medium">{account.phone || '—'}</p>
+                  <p className="text-sm font-medium">{account.phone || '·'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -464,7 +464,7 @@ export default function SettingsPage() {
               onChange={(e) => setDefaultPriceTierId(e.target.value)}
               className={inputClass}
             >
-              <option value="">— {t('none')} —</option>
+              <option value="">· {t('none')} ·</option>
               {tiers.map((t_tier) => (
                 <option key={t_tier.id} value={t_tier.id}>
                   {t_tier.name} ({t_tier.kind})

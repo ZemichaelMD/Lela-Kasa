@@ -1,6 +1,6 @@
 /**
  * @kasa/database — re-exports Prisma client and all model/enum types
- * for the Lela Kasa beverage shop platform.
+ * for the LeLa Kasa beverage shop platform.
  * Import from the local `src/database` module instead of the generated path directly.
  */
 

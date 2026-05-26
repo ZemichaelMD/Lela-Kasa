@@ -40,8 +40,13 @@ import { useI18n } from "@/lib/i18n";
 
 type TabId = "activity" | "sales" | "payments" | "returns";
 
-const PAYMENT_METHODS = ['CASH', 'BANK_TRANSFER', 'MOBILE_MONEY', 'OTHER'] as const;
-type PaymentMethod = typeof PAYMENT_METHODS[number];
+const PAYMENT_METHODS = [
+  "CASH",
+  "BANK_TRANSFER",
+  "MOBILE_MONEY",
+  "OTHER",
+] as const;
+type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 function getTodayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -50,7 +55,6 @@ function getFirstOfMonthStr() {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
 }
-
 
 // ─── Widget card ──────────────────────────────────────────────────────────────
 
@@ -259,7 +263,7 @@ function PaymentModal({
 }) {
   const { t } = useI18n();
   const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState<PaymentMethod>('CASH');
+  const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -289,10 +293,10 @@ function PaymentModal({
     "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40";
 
   const methodLabels: Record<PaymentMethod, string> = {
-    CASH: 'Cash',
-    BANK_TRANSFER: 'Bank Transfer',
-    MOBILE_MONEY: 'Mobile Money',
-    OTHER: 'Other',
+    CASH: "Cash",
+    BANK_TRANSFER: "Bank Transfer",
+    MOBILE_MONEY: "Mobile Money",
+    OTHER: "Other",
   };
 
   return (
@@ -303,12 +307,14 @@ function PaymentModal({
         className="relative w-full max-w-sm rounded-xl bg-card p-6 shadow-xl space-y-4"
       >
         <h3 className="text-base font-semibold">
-          {t("recordPayment")} — {customer.name}
+          {t("recordPayment")} · {customer.name}
         </h3>
 
         {customer.creditBalanceCents > 0 && (
           <div className="rounded-lg bg-destructive/10 px-3.5 py-3">
-            <p className="text-xs font-medium text-destructive uppercase tracking-wide">{t("creditBalance")}</p>
+            <p className="text-xs font-medium text-destructive uppercase tracking-wide">
+              {t("creditBalance")}
+            </p>
             <p className="text-lg font-bold tabular-nums text-destructive">
               {formatMoneyCents(customer.creditBalanceCents)}
             </p>
@@ -330,9 +336,16 @@ function PaymentModal({
         </div>
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Payment Method</label>
-          <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} required className={ic}>
+          <select
+            value={method}
+            onChange={(e) => setMethod(e.target.value as PaymentMethod)}
+            required
+            className={ic}
+          >
             {PAYMENT_METHODS.map((m) => (
-              <option key={m} value={m}>{methodLabels[m]}</option>
+              <option key={m} value={m}>
+                {methodLabels[m]}
+              </option>
             ))}
           </select>
         </div>
@@ -435,18 +448,24 @@ function ReturnModal({
         className="relative w-full max-w-sm rounded-xl bg-card p-6 shadow-xl space-y-4"
       >
         <h3 className="text-base font-semibold">
-          {t("recordReturn")} — {customer.name}
+          {t("recordReturn")} · {customer.name}
         </h3>
 
         {(customer.outstandingBoxes > 0 || customer.outstandingBottles > 0) && (
           <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 px-3.5 py-3 space-y-1">
-            <p className="text-xs font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wide">{t("pendingBoxes")} / {t("pendingBottles")}</p>
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+              {t("pendingBoxes")} / {t("pendingBottles")}
+            </p>
             <div className="flex gap-4 text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-400">
               {customer.outstandingBoxes > 0 && (
-                <span>{customer.outstandingBoxes} {t("fullBoxes")}</span>
+                <span>
+                  {customer.outstandingBoxes} {t("fullBoxes")}
+                </span>
               )}
               {customer.outstandingBottles > 0 && (
-                <span>{customer.outstandingBottles} {t("extraBottles")}</span>
+                <span>
+                  {customer.outstandingBottles} {t("extraBottles")}
+                </span>
               )}
             </div>
           </div>
@@ -465,7 +484,9 @@ function ReturnModal({
               placeholder="0"
             />
             {boxesError && (
-              <p className="text-xs text-destructive">{t("returnExceedsBoxes")}</p>
+              <p className="text-xs text-destructive">
+                {t("returnExceedsBoxes")}
+              </p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -480,7 +501,9 @@ function ReturnModal({
               placeholder="0"
             />
             {bottlesError && (
-              <p className="text-xs text-destructive">{t("returnExceedsBottles")}</p>
+              <p className="text-xs text-destructive">
+                {t("returnExceedsBottles")}
+              </p>
             )}
           </div>
         </div>
@@ -530,14 +553,19 @@ function EditCustomerModal({
   const [username, setUsername] = useState((customer as any).username ?? "");
   const [portalPin, setPortalPin] = useState("");
   const [tierId, setTierId] = useState(customer.priceTierId ?? "");
-  const [tierLocked, setTierLocked] = useState(customer.priceTierLocked ?? false);
+  const [tierLocked, setTierLocked] = useState(
+    customer.priceTierLocked ?? false,
+  );
   const [tiers, setTiers] = useState<PriceTier[]>([]);
   const [saving, setSaving] = useState(false);
 
   const pinReadOnly = (customer as any).passwordChangedAt != null;
 
   useEffect(() => {
-    sdk.priceTiers.list().then(setTiers).catch(() => {});
+    sdk.priceTiers
+      .list()
+      .then(setTiers)
+      .catch(() => {});
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -558,7 +586,8 @@ function EditCustomerModal({
 
       if (portalPin.trim() && !pinReadOnly) {
         await sdk.customers.setCredentials(customer.id, {
-          username: username.trim() || name.trim().toLowerCase().replace(/\s+/g, "_"),
+          username:
+            username.trim() || name.trim().toLowerCase().replace(/\s+/g, "_"),
           pin: portalPin.trim(),
         });
         toast.success(t("customerUpdated") + " & portal PIN set");
@@ -616,37 +645,75 @@ function EditCustomerModal({
           />
         </div>
         <div className="border-t border-border pt-3 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("priceTier")}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {t("priceTier")}
+          </p>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t("defaultPriceTier")}</label>
-            <select value={tierId} onChange={(e) => setTierId(e.target.value)} className={ic}>
-              <option value="">— {t("none")} —</option>
+            <label className="text-sm font-medium">
+              {t("defaultPriceTier")}
+            </label>
+            <select
+              value={tierId}
+              onChange={(e) => setTierId(e.target.value)}
+              className={ic}
+            >
+              <option value="">· {t("none")} ·</option>
               {tiers.map((tier) => (
-                <option key={tier.id} value={tier.id}>{tier.name} ({tier.kind.toLowerCase()})</option>
+                <option key={tier.id} value={tier.id}>
+                  {tier.name} ({tier.kind.toLowerCase()})
+                </option>
               ))}
             </select>
-            <p className="text-xs text-muted-foreground">Auto-filled on new sales for this customer</p>
+            <p className="text-xs text-muted-foreground">
+              Auto-filled on new sales for this customer
+            </p>
           </div>
           <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" checked={tierLocked} onChange={(e) => setTierLocked(e.target.checked)} className="rounded border-border h-4 w-4" />
-            <span className="text-sm">Lock price tier (employees can't change it on sale)</span>
+            <input
+              type="checkbox"
+              checked={tierLocked}
+              onChange={(e) => setTierLocked(e.target.checked)}
+              className="rounded border-border h-4 w-4"
+            />
+            <span className="text-sm">
+              Lock price tier (employees can't change it on sale)
+            </span>
           </label>
         </div>
 
-          <div className="border-t border-border pt-3 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Customer Portal Access</p>
+        <div className="border-t border-border pt-3 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Customer Portal Access
+          </p>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Username</label>
-            <input value={username} onChange={e => setUsername(e.target.value)} className={ic} placeholder="Auto-generated from name if empty" />
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className={ic}
+              placeholder="Auto-generated from name if empty"
+            />
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Portal PIN</label>
-            <input value={portalPin} onChange={e => setPortalPin(e.target.value)} type="password" maxLength={10}
+            <input
+              value={portalPin}
+              onChange={(e) => setPortalPin(e.target.value)}
+              type="password"
+              maxLength={10}
               disabled={pinReadOnly}
               className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-50 disabled:cursor-not-allowed"
-              placeholder={pinReadOnly ? "Customer has changed their PIN" : "Set a numeric PIN for customer login"} />
+              placeholder={
+                pinReadOnly
+                  ? "Customer has changed their PIN"
+                  : "Set a numeric PIN for customer login"
+              }
+            />
             {pinReadOnly && (
-              <p className="text-xs text-muted-foreground">Customer has changed their PIN — only they can change it from the portal.</p>
+              <p className="text-xs text-muted-foreground">
+                Customer has changed their PIN · only they can change it from
+                the portal.
+              </p>
             )}
           </div>
         </div>
@@ -685,6 +752,7 @@ function PaymentDetailModal({
   onVoided: () => void;
 }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [voiding, setVoiding] = useState(false);
   const [showVoidForm, setShowVoidForm] = useState(false);
   const [voidReason, setVoidReason] = useState("");
@@ -731,27 +799,37 @@ function PaymentDetailModal({
         <div className="rounded-lg border border-border divide-y divide-border">
           <div className="flex justify-between px-3 py-2.5">
             <span className="text-sm text-muted-foreground">{t("amount")}</span>
-            <span className={`text-sm font-semibold tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-success"}`}>
+            <span
+              className={`text-sm font-semibold tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-success"}`}
+            >
               {formatMoneyCents(payment.data.amountCents)}
             </span>
           </div>
           <div className="flex justify-between px-3 py-2.5">
             <span className="text-sm text-muted-foreground">{t("method")}</span>
-            <span className="text-sm font-medium">{payment.data.method.replace(/_/g, " ")}</span>
+            <span className="text-sm font-medium">
+              {payment.data.method.replace(/_/g, " ")}
+            </span>
           </div>
           {account && (
             <div className="flex justify-between px-3 py-2.5">
-              <span className="text-sm text-muted-foreground">{t("paymentAccounts")}</span>
+              <span className="text-sm text-muted-foreground">
+                {t("paymentAccounts")}
+              </span>
               <span className="text-sm font-medium">{account.name}</span>
             </div>
           )}
           <div className="flex justify-between px-3 py-2.5">
             <span className="text-sm text-muted-foreground">{t("date")}</span>
-            <span className="text-sm">{new Date(payment.data.paidAt).toLocaleString()}</span>
+            <span className="text-sm">
+              {new Date(payment.data.paidAt).toLocaleString()}
+            </span>
           </div>
           {payment.data.reference && (
             <div className="flex justify-between px-3 py-2.5">
-              <span className="text-sm text-muted-foreground">{t("reference")}</span>
+              <span className="text-sm text-muted-foreground">
+                {t("reference")}
+              </span>
               <span className="text-sm">{payment.data.reference}</span>
             </div>
           )}
@@ -769,19 +847,35 @@ function PaymentDetailModal({
           </div>
         </div>
 
-        {canVoid && !showVoidForm && (
-          <button
-            type="button"
-            onClick={() => setShowVoidForm(true)}
-            className="w-full rounded-lg border border-destructive px-4 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            {t("voidPayment")}
-          </button>
-        )}
+        <div className="flex flex-col gap-2">
+          {payment.data.saleId && (
+            <button
+              type="button"
+              onClick={() => {
+                navigate(`/sales/${payment.data.saleId!}`);
+              }}
+              className="w-full rounded-lg border border-success px-4 py-2.5 text-sm font-medium text-success hover:bg-success/10 transition-colors  inline-flex items-center justify-center gap-2"
+            >
+              <Eye className="h-4 w-4" />
+              {t("viewSale")}
+            </button>
+          )}
+          {canVoid && !showVoidForm && (
+            <button
+              type="button"
+              onClick={() => setShowVoidForm(true)}
+              className="w-full rounded-lg border border-destructive px-4 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              {t("voidPayment")}
+            </button>
+          )}
+        </div>
 
         {canVoid && showVoidForm && (
           <div className="space-y-3 rounded-lg bg-destructive/5 border border-destructive/20 p-3">
-            <p className="text-sm font-medium text-destructive">{t("confirmVoidPayment")}</p>
+            <p className="text-sm font-medium text-destructive">
+              {t("confirmVoidPayment")}
+            </p>
             <input
               value={voidReason}
               onChange={(e) => setVoidReason(e.target.value)}
@@ -792,7 +886,10 @@ function PaymentDetailModal({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => { setShowVoidForm(false); setVoidReason(""); }}
+                onClick={() => {
+                  setShowVoidForm(false);
+                  setVoidReason("");
+                }}
                 className="flex-1 rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent"
               >
                 {t("cancel")}
@@ -852,25 +949,6 @@ function ActivityList({
       ? entries
       : entries.filter((e) => e.type === typeFilter);
 
-  function formatDateTime(iso: string, locale_?: string): string {
-    try {
-      const d = new Date(iso);
-      const date = d.toLocaleDateString(locale_ ?? 'en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
-      const time = d.toLocaleTimeString(locale_ ?? 'en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      });
-      return `${date} · ${time}`;
-    } catch {
-      return iso;
-    }
-  }
-
   return (
     <div className="space-y-4">
       {/* Type filter chips */}
@@ -896,131 +974,178 @@ function ActivityList({
           {t("noActivity")}
         </p>
       ) : (
-      <div className="space-y-3">
-      {displayEntries.map((entry) => {
-        const isSale = entry.type === "sale";
-        const isPayment = entry.type === "payment";
-        const isReturn = entry.type === "return";
+        <div className="space-y-3">
+          {displayEntries.map((entry) => {
+            const isSale = entry.type === "sale";
+            const isPayment = entry.type === "payment";
+            const isReturn = entry.type === "return";
 
-        let Icon = Package;
-        let toneClass = "bg-muted text-muted-foreground";
-        if (isSale) { Icon = Banknote; toneClass = "bg-primary/10 text-primary"; }
-        if (isPayment) { Icon = Coins; toneClass = "bg-success/15 text-success"; }
-        if (isReturn) {
-          Icon = RotateCcw;
-          toneClass = "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-500";
-        }
+            let Icon = Package;
+            let toneClass = "bg-muted text-muted-foreground";
+            if (isSale) {
+              Icon = Banknote;
+              toneClass = "bg-primary/10 text-primary";
+            }
+            if (isPayment) {
+              Icon = Coins;
+              toneClass = "bg-success/15 text-success";
+            }
+            if (isReturn) {
+              Icon = RotateCcw;
+              toneClass =
+                "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-500";
+            }
 
-        const saleEntry = isSale ? (entry as LedgerSaleEntry) : null;
-        const payEntry = isPayment ? (entry as LedgerPaymentEntry) : null;
-        const retEntry = isReturn ? (entry as LedgerReturnEntry) : null;
+            const saleEntry = isSale ? (entry as LedgerSaleEntry) : null;
+            const payEntry = isPayment ? (entry as LedgerPaymentEntry) : null;
+            const retEntry = isReturn ? (entry as LedgerReturnEntry) : null;
 
-        const isSaleVoided = saleEntry?.data.status === "VOIDED";
-        const isPaymentVoided = payEntry?.data.voidedAt;
-        const isVoided = isSaleVoided || isPaymentVoided;
+            const isSaleVoided = saleEntry?.data.status === "VOIDED";
+            const isPaymentVoided = payEntry?.data.voidedAt;
+            const isVoided = isSaleVoided || isPaymentVoided;
 
-        const headlineCents = saleEntry
-          ? saleEntry.data.creditDeltaCents
-          : payEntry?.data.amountCents;
-        const notes = saleEntry?.data.notes ?? payEntry?.data.notes ?? retEntry?.data.notes;
+            const headlineCents = saleEntry
+              ? saleEntry.data.creditDeltaCents
+              : payEntry?.data.amountCents;
+            const notes =
+              saleEntry?.data.notes ??
+              payEntry?.data.notes ??
+              retEntry?.data.notes;
 
-        const handleClick = isSale && saleEntry ? () => navigate(`/sales/${saleEntry.data.id}`) : undefined;
-        const isClickable = !!handleClick;
+            const handleClick =
+              isSale && saleEntry
+                ? () => navigate(`/sales/${saleEntry.data.id}`)
+                : undefined;
+            const isClickable = !!handleClick;
 
-        return (
-          <div
-            key={`${entry.type}-${isSale ? saleEntry?.data.id : isPayment ? payEntry?.data.id : retEntry?.data.id}`}
-            onClick={handleClick}
-            className={`rounded-xl border border-border bg-card p-4 transition-colors ${isClickable ? "cursor-pointer hover:bg-accent/50 hover:border-primary/40" : "hover:bg-accent/30"} ${isVoided ? "bg-muted/20 opacity-60" : ""}`}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3 flex-1">
-                <div className={`rounded-lg p-2 mt-0.5 ${toneClass}`}>
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">
-                    {isSale ? t("sales") : isPayment ? t("payments") : t("returns")}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {formatDateTime(entry.date, locale)}
-                  </p>
-                  {saleEntry && (
-                    <div className="mt-2 text-xs space-y-1">
-                      {saleEntry.data.lines && saleEntry.data.lines.length > 0 && (
-                        <div className="text-foreground">
-                          {t("itemsSold")}: {saleEntry.data.lines.length} {saleEntry.data.lines.length === 1 ? t("item") : t("items")}
+            return (
+              <div
+                key={`${entry.type}-${isSale ? saleEntry?.data.id : isPayment ? payEntry?.data.id : retEntry?.data.id}`}
+                onClick={handleClick}
+                className={`rounded-xl border border-border bg-card p-4 transition-colors ${isClickable ? "cursor-pointer hover:bg-accent/50 hover:border-primary/40" : "hover:bg-accent/30"} ${isVoided ? "bg-muted/20 opacity-60" : ""}`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className={`rounded-lg p-2 mt-0.5 ${toneClass}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">
+                        {isSale
+                          ? t("sales")
+                          : isPayment
+                            ? t("payments")
+                            : t("returns")}
+                      </p>
+                      <FormattedDate
+                        iso={entry.date}
+                        showTime={true}
+                        className="text-xs text-muted-foreground mt-0.5"
+                      />
+                      {saleEntry && (
+                        <div className="mt-2 text-xs space-y-1">
+                          {saleEntry.data.lines &&
+                            saleEntry.data.lines.length > 0 && (
+                              <div className="text-foreground">
+                                {t("itemsSold")}: {saleEntry.data.lines.length}{" "}
+                                {saleEntry.data.lines.length === 1
+                                  ? t("item")
+                                  : t("items")}
+                              </div>
+                            )}
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground">
+                            <span>
+                              {t("total")}:{" "}
+                              <span className="tabular-nums text-foreground">
+                                {formatMoneyCents(saleEntry.data.subtotalCents)}
+                              </span>
+                            </span>
+                            <span>
+                              {t("paid")}:{" "}
+                              <span className="tabular-nums text-success">
+                                {formatMoneyCents(saleEntry.data.paidCents)}
+                              </span>
+                            </span>
+                            <span>
+                              {t("credit")}:{" "}
+                              <span className="tabular-nums text-destructive">
+                                {formatMoneyCents(
+                                  saleEntry.data.creditDeltaCents,
+                                )}
+                              </span>
+                            </span>
+                          </div>
+                          <div className="text-muted-foreground">
+                            {t("status")}: {saleEntry.data.status}
+                          </div>
                         </div>
                       )}
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground">
-                        <span>
-                          {t("total")}:{" "}
-                          <span className="tabular-nums text-foreground">{formatMoneyCents(saleEntry.data.subtotalCents)}</span>
-                        </span>
-                        <span>
-                          {t("paid")}:{" "}
-                          <span className="tabular-nums text-success">{formatMoneyCents(saleEntry.data.paidCents)}</span>
-                        </span>
-                        <span>
-                          {t("credit")}:{" "}
-                          <span className="tabular-nums text-destructive">{formatMoneyCents(saleEntry.data.creditDeltaCents)}</span>
-                        </span>
-                      </div>
-                      <div className="text-muted-foreground">
-                        {t("status")}: {saleEntry.data.status}
-                      </div>
+                      {payEntry && (
+                        <div className="mt-2">
+                          <StatusChip
+                            label={
+                              payEntry.data.voidedAt ? t("voided") : t("active")
+                            }
+                            tone={
+                              payEntry.data.voidedAt ? "neutral" : "success"
+                            }
+                          />
+                        </div>
+                      )}
+                      {notes && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {notes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-end justify-between gap-4 mt-2">
+                  {headlineCents !== undefined && (
+                    <div className="text-right">
+                      <p
+                        className={`text-sm font-semibold tabular-nums ${
+                          isVoided
+                            ? "text-muted-foreground line-through"
+                            : isSale
+                              ? headlineCents > 0
+                                ? "text-destructive"
+                                : "text-muted-foreground"
+                              : "text-success"
+                        }`}
+                      >
+                        {isSale
+                          ? headlineCents > 0
+                            ? `−${formatMoneyCents(headlineCents)}`
+                            : formatMoneyCents(headlineCents)
+                          : `+${formatMoneyCents(headlineCents)}`}
+                      </p>
+                      {isSale && (
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-0.5">
+                          {t("creditFromSale")}
+                        </p>
+                      )}
                     </div>
                   )}
-                  {payEntry && (
-                    <div className="mt-2">
-                      <StatusChip
-                        label={payEntry.data.voidedAt ? t("voided") : t("active")}
-                        tone={payEntry.data.voidedAt ? "neutral" : "success"}
-                      />
+                  {isReturn && retEntry && (
+                    <div className="text-right text-xs text-muted-foreground tabular-nums">
+                      {retEntry.data.boxes > 0 && (
+                        <div>
+                          {retEntry.data.boxes} {t("boxes")}
+                        </div>
+                      )}
+                      {retEntry.data.bottles > 0 && (
+                        <div>
+                          {retEntry.data.bottles} {t("bottles")}
+                        </div>
+                      )}
                     </div>
                   )}
-                  {notes && <p className="text-xs text-muted-foreground mt-1">{notes}</p>}
                 </div>
               </div>
-            </div>
-            <div className="flex items-end justify-between gap-4 mt-2">
-              {headlineCents !== undefined && (
-                <div className="text-right">
-                  <p
-                    className={`text-sm font-semibold tabular-nums ${
-                      isVoided
-                        ? "text-muted-foreground line-through"
-                        : isSale
-                          ? headlineCents > 0
-                            ? "text-destructive"
-                            : "text-muted-foreground"
-                          : "text-success"
-                    }`}
-                  >
-                    {isSale
-                      ? headlineCents > 0
-                        ? `−${formatMoneyCents(headlineCents)}`
-                        : formatMoneyCents(headlineCents)
-                      : `+${formatMoneyCents(headlineCents)}`}
-                  </p>
-                  {isSale && (
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-0.5">
-                      {t("creditFromSale")}
-                    </p>
-                  )}
-                </div>
-              )}
-              {isReturn && retEntry && (
-                <div className="text-right text-xs text-muted-foreground tabular-nums">
-                  {retEntry.data.boxes > 0 && <div>{retEntry.data.boxes} {t("boxes")}</div>}
-                  {retEntry.data.bottles > 0 && <div>{retEntry.data.bottles} {t("bottles")}</div>}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-      </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -1029,9 +1154,11 @@ function ActivityList({
 function SalesList({
   sales,
   locale,
+  onSaleClick,
 }: {
   sales: LedgerSaleEntry[];
   locale?: string;
+  onSaleClick: (saleId: string) => void;
 }) {
   const { t } = useI18n();
   if (sales.length === 0)
@@ -1056,17 +1183,35 @@ function SalesList({
           {sales.map((s) => {
             const isVoided = s.data.status === "VOIDED";
             return (
-              <tr key={s.data.id} className={`hover:bg-accent/30 ${isVoided ? "bg-muted/20 opacity-60" : ""}`}>
+              <tr
+                key={s.data.id}
+                onClick={() => onSaleClick(s.data.id)}
+                className={`cursor-pointer hover:bg-accent/30 ${isVoided ? "bg-muted/20 opacity-60" : ""}`}
+              >
                 <td className="px-4 py-3 font-medium">
-                  <FormattedDate iso={s.date} />
+                  <span className="text-xs text-muted-foreground block">
+                    <FormattedDate iso={s.date} />
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/60">
+                    {new Date(s.date).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
                 </td>
-                <td className={`px-4 py-3 tabular-nums ${isVoided ? "text-muted-foreground line-through" : ""}`}>
+                <td
+                  className={`px-4 py-3 tabular-nums ${isVoided ? "text-muted-foreground line-through" : ""}`}
+                >
                   {formatMoneyCents(s.data.subtotalCents)}
                 </td>
-                <td className={`px-4 py-3 tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-success"}`}>
+                <td
+                  className={`px-4 py-3 tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-success"}`}
+                >
                   {formatMoneyCents(s.data.paidCents)}
                 </td>
-                <td className={`px-4 py-3 tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-destructive"}`}>
+                <td
+                  className={`px-4 py-3 tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-destructive"}`}
+                >
                   {formatMoneyCents(s.data.creditDeltaCents)}
                 </td>
                 <td className="px-4 py-3">
@@ -1116,6 +1261,7 @@ function PaymentsList({
         <tbody className="divide-y divide-border">
           {payments.map((p) => {
             const isVoided = !!p.data.voidedAt;
+            const isSaleLinked = !!p.data.saleId;
             return (
               <tr
                 key={p.data.id}
@@ -1123,13 +1269,31 @@ function PaymentsList({
                 className={`cursor-pointer hover:bg-accent/50 ${isVoided ? "bg-muted/20 opacity-60" : ""}`}
               >
                 <td className="px-4 py-3 font-medium">
-                  <FormattedDate iso={p.date} />
+                  <span className="text-xs text-muted-foreground block">
+                    <FormattedDate iso={p.date} />
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/60">
+                    {new Date(p.date).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
                 </td>
-                <td className={`px-4 py-3 font-semibold tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-success"}`}>
+                <td
+                  className={`px-4 py-3 font-semibold tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-success"}`}
+                >
                   {formatMoneyCents(p.data.amountCents)}
                 </td>
-                <td className="px-4 py-3 text-muted-foreground text-xs">
-                  {p.data.method.replace(/_/g, " ")}
+                <td className="px-4 py-3">
+                  <span className="text-xs text-muted-foreground">
+                    {p.data.method.replace(/_/g, " ")}
+                  </span>
+                  {isSaleLinked && (
+                    <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                      <ShoppingCart className="h-2.5 w-2.5" />
+                      Sale
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <StatusChip
@@ -1137,8 +1301,8 @@ function PaymentsList({
                     tone={isVoided ? "neutral" : "success"}
                   />
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {p.data.notes ?? "—"}
+                <td className="px-4 py-3 text-muted-foreground text-xs">
+                  {p.data.notes ?? "·"}
                 </td>
               </tr>
             );
@@ -1152,14 +1316,186 @@ function PaymentsList({
   );
 }
 
+function SaleDetailModal({
+  saleId,
+  date,
+  subtotalCents,
+  paidCents,
+  creditDeltaCents,
+  onClose,
+}: {
+  saleId: string;
+  date: string;
+  subtotalCents: number;
+  paidCents: number;
+  creditDeltaCents: number;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-xl bg-card p-6 shadow-xl space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold">{t("sales")}</h3>
+          <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-xs font-medium text-success">
+            <ShoppingCart className="h-3 w-3" />
+            {t("active")}
+          </span>
+        </div>
+        <div className="rounded-lg border border-border divide-y divide-border">
+          <div className="flex justify-between px-3 py-2.5">
+            <span className="text-sm text-muted-foreground">{t("date")}</span>
+            <span className="text-sm">
+              <FormattedDate iso={date} />
+            </span>
+          </div>
+          <div className="flex justify-between px-3 py-2.5">
+            <span className="text-sm text-muted-foreground">{t("total")}</span>
+            <span className="text-sm font-semibold tabular-nums">
+              {formatMoneyCents(subtotalCents)}
+            </span>
+          </div>
+          <div className="flex justify-between px-3 py-2.5">
+            <span className="text-sm text-muted-foreground">{t("paid")}</span>
+            <span className="text-sm font-semibold text-success tabular-nums">
+              {formatMoneyCents(paidCents)}
+            </span>
+          </div>
+          <div className="flex justify-between px-3 py-2.5">
+            <span className="text-sm text-muted-foreground">{t("credit")}</span>
+            <span
+              className={`text-sm font-semibold tabular-nums ${creditDeltaCents > 0 ? "text-destructive" : ""}`}
+            >
+              {formatMoneyCents(creditDeltaCents)}
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            navigate(`/sales/${saleId}`);
+          }}
+          className="w-full rounded-lg border border-success px-4 py-2.5 text-sm font-medium text-success hover:bg-success/10 transition-colors  inline-flex items-center justify-center gap-2"
+        >
+          <Eye className="h-4 w-4" />
+          {t("viewSale")}
+        </button>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent"
+          >
+            {t("close")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SaleReturnDetailModal({
+  saleId,
+  boxes,
+  bottles,
+  date,
+  onClose,
+}: {
+  saleId: string;
+  boxes: number;
+  bottles: number;
+  date: string;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-xl bg-card p-6 shadow-xl space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold">{t("returnedOnSale")}</h3>
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <ShoppingCart className="h-3 w-3" />
+            Sale
+          </span>
+        </div>
+        <div className="rounded-lg border border-border divide-y divide-border">
+          <div className="flex justify-between px-3 py-2.5">
+            <span className="text-sm text-muted-foreground">{t("date")}</span>
+            <span className="text-sm">
+              <FormattedDate iso={date} showTime={true} />
+            </span>
+          </div>
+          <div className="flex justify-between px-3 py-2.5">
+            <span className="text-sm text-muted-foreground">
+              {t("fullBoxes")}
+            </span>
+            <span className="text-sm font-semibold tabular-nums">{boxes}</span>
+          </div>
+          <div className="flex justify-between px-3 py-2.5">
+            <span className="text-sm text-muted-foreground">
+              {t("extraBottles")}
+            </span>
+            <span className="text-sm font-semibold tabular-nums">
+              {bottles}
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            navigate(`/sales/${saleId}`);
+          }}
+          className="w-full rounded-lg border border-success px-4 py-2.5 text-sm font-medium text-success hover:bg-success/10 transition-colors  inline-flex items-center justify-center gap-2"
+        >
+          <Eye className="h-4 w-4" />
+          {t("viewSale")}
+        </button>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent"
+          >
+            {t("close")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ReturnRow {
+  id: string;
+  date: string;
+  type: "standalone" | "sale";
+  boxes: number;
+  bottles: number;
+  notes: string | null | undefined;
+  saleId?: string;
+}
+
 function ReturnsList({
   returns,
   locale,
+  onSaleClick,
 }: {
-  returns: LedgerReturnEntry[];
+  returns: ReturnRow[];
   locale?: string;
+  onSaleClick: (
+    saleId: string,
+    boxes: number,
+    bottles: number,
+    date: string,
+  ) => void;
 }) {
   const { t } = useI18n();
+
   if (returns.length === 0)
     return (
       <p className="py-12 text-center text-sm text-muted-foreground">
@@ -1178,18 +1514,46 @@ function ReturnsList({
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {returns.map((r) => (
-            <tr key={r.data.id} className="hover:bg-accent/30">
-              <td className="px-4 py-3 font-medium">
-                <FormattedDate iso={r.date} />
-              </td>
-              <td className="px-4 py-3 tabular-nums">{r.data.boxes}</td>
-              <td className="px-4 py-3 tabular-nums">{r.data.bottles}</td>
-              <td className="px-4 py-3 text-muted-foreground">
-                {r.data.notes ?? "—"}
-              </td>
-            </tr>
-          ))}
+          {returns.map((r) => {
+            const isSale = r.type === "sale";
+            return (
+              <tr
+                key={r.id}
+                onClick={
+                  isSale
+                    ? () => onSaleClick(r.saleId!, r.boxes, r.bottles, r.date)
+                    : undefined
+                }
+                className={`${isSale ? "cursor-pointer" : ""} hover:bg-accent/30`}
+              >
+                <td className="px-4 py-3 font-medium">
+                  <span className="text-xs text-muted-foreground block">
+                    <FormattedDate iso={r.date} />
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/60">
+                    {new Date(r.date).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </td>
+                <td className="px-4 py-3 tabular-nums">{r.boxes}</td>
+                <td className="px-4 py-3 tabular-nums">{r.bottles}</td>
+                <td className="px-4 py-3">
+                  {isSale ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      <ShoppingCart className="h-3 w-3" />
+                      {t("returnedOnSale")}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {r.notes ?? "·"}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -1200,7 +1564,7 @@ function ReturnsList({
 
 export default function CustomerDetailPage() {
   const { t, lang } = useI18n();
-  const locale = lang === 'am' ? 'am-ET' : 'en-US';
+  const locale = lang === "am" ? "am-ET" : "en-US";
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -1214,7 +1578,15 @@ export default function CustomerDetailPage() {
   const [payOpen, setPayOpen] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<LedgerPaymentEntry | null>(null);
+  const [selectedPayment, setSelectedPayment] =
+    useState<LedgerPaymentEntry | null>(null);
+  const [selectedReturnSale, setSelectedReturnSale] = useState<{
+    saleId: string;
+    boxes: number;
+    bottles: number;
+    date: string;
+  } | null>(null);
+  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [showVoided, setShowVoided] = useState(false);
 
   const [dateFrom, setDateFrom] = useState(getFirstOfMonthStr);
@@ -1257,9 +1629,7 @@ export default function CustomerDetailPage() {
       else if (res.success) toast.success(res.message);
       else toast.error(res.message);
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : t("reminderFailed"),
-      );
+      toast.error(e instanceof Error ? e.message : t("reminderFailed"));
     } finally {
       setReminding(false);
     }
@@ -1273,7 +1643,9 @@ export default function CustomerDetailPage() {
         toast.error(t("telegramNotConfigured"));
         return;
       }
-      await navigator.clipboard?.writeText(info.deepLink).catch(() => undefined);
+      await navigator.clipboard
+        ?.writeText(info.deepLink)
+        .catch(() => undefined);
       window.open(info.deepLink, "_blank", "noopener");
       toast.success(t("telegramLinkCopied"));
     } catch (e) {
@@ -1290,12 +1662,19 @@ export default function CustomerDetailPage() {
       const d = new Date(e.date);
       if (d < from || d > to) return false;
       if (!showVoided) {
-        if (e.type === "sale" && (e as LedgerSaleEntry).data.status === "VOIDED") return false;
-        if (e.type === "payment" && (e as LedgerPaymentEntry).data.voidedAt) return false;
+        if (
+          e.type === "sale" &&
+          (e as LedgerSaleEntry).data.status === "VOIDED"
+        )
+          return false;
+        if (e.type === "payment" && (e as LedgerPaymentEntry).data.voidedAt)
+          return false;
       }
       return true;
     });
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return filtered.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
   }, [ledger, dateFrom, dateTo, showVoided]);
 
   const sales = useMemo(
@@ -1303,21 +1682,54 @@ export default function CustomerDetailPage() {
     [filteredLedger],
   );
   const payments = useMemo(
-    () => filteredLedger.filter((e) => e.type === "payment") as LedgerPaymentEntry[],
+    () =>
+      filteredLedger.filter(
+        (e) => e.type === "payment",
+      ) as LedgerPaymentEntry[],
     [filteredLedger],
   );
-  const returns = useMemo(
-    () => filteredLedger.filter((e) => e.type === "return") as LedgerReturnEntry[],
-    [filteredLedger],
-  );
+  const returns = useMemo(() => {
+    const rows: ReturnRow[] = [];
+    for (const e of filteredLedger) {
+      if (e.type === "return") {
+        const r = e as LedgerReturnEntry;
+        rows.push({
+          id: r.data.id,
+          date: r.date,
+          type: "standalone",
+          boxes: r.data.boxes,
+          bottles: r.data.bottles,
+          notes: r.data.notes,
+        });
+      } else if (e.type === "sale") {
+        const s = e as LedgerSaleEntry;
+        if (
+          s.data.boxesReturnedOnSale > 0 ||
+          s.data.bottlesReturnedOnSale > 0
+        ) {
+          rows.push({
+            id: `sale-${s.data.id}`,
+            date: s.date,
+            type: "sale",
+            boxes: s.data.boxesReturnedOnSale,
+            bottles: s.data.bottlesReturnedOnSale,
+            notes: null,
+            saleId: s.data.id,
+          });
+        }
+      }
+    }
+    return rows;
+  }, [filteredLedger]);
 
-  // Activity feed excludes payments tied to a sale — their amount is already
+  // Activity feed excludes payments tied to a sale · their amount is already
   // reflected in that sale's credit (subtotal − paid). Showing them separately
   // would double-count against the running balance.
   const activityEntries = useMemo(
     () =>
       filteredLedger.filter(
-        (e) => e.type !== "payment" || (e as LedgerPaymentEntry).data.saleId == null,
+        (e) =>
+          e.type !== "payment" || (e as LedgerPaymentEntry).data.saleId == null,
       ),
     [filteredLedger],
   );
@@ -1379,59 +1791,63 @@ export default function CustomerDetailPage() {
         actions={
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <PermissionGate permission="customers:edit">
-            <button
-              type="button"
-              onClick={() => setSmsOpen(true)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent sm:justify-start"
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">{t("sendSms")}</span>
-              <span className="sm:hidden">{t("sms")}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setSmsOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent sm:justify-start"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span className="hidden sm:inline">{t("sendSms")}</span>
+                <span className="sm:hidden">{t("sms")}</span>
+              </button>
             </PermissionGate>
             <PermissionGate permission="customers:edit">
-            <button
-              type="button"
-              onClick={() => setEditOpen(true)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent sm:justify-start"
-            >
-              <Pencil className="h-4 w-4" />
-              <span className="hidden sm:inline">{t("editCustomer")}</span>
-              <span className="sm:hidden">{t("edit")}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent sm:justify-start"
+              >
+                <Pencil className="h-4 w-4" />
+                <span className="hidden sm:inline">{t("editCustomer")}</span>
+                <span className="sm:hidden">{t("edit")}</span>
+              </button>
             </PermissionGate>
             <PermissionGate permission="customers:edit">
-            <button
-              type="button"
-              onClick={() => setReturnOpen(true)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent sm:justify-start"
-            >
-              <RotateCcw className="h-4 w-4" />
-              <span className="hidden sm:inline">{t("newReturn")}</span>
-              <span className="sm:hidden">{t("return")}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setReturnOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent sm:justify-start"
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span className="hidden sm:inline">{t("newReturn")}</span>
+                <span className="sm:hidden">{t("return")}</span>
+              </button>
             </PermissionGate>
             <PermissionGate permission="sales:create">
-            <button
-              type="button"
-              onClick={() => navigate(`/sales?customerId=${customer.id}&customerName=${encodeURIComponent(customer.name)}`)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 sm:justify-start"
-            >
-              <ShoppingCart className="h-4 w-4" />
-              <span className="hidden sm:inline">{t("newSale")}</span>
-              <span className="sm:hidden">{t("sale")}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    `/sales?customerId=${customer.id}&customerName=${encodeURIComponent(customer.name)}`,
+                  )
+                }
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 sm:justify-start"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                <span className="hidden sm:inline">{t("newSale")}</span>
+                <span className="sm:hidden">{t("sale")}</span>
+              </button>
             </PermissionGate>
             <PermissionGate permission="payments:record">
-            <button
-              type="button"
-              onClick={() => setPayOpen(true)}
-              className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 sm:w-auto sm:justify-start"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">{t("newPayment")}</span>
-              <span className="sm:hidden">{t("pay")}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setPayOpen(true)}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 sm:w-auto sm:justify-start"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">{t("newPayment")}</span>
+                <span className="sm:hidden">{t("pay")}</span>
+              </button>
             </PermissionGate>
           </div>
         }
@@ -1477,16 +1893,32 @@ export default function CustomerDetailPage() {
           label={t("boxesOut")}
           value={customer.outstandingBoxes.toLocaleString()}
           tone={customer.outstandingBoxes > 0 ? "warning" : "default"}
-          onClick={customer.outstandingBoxes > 0 ? () => setReturnOpen(true) : undefined}
-          actionLabel={customer.outstandingBoxes > 0 ? (t("clickToReturn") as string) : undefined}
+          onClick={
+            customer.outstandingBoxes > 0
+              ? () => setReturnOpen(true)
+              : undefined
+          }
+          actionLabel={
+            customer.outstandingBoxes > 0
+              ? (t("clickToReturn") as string)
+              : undefined
+          }
         />
         <Widget
           icon={Wine}
           label={t("bottlesOut")}
           value={customer.outstandingBottles.toLocaleString()}
           tone={customer.outstandingBottles > 0 ? "warning" : "default"}
-          onClick={customer.outstandingBottles > 0 ? () => setReturnOpen(true) : undefined}
-          actionLabel={customer.outstandingBottles > 0 ? (t("clickToReturn") as string) : undefined}
+          onClick={
+            customer.outstandingBottles > 0
+              ? () => setReturnOpen(true)
+              : undefined
+          }
+          actionLabel={
+            customer.outstandingBottles > 0
+              ? (t("clickToReturn") as string)
+              : undefined
+          }
         />
       </div>
 
@@ -1526,7 +1958,8 @@ export default function CustomerDetailPage() {
           ) : (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive">
               <AlertTriangle className="h-3.5 w-3.5" />
-              {t("balanceMismatch")} ({formatMoneyCents(customer.creditBalanceCents)})
+              {t("balanceMismatch")} (
+              {formatMoneyCents(customer.creditBalanceCents)})
             </span>
           )}
         </div>
@@ -1534,7 +1967,9 @@ export default function CustomerDetailPage() {
 
       {/* Date filter + voided toggle */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-        <span className="text-sm font-medium text-muted-foreground">{t("filterByDate")}</span>
+        <span className="text-sm font-medium text-muted-foreground">
+          {t("filterByDate")}
+        </span>
         <div className="flex items-center gap-2">
           <label className="text-xs text-muted-foreground">{t("from")}</label>
           <EthiopianDateInput value={dateFrom} onChange={setDateFrom} />
@@ -1545,7 +1980,10 @@ export default function CustomerDetailPage() {
         </div>
         <button
           type="button"
-          onClick={() => { setDateFrom(getFirstOfMonthStr()); setDateTo(getTodayStr()); }}
+          onClick={() => {
+            setDateFrom(getFirstOfMonthStr());
+            setDateTo(getTodayStr());
+          }}
           className="text-xs text-primary hover:underline"
         >
           {t("thisMonth")}
@@ -1559,7 +1997,11 @@ export default function CustomerDetailPage() {
               : "border-border text-muted-foreground hover:bg-accent"
           }`}
         >
-          {showVoided ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          {showVoided ? (
+            <Eye className="h-3.5 w-3.5" />
+          ) : (
+            <EyeOff className="h-3.5 w-3.5" />
+          )}
           {t("showVoided")}
         </button>
       </div>
@@ -1594,7 +2036,13 @@ export default function CustomerDetailPage() {
           {activeTab === "activity" && (
             <ActivityList entries={activityEntries} locale={locale} />
           )}
-          {activeTab === "sales" && <SalesList sales={sales} locale={locale} />}
+          {activeTab === "sales" && (
+            <SalesList
+              sales={sales}
+              locale={locale}
+              onSaleClick={(id) => setSelectedSaleId(id)}
+            />
+          )}
           {activeTab === "payments" && (
             <PaymentsList
               payments={payments}
@@ -1603,7 +2051,13 @@ export default function CustomerDetailPage() {
             />
           )}
           {activeTab === "returns" && (
-            <ReturnsList returns={returns} locale={locale} />
+            <ReturnsList
+              returns={returns}
+              locale={locale}
+              onSaleClick={(saleId, boxes, bottles, date) =>
+                setSelectedReturnSale({ saleId, boxes, bottles, date })
+              }
+            />
           )}
         </div>
       </Card>
@@ -1653,6 +2107,32 @@ export default function CustomerDetailPage() {
           }}
         />
       )}
+      {selectedReturnSale && (
+        <SaleReturnDetailModal
+          saleId={selectedReturnSale.saleId}
+          boxes={selectedReturnSale.boxes}
+          bottles={selectedReturnSale.bottles}
+          date={selectedReturnSale.date}
+          onClose={() => setSelectedReturnSale(null)}
+        />
+      )}
+      {selectedSaleId &&
+        (() => {
+          const sale = (sales as LedgerSaleEntry[]).find(
+            (s) => s.data.id === selectedSaleId,
+          );
+          if (!sale) return null;
+          return (
+            <SaleDetailModal
+              saleId={sale.data.id}
+              date={sale.date}
+              subtotalCents={sale.data.subtotalCents}
+              paidCents={sale.data.paidCents}
+              creditDeltaCents={sale.data.creditDeltaCents}
+              onClose={() => setSelectedSaleId(null)}
+            />
+          );
+        })()}
     </div>
   );
 }

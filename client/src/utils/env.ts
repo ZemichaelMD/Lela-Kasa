@@ -1,5 +1,5 @@
 /**
- * Environment variable parsing — a thin wrapper over Zod for apps that
+ * Environment variable parsing · a thin wrapper over Zod for apps that
  * want fail-fast env validation without NestJS ConfigModule.
  */
 

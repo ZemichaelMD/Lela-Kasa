@@ -112,7 +112,7 @@ export type {
 } from "./resources/admin";
 
 /**
- * The main Lela Kasa SDK instance.
+ * The main LeLa Kasa SDK instance.
  * Create once and reuse across your app.
  *
  * @example

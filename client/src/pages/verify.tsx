@@ -79,10 +79,12 @@ export default function VerifyPage() {
           setEmailVerified(v.email?.verified ?? false);
           if (v.phone?.value) setDisplayPhone(v.phone.value);
           if (v.email?.value) setDisplayEmail(v.email.value);
-          if (v.phone?.verified && v.email?.verified) {
-            setSection("done");
-          } else if (v.phone?.verified) {
-            setSection("email");
+
+          // Already have at least one channel verified · no need for the wall
+          if (v.phone?.verified || v.email?.verified) {
+            await refreshMe();
+            navigate("/sales", { replace: true });
+            return;
           }
         }
       } catch {
@@ -92,7 +94,7 @@ export default function VerifyPage() {
       }
     }
     void check();
-  }, []);
+  }, [navigate, refreshMe]);
 
   const resendPhone = useCallback(async () => {
     if (!displayPhone) return;
@@ -124,6 +126,7 @@ export default function VerifyPage() {
       await sdk.auth.verifyPhone(displayPhone, phoneCode.trim());
       setPhoneVerified(true);
       toast.success("Phone verified");
+      await refreshMe();
       setSection(displayEmail ? "email" : "done");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Invalid code";
@@ -141,6 +144,7 @@ export default function VerifyPage() {
       await sdk.auth.verifyEmailOtp(emailCode.trim());
       setEmailVerified(true);
       toast.success("Email verified");
+      await refreshMe();
       setSection("done");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Invalid code";
@@ -392,7 +396,7 @@ export default function VerifyPage() {
               </button>
               {displayEmail && (
                 <button type="button" onClick={() => setSection("email")} className="w-full text-center text-xs text-muted-foreground hover:text-foreground">
-                  Skip — verify email instead
+                  Skip · verify email instead
                 </button>
               )}
             </form>

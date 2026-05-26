@@ -282,7 +282,7 @@ export default function SaleDetailPage() {
                           </p>
                         </td>
                         <td className="px-4 sm:px-6 py-4 tabular-nums">
-                          {qtyParts.length > 0 ? qtyParts.join(" + ") : "—"}
+                          {qtyParts.length > 0 ? qtyParts.join(" + ") : "·"}
                         </td>
                         <td className="px-4 sm:px-6 py-4 tabular-nums">
                           {formatMoneyCents(item.pricePerBoxCents)}/{t("box")}
@@ -356,14 +356,20 @@ export default function SaleDetailPage() {
                   <thead>
                     <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       <th className="px-4 sm:px-6 py-3">{t("beverage")}</th>
-                      <th className="px-4 sm:px-6 py-3 text-right">{t("containerKasaCount")}</th>
+                      <th className="px-4 sm:px-6 py-3 text-right">
+                        {t("containerKasaCount")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {sale.containerKasas!.map((k) => (
                       <tr key={k.id} className="hover:bg-accent/20">
-                        <td className="px-4 sm:px-6 py-4 font-medium">{k.beverage?.name ?? t("beverage")}</td>
-                        <td className="px-4 sm:px-6 py-4 text-right tabular-nums">{k.count}</td>
+                        <td className="px-4 sm:px-6 py-4 font-medium">
+                          {k.beverage?.name ?? t("beverage")}
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 text-right tabular-nums">
+                          {k.count}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -385,15 +391,23 @@ export default function SaleDetailPage() {
                     <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       <th className="px-4 sm:px-6 py-3">{t("beverage")}</th>
                       <th className="px-4 sm:px-6 py-3">{t("returnBoxes")}</th>
-                      <th className="px-4 sm:px-6 py-3 text-right">{t("returnBottles")}</th>
+                      <th className="px-4 sm:px-6 py-3 text-right">
+                        {t("returnBottles")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {sale.returnedContainers!.map((r) => (
                       <tr key={r.id} className="hover:bg-accent/20">
-                        <td className="px-4 sm:px-6 py-4 font-medium">{r.beverage?.name ?? t("beverage")}</td>
-                        <td className="px-4 sm:px-6 py-4 tabular-nums">{r.boxes}</td>
-                        <td className="px-4 sm:px-6 py-4 text-right tabular-nums">{r.bottles}</td>
+                        <td className="px-4 sm:px-6 py-4 font-medium">
+                          {r.beverage?.name ?? t("beverage")}
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 tabular-nums">
+                          {r.boxes}
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 text-right tabular-nums">
+                          {r.bottles}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

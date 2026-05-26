@@ -228,7 +228,10 @@ export default function PriceTiersPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tiers.map((tier) => (
-            <Card key={tier.id} className="flex flex-col gap-3 p-5">
+            <Link
+              to={`/price-tiers/${tier.id}`}
+              className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 hover:bg-accent/30 transition-colors"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -241,7 +244,7 @@ export default function PriceTiersPage() {
                   </div>
                   <KindBadge kind={tier.kind} />
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
                     onClick={() => { setEditing(tier); setDrawerOpen(true); }}
@@ -260,13 +263,10 @@ export default function PriceTiersPage() {
                   </button>
                 </div>
               </div>
-              <Link
-                to={`/price-tiers/${tier.id}`}
-                className="mt-auto inline-flex items-center justify-center rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-accent"
-              >
+              <span className="mt-auto inline-flex items-center justify-center rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-accent">
                 {t('managePrices')}
-              </Link>
-            </Card>
+              </span>
+            </Link>
           ))}
         </div>
       )}

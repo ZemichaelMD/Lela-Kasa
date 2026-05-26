@@ -20,6 +20,7 @@ import {
 } from "class-validator";
 
 import { AuthService } from "./auth.service";
+import { loadPasswordPolicy } from "../common/password-policy";
 import { PrismaService } from "../prisma/prisma.service";
 import { Public } from "../common/decorators/public.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
@@ -147,23 +148,22 @@ export class AuthController {
     const settings = await this.prisma.systemSetting.findMany();
     const map: Record<string, string> = {};
     for (const s of settings) map[s.key] = s.value;
+    const policy = loadPasswordPolicy(settings);
     return {
       registrationOpen: map["registration_open"] !== "false",
-      passwordMinLength: parseInt(map["password_min_length"] || "8", 10),
+      passwordMinLength: policy.minLength,
       passwordPolicy: {
-        minLength: parseInt(map["password_min_length"] || "8", 10),
-        maxLength: 128,
+        minLength: policy.minLength,
+        maxLength: policy.maxLength,
         requireLowercase: true,
         requireUppercase: true,
         requireNumber: true,
         requireSymbol: true,
-        minCharacterClasses: 3,
+        minCharacterClasses: policy.minCharacterClasses,
       },
       maintenanceMode: map["maintenance_mode"] === "true",
-      appName: map["app_name"] || "Lela Kasa",
+      appName: map["app_name"] || "LeLa Kasa",
       supportPhone: map["support_phone"] || "",
-      // Support contact details — surfaced in the client and mobile apps so
-      // owners can reach the operator. Edited from the admin app.
       support: {
         phone: map["support_phone"] || "",
         email: map["support_email"] || "",

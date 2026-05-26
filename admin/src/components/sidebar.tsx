@@ -53,7 +53,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
       { to: "/shops", label: "Shops", icon: ShoppingCart },
       { to: "/users", label: "Users", icon: Users },
     ]},
-    { title: "Sales", items: [{ to: "/sales", label: "All Transactions", icon: BarChart2 }] },
+    { title: "Sales", items: [{ to: "/sales", label: "Sales", icon: BarChart2 }] },
     { title: "System", items: [
       { to: "/audit-logs", label: "Audit Logs", icon: Tag },
       { to: "/system", label: "Administration", icon: Settings },

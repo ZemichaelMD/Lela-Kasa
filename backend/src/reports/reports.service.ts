@@ -515,10 +515,12 @@ export class ReportsService {
       outstandingBoxes: containerAgg._sum.outstandingBoxes ?? 0,
       outstandingBottles: containerAgg._sum.outstandingBottles ?? 0,
       topCustomers: topCustomersRaw.map((r) => ({
+        id: r.customerId,
         name: topCustomerMap.get(r.customerId) ?? r.customerId,
         totalCents: r._sum.subtotalCents ?? 0,
       })),
       topBeverages: topBeveragesRaw.map((r) => ({
+        id: r.beverageId,
         name: topBeverageMap.get(r.beverageId) ?? r.beverageId,
         totalBoxes: r._sum.boxes ?? 0,
       })),
@@ -527,8 +529,11 @@ export class ReportsService {
         .map((b) => ({ name: b.name, stockBottles: b.stockBottles })),
       recentVoids: recentVoidsRaw.map((s) => ({
         id: s.id,
-        customerName: s.customer.name,
-        voidedAt: s.voidedAt,
+        customerId: s.customerId ?? null,
+        customerName: s.customer?.name ?? null,
+        saleDate: s.saleDate?.toISOString() ?? null,
+        voidedAt: s.voidedAt?.toISOString() ?? null,
+        subtotalCents: s.subtotalCents,
       })),
     };
 

@@ -160,7 +160,7 @@ export default function SubscriptionPage() {
         const until = Date.now() + (data.retryAfterMinutes ?? 120) * 60_000;
         localStorage.setItem("kasa_remind_until", String(until));
         setRemindCooldownUntil(until);
-        toast.warning(data.message || "The admin was already notified recently — please wait.");
+        toast.warning(data.message || "The admin was already notified recently · please wait.");
         return;
       }
       setNotified(true);
@@ -168,7 +168,7 @@ export default function SubscriptionPage() {
       const until = Date.now() + 2 * 60 * 60 * 1000;
       localStorage.setItem("kasa_remind_until", String(until));
       setRemindCooldownUntil(until);
-      toast.success("Payment reported — please wait for the admin to verify it.");
+      toast.success("Payment reported · please wait for the admin to verify it.");
     } catch {
       setError("Failed to send notification. Please try again or contact the admin directly.");
       toast.error("Failed to notify the admin. Please try again.");
@@ -206,7 +206,7 @@ export default function SubscriptionPage() {
       const until = Date.now() + 2 * 60 * 60 * 1000;
       localStorage.setItem("kasa_remind_until", String(until));
       setRemindCooldownUntil(until);
-      toast.success("Reminder sent — please wait for the admin to verify your payment.");
+      toast.success("Reminder sent · please wait for the admin to verify your payment.");
     } catch {
       toast.error("Failed to send reminder. Please contact the admin directly.");
     } finally {

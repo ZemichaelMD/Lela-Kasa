@@ -1,12 +1,12 @@
+import { AlertCircle, Crown, Eye, EyeOff, Lock } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Crown, Eye, EyeOff, Lock } from "lucide-react";
 import { API_URL, tokenStore } from "@/lib/sdk";
 import { LangToggle } from "@/components/lang-toggle";
 import { useI18n } from "@/lib/i18n";
 
-const inputClass =
-  "h-11 w-full rounded-lg border border-border bg-background px-3.5 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/40";
+const ic = "h-12 w-full rounded-xl border border-border/60 bg-background px-4 text-sm outline-none placeholder:text-muted-foreground/50 transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20";
+const amberBtn = "inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-sm font-semibold text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50";
 
 export default function CustomerLoginPage() {
   const { t } = useI18n();
@@ -17,7 +17,6 @@ export default function CustomerLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Forced PIN change state
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [changeToken, setChangeToken] = useState<string | null>(null);
   const [currentPin, setCurrentPin] = useState("");
@@ -60,23 +59,14 @@ export default function CustomerLoginPage() {
 
   async function handleChangePin(e: React.FormEvent) {
     e.preventDefault();
-    if (newPin !== confirmPin) {
-      setChangeError("PINs do not match");
-      return;
-    }
-    if (newPin.length < 4) {
-      setChangeError("PIN must be at least 4 characters");
-      return;
-    }
+    if (newPin !== confirmPin) { setChangeError("PINs do not match"); return; }
+    if (newPin.length < 4) { setChangeError("PIN must be at least 4 characters"); return; }
     setChanging(true);
     setChangeError(null);
     try {
       const res = await fetch(`${API_URL}/api/v1/customer-portal/change-pin`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${changeToken}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${changeToken}` },
         body: JSON.stringify({ currentPin: currentPin.trim(), newPin: newPin.trim() }),
       });
       const envelope = await res.json();
@@ -94,22 +84,29 @@ export default function CustomerLoginPage() {
 
   if (mustChangePassword) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-linear-to-br from-brand-50 via-background to-background px-4 py-12 dark:from-brand-950/30">
-        <div className="absolute right-4 top-4 flex items-center gap-2">
+      <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-gradient-to-br from-[#1a1208] via-[#170f05] to-[#0f0a04] px-4 py-12">
+        <div className="pointer-events-none absolute -right-24 -top-32 h-[500px] w-[500px] rounded-full bg-amber-500/10 blur-[100px]" />
+        <div className="pointer-events-none absolute -bottom-20 -left-16 h-[350px] w-[350px] rounded-full bg-amber-600/10 blur-[80px]" />
+
+        <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
           <LangToggle />
         </div>
-        <div className="w-full max-w-sm space-y-6">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-white">
-              <Lock className="h-6 w-6" />
-            </span>
-            <h1 className="text-xl font-semibold">Change Your PIN</h1>
-            <p className="text-sm text-muted-foreground">
-              For security, you must change your PIN before accessing the portal.
-            </p>
+
+        <div className="relative z-10 w-full max-w-[380px] space-y-6">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500 shadow-lg ring-1 ring-amber-400/30">
+              <Lock className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-white">Change Your PIN</h1>
+              <p className="mt-0.5 text-sm text-white/50">Set a new PIN to continue</p>
+            </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-7 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-white/95 p-6 shadow-2xl backdrop-blur-sm dark:border-white/[0.07] dark:bg-gray-950/95">
+            <p className="mb-4 rounded-xl bg-amber-50 px-3.5 py-3 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+              For your security, please change your PIN before accessing the portal.
+            </p>
             <form className="space-y-4" onSubmit={handleChangePin}>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Current PIN</label>
@@ -119,16 +116,11 @@ export default function CustomerLoginPage() {
                     onChange={(e) => setCurrentPin(e.target.value)}
                     type={showCurrentPin ? "text" : "password"}
                     required
-                    className={inputClass}
+                    className={ic}
                     placeholder="••••••"
                     maxLength={10}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentPin((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    tabIndex={-1}
-                  >
+                  <button type="button" onClick={() => setShowCurrentPin(v => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground" tabIndex={-1}>
                     {showCurrentPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
@@ -141,16 +133,11 @@ export default function CustomerLoginPage() {
                     onChange={(e) => setNewPin(e.target.value)}
                     type={showNewPin ? "text" : "password"}
                     required
-                    className={inputClass}
+                    className={ic}
                     placeholder="••••••"
                     maxLength={10}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPin((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    tabIndex={-1}
-                  >
+                  <button type="button" onClick={() => setShowNewPin(v => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground" tabIndex={-1}>
                     {showNewPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
@@ -162,22 +149,19 @@ export default function CustomerLoginPage() {
                   onChange={(e) => setConfirmPin(e.target.value)}
                   type="password"
                   required
-                  className={inputClass}
+                  className={ic}
                   placeholder="••••••"
                   maxLength={10}
                 />
               </div>
               {changeError && (
-                <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
-                  {changeError}
+                <div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-3.5 py-3 text-xs text-destructive" role="alert">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>{changeError}</span>
                 </div>
               )}
-              <button
-                type="submit"
-                disabled={changing}
-                className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-amber-500 text-sm font-medium text-white shadow-sm hover:bg-amber-600 disabled:opacity-60"
-              >
-                {changing ? "Changing PIN..." : "Change PIN & Continue"}
+              <button type="submit" disabled={changing} className={amberBtn}>
+                {changing ? "Changing PIN…" : "Change PIN & Continue"}
               </button>
             </form>
           </div>
@@ -187,20 +171,29 @@ export default function CustomerLoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-linear-to-br from-brand-50 via-background to-background px-4 py-12 dark:from-brand-950/30">
-      <div className="absolute right-4 top-4 flex items-center gap-2">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-gradient-to-br from-[#1a1208] via-[#170f05] to-[#0f0a04] px-4 py-12">
+      <div className="pointer-events-none absolute -right-24 -top-32 h-[500px] w-[500px] rounded-full bg-amber-500/10 blur-[100px]" />
+      <div className="pointer-events-none absolute -bottom-20 -left-16 h-[350px] w-[350px] rounded-full bg-amber-600/10 blur-[80px]" />
+
+      <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
         <LangToggle />
       </div>
-      <div className="w-full max-w-sm space-y-6">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-white">
-            <Crown className="h-6 w-6" />
-          </span>
-          <h1 className="text-xl font-semibold">{t("customerPortal")}</h1>
-          <p className="text-sm text-muted-foreground">{t("signIn")}</p>
+
+      <div className="relative z-10 w-full max-w-[380px] space-y-6">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="relative">
+            <div className="absolute inset-0 scale-110 rounded-2xl bg-amber-500/25 blur-2xl" />
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-amber-500 ring-1 ring-amber-400/30">
+              <Crown className="h-10 w-10 text-white" />
+            </div>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">{t("customerPortal")}</h1>
+            <p className="mt-0.5 text-sm text-white/50">{t("signIn")}</p>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-7 shadow-sm">
+        <div className="rounded-3xl border border-white/10 bg-white/95 p-6 shadow-2xl backdrop-blur-sm dark:border-white/[0.07] dark:bg-gray-950/95">
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">{t("username")}</label>
@@ -209,8 +202,8 @@ export default function CustomerLoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoComplete="username"
-                className={inputClass}
-                placeholder={t("username")}
+                className={ic}
+                placeholder={t("username") as string}
               />
             </div>
             <div className="space-y-1.5">
@@ -222,48 +215,44 @@ export default function CustomerLoginPage() {
                   type={showPin ? "text" : "password"}
                   required
                   autoComplete="off"
-                  className={inputClass}
+                  className={ic + " pr-11"}
                   placeholder="••••••"
                   maxLength={10}
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPin((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPin(v => !v)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 transition-colors hover:text-muted-foreground"
                   tabIndex={-1}
                 >
-                  {showPin ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
             {error && (
-              <div
-                className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-                role="alert"
-              >
-                {error}
+              <div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-3.5 py-3 text-xs text-destructive" role="alert">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{error}</span>
               </div>
             )}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-amber-500 text-sm font-medium text-white shadow-sm hover:bg-amber-600 disabled:opacity-60"
-            >
+            <button type="submit" disabled={submitting} className={amberBtn}>
               {submitting ? t("signingIn") : t("signInBtn")}
             </button>
           </form>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
+
+          <div className="mt-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border/60" />
+            <span className="text-[11px] uppercase tracking-widest text-muted-foreground/40">or</span>
+            <div className="h-px flex-1 bg-border/60" />
+          </div>
+          <div className="mt-4">
             <Link
               to="/login"
-              className="font-medium text-foreground hover:underline"
+              className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-border/60 text-sm font-medium text-muted-foreground transition-all hover:border-amber-500/40 hover:bg-amber-500/5 hover:text-amber-600"
             >
               {t("ownerStaffLogin")}
             </Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { ArrowRight, Eye, EyeOff, Shield } from "lucide-react";
+import { AlertCircle, ArrowRight, Eye, EyeOff, Shield } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { APP_NAME } from "@/lib/data";
@@ -7,13 +7,14 @@ import { ThemeToggle } from "@/components/theme";
 import { LangToggle } from "@/components/lang-toggle";
 import { useI18n } from "@/lib/i18n";
 
-const ic = "h-11 w-full rounded-lg border border-border bg-background px-3.5 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/40";
+const ic = "h-12 w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 text-sm text-white outline-none placeholder:text-white/25 transition-all focus:border-[#096136]/60 focus:ring-2 focus:ring-[#096136]/20";
+const primaryBtn = "inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#096136] to-[#0c7844] text-sm font-semibold text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50";
 
 export default function LoginPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { login, refreshMe } = useAuth();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,45 +40,77 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 py-12">
-      <div className="absolute right-4 top-4 flex items-center gap-2">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-gradient-to-br from-[#0e1916] via-[#111f1b] to-[#090e0c] px-4 py-12">
+      <div className="pointer-events-none absolute -right-24 -top-32 h-[500px] w-[500px] rounded-full bg-[#096136]/10 blur-[120px]" />
+      <div className="pointer-events-none absolute -bottom-20 -left-16 h-[350px] w-[350px] rounded-full bg-[#0d7840]/10 blur-[80px]" />
+
+      <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
         <LangToggle />
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-sm space-y-6">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/30">
-            <Shield className="h-7 w-7 text-primary-foreground" />
-          </span>
+      <div className="relative z-10 w-full max-w-[380px] space-y-6">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="relative">
+            <div className="absolute inset-0 scale-110 rounded-2xl bg-[#096136]/30 blur-2xl" />
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#096136] ring-1 ring-[#096136]/50">
+              <Shield className="h-8 w-8 text-white" />
+            </div>
+          </div>
           <div>
-            <h1 className="text-xl font-bold text-white">{APP_NAME}</h1>
-            <p className="text-sm text-slate-400">Administration Portal</p>
+            <h1 className="text-2xl font-bold tracking-tight text-white">{APP_NAME}</h1>
+            <p className="mt-0.5 text-sm text-white/40">Administration Portal</p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-700/50 bg-slate-800/80 p-7 shadow-xl backdrop-blur-sm">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-7 shadow-2xl backdrop-blur-md">
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-300">Email</label>
-              <input value={email} onChange={e => setEmail(e.target.value)} type="email" required autoComplete="username" className={ic + " bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"} placeholder="admin@kasa.app" />
+              <label className="text-sm font-medium text-white/60">Email</label>
+              <input
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                type="email"
+                required
+                autoComplete="username"
+                className={ic}
+                placeholder="admin@kasa.app"
+              />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-300">{t("password")}</label>
+              <label className="text-sm font-medium text-white/60">{t("password")}</label>
               <div className="relative">
-                <input value={password} onChange={e => setPassword(e.target.value)} type={showPassword ? "text" : "password"} required autoComplete="current-password" className={ic + " bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"} placeholder="••••••••" />
-                <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white" tabIndex={-1}>
+                <input
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  type={showPassword ? "text" : "password"}
+                  required
+                  autoComplete="current-password"
+                  className={ic + " pr-11"}
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/25 transition-colors hover:text-white/50"
+                  tabIndex={-1}
+                >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
-            {error && <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">{error}</div>}
-            <button type="submit" disabled={submitting} className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60">
-              {submitting ? t("signingIn") : (<>{t("signIn")} <ArrowRight className="h-4 w-4" /></>)}
+            {error && (
+              <div className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3.5 py-3 text-xs text-red-400">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+            <button type="submit" disabled={submitting} className={primaryBtn}>
+              {submitting ? t("signingIn") : <>{t("signIn")} <ArrowRight className="h-4 w-4" /></>}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-xs text-slate-500">
+          <p className="mt-5 text-center text-xs text-white/20">
             Authorized administrators only. Unauthorized access is prohibited.
           </p>
         </div>

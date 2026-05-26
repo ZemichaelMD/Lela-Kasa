@@ -760,7 +760,7 @@ function ProvidersTab() {
               onChange={(e) => setInstructions(e.target.value)}
               rows={5}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-              placeholder={`Bank: Commercial Bank of Ethiopia\nAccount: 1000001234567\nName: Lela Kasa Technologies PLC\n\nSend screenshot to our Telegram: @kasa_payments`}
+              placeholder={`Bank: Commercial Bank of Ethiopia\nAccount: 1000001234567\nName: LeLa Kasa Technologies PLC\n\nSend screenshot to our Telegram: @kasa_payments`}
             />
           </div>
           <div className="space-y-1.5">

@@ -126,13 +126,13 @@ export class TelegramBotService {
         return "Your account is already connected. Send /help to see commands.";
       }
       return (
-        "Welcome to Kasa! To connect your account, open the Lela Kasa app, go to " +
+        "Welcome to Kasa! To connect your account, open the LeLa Kasa app, go to " +
         "Settings → Connect Telegram, and tap the link there."
       );
     }
     const linked = await this.telegram.consumeLinkCode(code, ctx.chatId);
     if (!linked) {
-      return "That link is invalid or has expired. Please generate a new one in the Lela Kasa app.";
+      return "That link is invalid or has expired. Please generate a new one in the LeLa Kasa app.";
     }
     if (linked.kind === "USER") {
       return `Connected. Hi ${linked.name}! You will receive shop notifications here. Send /stats for today's numbers or /help for more.`;
@@ -142,7 +142,7 @@ export class TelegramBotService {
 
   private async cmdHelp(ctx: CommandContext): Promise<string> {
     const lines = [
-      "<b>Lela Kasa bot commands</b>",
+      "<b>LeLa Kasa bot commands</b>",
       "/help — show this message",
     ];
     if (ctx.identity.user) {
@@ -153,7 +153,7 @@ export class TelegramBotService {
     }
     if (!ctx.identity.user && !ctx.identity.customer) {
       lines.push(
-        "/start — connect your account with a link from the Lela Kasa app",
+        "/start — connect your account with a link from the LeLa Kasa app",
       );
     } else {
       lines.push("/unlink — disconnect this Telegram chat");
@@ -172,7 +172,7 @@ export class TelegramBotService {
   private async cmdStats(ctx: CommandContext): Promise<string> {
     const user = ctx.identity.user;
     if (!user) {
-      return "Stats are only available to connected shop accounts. Connect from the Lela Kasa app.";
+      return "Stats are only available to connected shop accounts. Connect from the LeLa Kasa app.";
     }
     if (!user.shopId) return "Your account is not attached to a shop yet.";
 

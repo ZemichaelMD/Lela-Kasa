@@ -8,9 +8,7 @@ export interface SdkConfig {
   baseUrl: string;
   tokenStore?: TokenStore;
   /** Called when a token refresh is needed; should return new tokens or throw. */
-  onRefresh?: (
-    refreshToken: string,
-  ) => Promise<{
+  onRefresh?: (refreshToken: string) => Promise<{
     accessToken: string;
     refreshToken: string;
     expiresIn: number;
@@ -82,7 +80,7 @@ export class SdkClient {
       clearTimeout(timeoutId);
     }
 
-    // Handle 401 — attempt token refresh once
+    // Handle 401 · attempt token refresh once
     if (response.status === 401 && !options.skipAuth && this.config.onRefresh) {
       const refreshed = await this.tryRefresh();
       if (refreshed) {
@@ -208,7 +206,7 @@ export class SdkClient {
   }
 }
 
-/** Combine multiple AbortSignals — aborts when any fires */
+/** Combine multiple AbortSignals · aborts when any fires */
 function anySignal(signals: AbortSignal[]): AbortSignal {
   const controller = new AbortController();
   for (const signal of signals) {

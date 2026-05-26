@@ -65,13 +65,19 @@ function DateRangeBar({
         <label className="text-muted-foreground" htmlFor="date-from">
           {t("from")}
         </label>
-        <EthiopianDateInput value={dateFrom} onChange={(v) => onChange(v, dateTo)} />
+        <EthiopianDateInput
+          value={dateFrom}
+          onChange={(v) => onChange(v, dateTo)}
+        />
       </div>
       <div className="flex items-center gap-2 text-sm">
         <label className="text-muted-foreground" htmlFor="date-to">
           {t("to")}
         </label>
-        <EthiopianDateInput value={dateTo} onChange={(v) => onChange(dateFrom, v)} />
+        <EthiopianDateInput
+          value={dateTo}
+          onChange={(v) => onChange(dateFrom, v)}
+        />
       </div>
       <div className="ml-auto">
         <ExportButton onExport={onExport} loading={exporting} />
@@ -209,7 +215,9 @@ function SalesSummaryTab({
     setExporting(true);
     sdk.reports
       .exportSalesSummary({ dateFrom, dateTo })
-      .then((res) => downloadCsv(res, `sales-summary-${dateFrom}-${dateTo}.csv`))
+      .then((res) =>
+        downloadCsv(res, `sales-summary-${dateFrom}-${dateTo}.csv`),
+      )
       .catch(() => {})
       .finally(() => setTimeout(() => setExporting(false), 500));
   }
@@ -270,7 +278,9 @@ function SalesSummaryTab({
                     key={row.date}
                     className="border-b border-border last:border-0 hover:bg-muted/20"
                   >
-                    <Td><FormattedDate iso={row.date} /></Td>
+                    <Td>
+                      <FormattedDate iso={row.date} />
+                    </Td>
                     <Td right>{(row.count ?? 0).toLocaleString()}</Td>
                     <Td right>{formatMoneyCents(row.amountCents)}</Td>
                   </tr>
@@ -371,7 +381,9 @@ function ByCustomerTab({
     setExporting(true);
     sdk.reports
       .exportSalesByCustomer({ dateFrom, dateTo })
-      .then((res) => downloadCsv(res, `sales-by-customer-${dateFrom}-${dateTo}.csv`))
+      .then((res) =>
+        downloadCsv(res, `sales-by-customer-${dateFrom}-${dateTo}.csv`),
+      )
       .catch(() => {})
       .finally(() => setTimeout(() => setExporting(false), 500));
   }
@@ -497,7 +509,9 @@ function ByBeverageTab({
     setExporting(true);
     sdk.reports
       .exportSalesByBeverage({ dateFrom, dateTo })
-      .then((res) => downloadCsv(res, `sales-by-beverage-${dateFrom}-${dateTo}.csv`))
+      .then((res) =>
+        downloadCsv(res, `sales-by-beverage-${dateFrom}-${dateTo}.csv`),
+      )
       .catch(() => {})
       .finally(() => setTimeout(() => setExporting(false), 500));
   }
@@ -608,7 +622,9 @@ function ByPaymentAccountTab({
     setExporting(true);
     sdk.reports
       .exportSalesByPaymentAccount({ dateFrom, dateTo })
-      .then((res) => downloadCsv(res, `sales-by-payment-${dateFrom}-${dateTo}.csv`))
+      .then((res) =>
+        downloadCsv(res, `sales-by-payment-${dateFrom}-${dateTo}.csv`),
+      )
       .catch(() => {})
       .finally(() => setTimeout(() => setExporting(false), 500));
   }
@@ -842,7 +858,9 @@ function ContainerDebtTab({
     setExporting(true);
     sdk.reports
       .exportContainerDebt({ dateFrom, dateTo })
-      .then((res) => downloadCsv(res, `container-debt-${dateFrom}-${dateTo}.csv`))
+      .then((res) =>
+        downloadCsv(res, `container-debt-${dateFrom}-${dateTo}.csv`),
+      )
       .catch(() => {})
       .finally(() => setTimeout(() => setExporting(false), 500));
   }
@@ -952,7 +970,9 @@ function StockOnHandTab({
     setExporting(true);
     sdk.reports
       .exportStockOnHand({ dateFrom, dateTo })
-      .then((res) => downloadCsv(res, `stock-on-hand-${dateFrom}-${dateTo}.csv`))
+      .then((res) =>
+        downloadCsv(res, `stock-on-hand-${dateFrom}-${dateTo}.csv`),
+      )
       .catch(() => {})
       .finally(() => setTimeout(() => setExporting(false), 500));
   }
@@ -995,7 +1015,7 @@ function StockOnHandTab({
                     className={`border-b border-border last:border-0 hover:bg-muted/20 ${r.isLowStock ? "bg-destructive/5" : ""}`}
                   >
                     <Td>{r.beverageName}</Td>
-                    <Td muted>{r.brand ?? "—"}</Td>
+                    <Td muted>{r.brand ?? "·"}</Td>
                     <Td right>{(r.stockBoxes ?? 0).toLocaleString()}</Td>
                     <Td right>{(r.stockBottles ?? 0).toLocaleString()}</Td>
                     <td className="px-4 py-2.5">
@@ -1025,10 +1045,10 @@ function StockOnHandTab({
 export default function ReportsPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const canViewReports = usePermission('reports:view');
+  const canViewReports = usePermission("reports:view");
 
   useEffect(() => {
-    if (!canViewReports) navigate('/dashboard', { replace: true });
+    if (!canViewReports) navigate("/dashboard", { replace: true });
   }, [canViewReports, navigate]);
 
   if (!canViewReports) return null;
@@ -1061,7 +1081,7 @@ export default function ReportsPage() {
         actions={
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <FileText className="h-3.5 w-3.5" />
-            {dateFrom} — {dateTo}
+            {dateFrom} · {dateTo}
           </div>
         }
       />

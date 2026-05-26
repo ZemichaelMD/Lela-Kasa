@@ -43,23 +43,31 @@ function PaywallActions({ support }: { support: SupportInfo | null }) {
           <p className="font-medium text-foreground">Contact Admin</p>
           <div className="space-y-1.5">
             {support.phone && (
-              <a href={`tel:${support.phone}`} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
+              <a
+                href={`tel:${support.phone}`}
+                className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
+              >
                 <Phone className="h-3.5 w-3.5" /> {support.phone}
               </a>
             )}
             {support.email && (
-              <a href={`mailto:${support.email}`} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
+              <a
+                href={`mailto:${support.email}`}
+                className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
+              >
                 <Mail className="h-3.5 w-3.5" /> {support.email}
               </a>
             )}
             {support.telegram && (
               <span className="flex items-center gap-2 text-muted-foreground">
-                <MessageCircle className="h-3.5 w-3.5" /> Telegram: {support.telegram}
+                <MessageCircle className="h-3.5 w-3.5" /> Telegram:{" "}
+                {support.telegram}
               </span>
             )}
             {support.whatsapp && (
               <span className="flex items-center gap-2 text-muted-foreground">
-                <MessageCircle className="h-3.5 w-3.5" /> WhatsApp: {support.whatsapp}
+                <MessageCircle className="h-3.5 w-3.5" /> WhatsApp:{" "}
+                {support.whatsapp}
               </span>
             )}
             {support.hours && (
@@ -164,7 +172,7 @@ export default function PaymentWall() {
     async function init() {
       // Support contact from public config
       apiGet("/api/v1/auth/config")
-        .then((c) => setSupport(c?.support ? c.support as SupportInfo : null))
+        .then((c) => setSupport(c?.support ? (c.support as SupportInfo) : null))
         .catch(() => {});
       // Check if there's a pending payment first
       try {
@@ -232,7 +240,7 @@ export default function PaymentWall() {
       localStorage.setItem("kasa_remind_until", String(until));
       setRemindCooldownUntil(until);
       toast.success(
-        "Reminder sent — please wait for the admin to verify your payment.",
+        "Reminder sent · please wait for the admin to verify your payment.",
       );
     } catch {
       toast.error(
@@ -318,11 +326,11 @@ export default function PaymentWall() {
         if (data?.throttled) {
           toast.warning(
             data.message ||
-              "The admin was already notified recently — please wait.",
+              "The admin was already notified recently · please wait.",
           );
         } else {
           toast.success(
-            "Payment reported — please wait for the admin to verify it.",
+            "Payment reported · please wait for the admin to verify it.",
           );
         }
         setNotified(true);
@@ -513,7 +521,7 @@ export default function PaymentWall() {
         <div className="mx-auto max-w-4xl flex items-center gap-3">
           <Building2 className="h-5 w-5 text-primary" />
           <div className="flex-1">
-            <p className="font-semibold">Lela Kasa</p>
+            <p className="font-semibold">LeLa Kasa</p>
             <p className="text-xs text-muted-foreground">
               Choose a plan to get started
             </p>
@@ -531,7 +539,7 @@ export default function PaymentWall() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 space-y-6">
         <div className="text-center">
           <Crown className="mx-auto mb-3 h-10 w-10 text-amber-500" />
-          <h1 className="text-2xl font-bold">Subscribe to Lela Kasa</h1>
+          <h1 className="text-2xl font-bold">Subscribe to LeLa Kasa</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Pick the plan that fits your beverage shop
           </p>

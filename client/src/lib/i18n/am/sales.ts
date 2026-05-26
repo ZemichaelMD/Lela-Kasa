@@ -131,7 +131,7 @@ export const sales = {
   quantity: "ብዛት",
   customerCreated: "ደንበኛ ተፈጠረ",
   containerKasaSection: "ኮንቴይነር ካሳ (ድብልቅ ሳጥን)",
-  containerKasaHint: "ጠርሙሶች አሉ — ከዚህ በታች የሚጠቀሙበትን ሳጥን ዓይነት ይምረጡ",
+  containerKasaHint: "ጠርሙሶች አሉ · ከዚህ በታች የሚጠቀሙበትን ሳጥን ዓይነት ይምረጡ",
   addContainerKasa: "ካሳ ጨምር",
   containerKasaType: "የሳጥን ዓይነት",
   containerKasaCount: "ብዛት",

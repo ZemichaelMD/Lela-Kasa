@@ -1414,17 +1414,103 @@ const PAGE_SIZE = 20;
 
 function AdminSalesView() {
   const navigate = useNavigate();
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const [sales, setSales] = useState<import('@/sdk').AdminSale[]>([]);
   const [loading, setLoading] = useState(true);
+  const [shops, setShops] = useState<{ id: string; name: string }[]>([]);
+
+  // Filters
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [dateFrom, setDateFrom] = useState(searchParams.get("dateFrom") ?? "");
+  const [dateTo, setDateTo] = useState(searchParams.get("dateTo") ?? "");
+  const [filterShopId, setFilterShopId] = useState(searchParams.get("shopId") ?? "");
+  const [filterCustomerId, setFilterCustomerId] = useState(searchParams.get("customerId") ?? "");
+  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+
+  function setParam(key: string, value: string | undefined) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set(key, value);
+      else next.delete(key);
+      return next;
+    });
+  }
+
+  function clearFilters() {
+    setDateFrom("");
+    setDateTo("");
+    setFilterShopId("");
+    setFilterCustomerId("");
+    setSearchParams({});
+  }
+
+  // Load shops & customers for filters
+  useEffect(() => {
+    async function loadRef() {
+      try {
+        const [shopData, custData] = await Promise.all([
+          sdk.admin.listShops(),
+          sdk.customers.list({ pageSize: 500 }),
+        ]);
+        setShops(shopData);
+        setCustomers(custData.data);
+      } catch {}
+    }
+    void loadRef();
+  }, []);
 
   useEffect(() => {
     setLoading(true);
-    sdk.admin.listSales()
+    sdk.admin.listSales({
+      shopId: searchParams.get("shopId") ?? undefined,
+      customerId: searchParams.get("customerId") ?? undefined,
+      dateFrom: searchParams.get("dateFrom") ?? undefined,
+      dateTo: searchParams.get("dateTo") ?? undefined,
+    })
       .then(setSales)
       .catch(() => toast.error(t('failedLoadSales')))
       .finally(() => setLoading(false));
-  }, [t]);
+  }, [t, searchParams]);
+
+  const activeFilterCount =
+    (searchParams.get("dateFrom") || searchParams.get("dateTo") ? 1 : 0) +
+    (searchParams.get("shopId") ? 1 : 0) +
+    (searchParams.get("customerId") ? 1 : 0);
+
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-medium text-muted-foreground">{t('dateLabel')}</span>
+      <EthiopianDateInput
+        value={dateFrom}
+        onChange={(v) => { setDateFrom(v); setParam("dateFrom", v || undefined); }}
+      />
+      <span className="text-xs text-muted-foreground">—</span>
+      <EthiopianDateInput
+        value={dateTo}
+        onChange={(v) => { setDateTo(v); setParam("dateTo", v || undefined); }}
+      />
+      <select
+        value={filterShopId}
+        onChange={(e) => { setFilterShopId(e.target.value); setParam("shopId", e.target.value || undefined); }}
+        className="h-8 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/40"
+      >
+        <option value="">All Shops</option>
+        {shops.map((s) => (
+          <option key={s.id} value={s.id}>{s.name}</option>
+        ))}
+      </select>
+      <select
+        value={filterCustomerId}
+        onChange={(e) => { setFilterCustomerId(e.target.value); setParam("customerId", e.target.value || undefined); }}
+        className="h-8 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/40"
+      >
+        <option value="">All Customers</option>
+        {customers.map((c) => (
+          <option key={c.id} value={c.id}>{c.name}</option>
+        ))}
+      </select>
+    </div>
+  );
 
   const columns = [
     {
@@ -1452,7 +1538,7 @@ function AdminSalesView() {
       key: 'total',
       header: t('total'),
       render: (s: import('@/sdk').AdminSale) => (
-        <span className="font-medium tabular-nums">{formatMoneyCents(s.totalCents)}</span>
+        <span className="font-medium tabular-nums">{formatMoneyCents(s.subtotalCents)}</span>
       ),
     },
     {
@@ -1466,8 +1552,8 @@ function AdminSalesView() {
       key: 'balance',
       header: t('credit'),
       render: (s: import('@/sdk').AdminSale) => (
-        <span className={`tabular-nums ${s.balanceCents > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-          {formatMoneyCents(s.balanceCents)}
+        <span className={`tabular-nums ${s.creditDeltaCents > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+          {formatMoneyCents(s.creditDeltaCents)}
         </span>
       ),
     },
@@ -1478,26 +1564,12 @@ function AdminSalesView() {
         <StatusChip label={s.status} tone={statusTone(s.status)} />
       ),
     },
-    {
-      key: 'actions',
-      header: '',
-      className: 'w-12',
-      render: (s: import('@/sdk').AdminSale) => (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); navigate(`/sales/${s.id}`); }}
-          className="rounded p-1.5 text-muted-foreground hover:bg-accent"
-        >
-          <Eye className="h-4 w-4" />
-        </button>
-      ),
-    },
   ];
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="All Transactions"
+        title="Sales"
         description="Platform-wide sales across all shops"
         breadcrumb={['Platform', 'Sales']}
       />
@@ -1505,6 +1577,10 @@ function AdminSalesView() {
         columns={columns}
         rows={sales}
         searchPlaceholder={t('searchSales') as string}
+        filterBar={filterBar}
+        activeFilterCount={activeFilterCount}
+        onClearFilters={clearFilters}
+        onRowClick={(s) => navigate(`/sales/${s.id}`)}
         empty={loading ? t('loading') : 'No transactions found'}
       />
     </div>

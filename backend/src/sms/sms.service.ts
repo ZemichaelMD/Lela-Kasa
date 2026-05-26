@@ -115,7 +115,7 @@ export class SmsService {
     try {
       await this.sendSms(
         to,
-        "Lela Kasa test message — your SMS integration is working.",
+        "LeLa Kasa test message — your SMS integration is working.",
       );
       return {
         ok: true,

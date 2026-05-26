@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  BadRequestException,
-  Logger,
-} from "@nestjs/common";
+import { Injectable, BadRequestException, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { AppException } from "../common/errors/app.exception";
@@ -16,32 +12,12 @@ import {
   ethiopianPhoneVariants,
   normalizeEthiopianPhone,
 } from "../common/phone.util";
+import {
+  assertStrongPassword,
+  loadPasswordPolicy,
+} from "../common/password-policy";
 import * as argon2 from "argon2";
 import crypto from "node:crypto";
-
-/**
- * Server-side password policy. Stops trivially weak passwords from
- * entering the system regardless of client-side validation.
- */
-function assertStrongPassword(password: string): void {
-  if (password.length < 8) {
-    throw new BadRequestException("Password must be at least 8 characters");
-  }
-  if (password.length > 128) {
-    throw new BadRequestException("Password must be at most 128 characters");
-  }
-  const classes = [
-    /[a-z]/.test(password),
-    /[A-Z]/.test(password),
-    /[0-9]/.test(password),
-    /[^A-Za-z0-9]/.test(password),
-  ].filter(Boolean).length;
-  if (classes < 3) {
-    throw new BadRequestException(
-      "Password must contain at least 3 of: lowercase, uppercase, numbers, symbols",
-    );
-  }
-}
 
 export interface InviteEmployeeDto {
   email?: string;
@@ -130,35 +106,48 @@ export class UsersService {
    */
   async inviteEmployee(shopId: string, dto: InviteEmployeeDto) {
     // Validate password policy
-    assertStrongPassword(dto.password);
+    const pwSettings = await this.prisma.systemSetting.findMany();
+    assertStrongPassword(dto.password, loadPasswordPolicy(pwSettings));
 
     // At least one of email or phone is required
     if (!dto.email?.trim() && !dto.phone?.trim()) {
-      throw new BadRequestException('Either email or phone number is required');
+      throw new BadRequestException("Either email or phone number is required");
     }
 
     const email = dto.email?.trim().toLowerCase();
     const phone = dto.phone?.trim();
 
     // Generate a placeholder email when only phone is provided
-    const finalEmail = email || (phone ? `emp_${phone.replace(/[^0-9]/g, '')}@kasa.app` : null);
+    const finalEmail =
+      email || (phone ? `emp_${phone.replace(/[^0-9]/g, "")}@kasa.app` : null);
 
     // Check email uniqueness
     if (finalEmail) {
-      const existing = await this.prisma.user.findUnique({ where: { email: finalEmail } });
+      const existing = await this.prisma.user.findUnique({
+        where: { email: finalEmail },
+      });
       if (existing && !existing.deletedAt) {
-        throw AppException.conflict("EMAIL_TAKEN" as never, "This email is already registered");
+        throw AppException.conflict(
+          "EMAIL_TAKEN" as never,
+          "This email is already registered",
+        );
       }
     }
 
     // Check phone uniqueness
     if (phone) {
       const existingPhone = await this.prisma.user.findFirst({
-        where: { phone: { in: ethiopianPhoneVariants(phone) }, deletedAt: null },
+        where: {
+          phone: { in: ethiopianPhoneVariants(phone) },
+          deletedAt: null,
+        },
         select: { id: true },
       });
       if (existingPhone) {
-        throw AppException.conflict("PHONE_TAKEN" as never, "This phone number is already in use");
+        throw AppException.conflict(
+          "PHONE_TAKEN" as never,
+          "This phone number is already in use",
+        );
       }
     }
 
@@ -170,7 +159,9 @@ export class UsersService {
     const safeEmail = finalEmail!;
     const passwordHash = await this.hashPassword(dto.password);
 
-    let existingUser = await this.prisma.user.findUnique({ where: { email: safeEmail } }) || null;
+    let existingUser =
+      (await this.prisma.user.findUnique({ where: { email: safeEmail } })) ||
+      null;
 
     let user;
     if (existingUser && existingUser.deletedAt) {
@@ -210,10 +201,12 @@ export class UsersService {
     if (phone) {
       void (async () => {
         try {
-          const code = await this.otp.generate(phone, 'phone_verification');
+          const code = await this.otp.generate(phone, "phone_verification");
           await this.sms.sendSms(phone, this.templates.otp(code));
         } catch (e) {
-          this.logger.warn(`Failed to send employee phone OTP to ${phone}: ${String(e)}`);
+          this.logger.warn(
+            `Failed to send employee phone OTP to ${phone}: ${String(e)}`,
+          );
         }
       })();
     }
@@ -223,7 +216,10 @@ export class UsersService {
       void (async () => {
         try {
           const code = String(Math.floor(100000 + Math.random() * 900000));
-          const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+          const codeHash = crypto
+            .createHash("sha256")
+            .update(code)
+            .digest("hex");
           const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
           await this.prisma.emailVerificationToken.create({
             data: { userId: user.id, tokenHash: codeHash, expiresAt },
@@ -231,10 +227,12 @@ export class UsersService {
           await this.mail.sendOtp(email, {
             name: dto.name,
             code,
-            appName: this.config.get<string>("app.appName") ?? "Lela Kasa",
+            appName: this.config.get<string>("app.appName") ?? "LeLa Kasa",
           });
         } catch (e) {
-          this.logger.warn(`Failed to send employee email OTP to ${email}: ${String(e)}`);
+          this.logger.warn(
+            `Failed to send employee email OTP to ${email}: ${String(e)}`,
+          );
         }
       })();
     }
@@ -242,10 +240,12 @@ export class UsersService {
     // Send welcome SMS
     if (phone) {
       const shopName =
-        (await this.prisma.shop.findUnique({
-          where: { id: shopId },
-          select: { name: true },
-        }))?.name ?? "Lela Kasa";
+        (
+          await this.prisma.shop.findUnique({
+            where: { id: shopId },
+            select: { name: true },
+          })
+        )?.name ?? "LeLa Kasa";
       void this.sms
         .sendSms(phone, this.templates.welcomeEmployee(shopName, dto.name))
         .catch(() => {});
@@ -284,7 +284,9 @@ export class UsersService {
     // Email update with uniqueness check
     if (dto.email !== undefined) {
       const newEmail = dto.email.trim().toLowerCase();
-      const existing = await this.prisma.user.findUnique({ where: { email: newEmail } });
+      const existing = await this.prisma.user.findUnique({
+        where: { email: newEmail },
+      });
       if (existing && existing.id !== userId && !existing.deletedAt) {
         throw AppException.conflict(
           "EMAIL_TAKEN" as never,
@@ -350,7 +352,9 @@ export class UsersService {
 
     // If reactivating, sync permissions to catch any new registry entries
     if (dto.isActive === true && !employee.isActive) {
-      void this.permissionsService.syncForEmployee(userId, shopId).catch(() => {});
+      void this.permissionsService
+        .syncForEmployee(userId, shopId)
+        .catch(() => {});
     }
 
     return mapEmployee(updated);
@@ -382,8 +386,13 @@ export class UsersService {
    * Owner resets an employee's password. Validates the new password against
    * the password policy and revokes all existing sessions for security.
    */
-  async resetEmployeePassword(shopId: string, userId: string, newPassword: string): Promise<void> {
-    assertStrongPassword(newPassword);
+  async resetEmployeePassword(
+    shopId: string,
+    userId: string,
+    newPassword: string,
+  ): Promise<void> {
+    const pwSettings = await this.prisma.systemSetting.findMany();
+    assertStrongPassword(newPassword, loadPasswordPolicy(pwSettings));
 
     const employee = await this.prisma.user.findFirst({
       where: { id: userId, shopId, deletedAt: null },
@@ -391,7 +400,9 @@ export class UsersService {
 
     if (!employee) throw AppException.notFound("Employee", userId);
     if (employee.role !== "EMPLOYEE") {
-      throw AppException.forbidden("Cannot reset password for non-employee accounts");
+      throw AppException.forbidden(
+        "Cannot reset password for non-employee accounts",
+      );
     }
 
     const passwordHash = await this.hashPassword(newPassword);

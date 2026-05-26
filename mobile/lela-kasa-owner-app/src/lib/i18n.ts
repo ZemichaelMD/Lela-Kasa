@@ -62,7 +62,7 @@ const en = {
   // Subscription gate / paywall
   subscriptionRequired: "Subscription required",
   subscriptionRequiredDesc:
-    "Your shop needs an active subscription to use Lela Kasa. Choose a plan to continue.",
+    "Your shop needs an active subscription to use LeLa Kasa. Choose a plan to continue.",
   viewPlansAndPay: "View Plans & Pay",
   refresh: "Refresh",
   // Phone verification
@@ -142,7 +142,7 @@ const en = {
   fillBothFields: "Please enter both email and password",
   manageShop: "Manage your beverage shop",
   withConfidence: "with confidence",
-  appName: "Lela Kasa",
+  appName: "LeLa Kasa",
   learnMore: "Learn more",
   skip: "Skip",
   next: "Next",
@@ -508,7 +508,8 @@ const en = {
     selectKasaType: "Select box type",
     containerKasaCount: "Count",
     returnedContainersSection: "Returned Containers",
-    returnedContainersHint: "Containers returned by the customer with this sale.",
+    returnedContainersHint:
+      "Containers returned by the customer with this sale.",
     addReturnedContainer: "Add Returned Container",
     selectReturnType: "Select beverage",
     returnBoxes: "Boxes",

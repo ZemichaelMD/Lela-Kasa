@@ -7,7 +7,7 @@ export interface ImageUploadProps {
   value: string;
   /** Called when the user uploads a new image or clears the field. */
   onChange: (url: string) => void;
-  /** Aspect ratio class for the preview frame — defaults to 16/9 (video). */
+  /** Aspect ratio class for the preview frame · defaults to 16/9 (video). */
   aspect?: "square" | "video" | "wide";
   /** Short helper text under the dropzone. */
   hint?: string;
@@ -24,7 +24,7 @@ const ASPECT_CLASS: Record<NonNullable<ImageUploadProps["aspect"]>, string> = {
 };
 
 /**
- * Reusable image picker for the admin app — controlled by the parent, uploads
+ * Reusable image picker for the admin app · controlled by the parent, uploads
  * via `sdk.media.upload` (which respects the active backend storage driver).
  */
 export function ImageUpload({
@@ -50,7 +50,7 @@ export function ImageUpload({
         return;
       }
       if (file.size > 8 * 1024 * 1024) {
-        setError("Image is too large — max 8 MB.");
+        setError("Image is too large · max 8 MB.");
         return;
       }
       setError(null);

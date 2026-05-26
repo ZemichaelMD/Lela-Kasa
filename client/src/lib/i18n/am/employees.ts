@@ -58,4 +58,24 @@ export const employees = {
   username: 'የተጠቃሚ ስም',
   notSet: 'አልተዘጋጀም',
   view: 'እይ',
+
+  pwMinChars: 'ቢያንስ 8 ቁምፊዎች',
+  pwContainsLowercase: 'ትንሽ ፊደል ይይዛል',
+  pwContainsUppercase: 'አቢይ ፊደል ይይዛል',
+  pwContainsNumber: 'ቁጥር ይይዛል',
+  pwContainsSymbol: 'ምልክት ይይዛል',
+  pwMinClasses: 'ቢያንስ 3 ከ: ትንሽ ፊደል፣ አቢይ ፊደል፣ ቁጥር፣ ምልክት',
+
+  pwErrorMinLength: 'የይለፍ ቃል ቢያንስ 8 ቁምፊዎች መሆን አለበት',
+  pwErrorMaxLength: 'የይለፍ ቃል ቢበዛ 128 ቁምፊዎች መሆን አለበት',
+  pwErrorMinClasses: 'ቢያንስ 3 ከ: ትንሽ ፊደል፣ አቢይ ፊደል፣ ቁጥር፣ ምልክት ይጠቀሙ',
+  pwErrorRequired: 'አዲስ የይለፍ ቃል ያስፈልጋል',
+  pwResetSuccess: 'የይለፍ ቃል ተቀይሯል። የሰራተኛ ክፍለ ጊዜዎች ተሰርዘዋል።',
+  pwResetFailed: 'የይለፍ ቃል መቀየር አልተቻለም',
+  contactRequired: 'ኢሜይል ወይም ስልክ ያስፈልጋል',
+  pwRequired: 'የይለፍ ቃል ያስፈልጋል',
+
+  resetPassword: 'የይለፍ ቃል ይቀይሩ',
+  resetPasswordDesc: 'አዲስ የይለፍ ቃል ያዘጋጁ። ንቁ ክፍለ ጊዜዎች ይሰረዛሉ።',
+  resetting: 'በመቀየር ላይ...',
 } as const;

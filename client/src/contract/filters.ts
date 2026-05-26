@@ -11,7 +11,7 @@ import { ApprovalStatus, ClaimStatus, PriceRange, UserRole } from './enums';
  *     `/owner-requests`)
  *
  * Query-string callers should send arrays as repeated keys (`?city=Bahir%20Dar&city=Hawassa`)
- * — the helpers in `apps/backend/src/common/util/parse-array-query.ts` accept
+ * · the helpers in `apps/backend/src/common/util/parse-array-query.ts` accept
  * both repeated keys and comma-separated values.
  */
 

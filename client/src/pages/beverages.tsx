@@ -760,13 +760,13 @@ export default function BeveragesPage() {
       key: "brand",
       header: t("brand"),
       render: (b: Beverage) => (
-        <span className="text-muted-foreground">{b.brand ?? "—"}</span>
+        <span className="text-muted-foreground">{b.brand ?? "·"}</span>
       ),
     },
     {
       key: "size",
       header: t("sizeMl"),
-      render: (b: Beverage) => <span>{b.sizeMl ?? "—"}</span>,
+      render: (b: Beverage) => <span>{b.sizeMl ?? "·"}</span>,
     },
     {
       key: "bpb",

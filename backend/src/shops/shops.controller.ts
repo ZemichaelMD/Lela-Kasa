@@ -44,6 +44,12 @@ export class ShopsController {
     return this.settingsService.get(shopId, key);
   }
 
+  @Get('me/banners')
+  @ApiOperation({ summary: 'Get active banners (global + shop-specific)' })
+  getMyBanners(@CurrentShopId() shopId: string) {
+    return this.shopsService.getMyBanners(shopId);
+  }
+
   @Put('me/settings/:key')
   @Roles('OWNER')
   @ApiOperation({ summary: 'Set a single shop-level setting' })

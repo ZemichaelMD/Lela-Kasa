@@ -1,4 +1,4 @@
-import type { SdkClient, RequestOptions } from '../client';
+import type { SdkClient, RequestOptions } from "../client";
 
 export interface Beverage {
   id: string;
@@ -63,7 +63,7 @@ export interface BeveragePrice {
   pricePerBottleCents: number;
 }
 
-/** Shape returned by GET /beverages/:id/prices — one entry per tier. */
+/** Shape returned by GET /beverages/:id/prices · one entry per tier. */
 export interface CurrentTierPrice {
   tier: { id: string; name: string; kind: string };
   currentPrice: BeveragePrice | null;
@@ -78,14 +78,22 @@ export interface AdjustStockDto {
 export class BeveragesResource {
   constructor(private readonly client: SdkClient) {}
 
-  list(params?: ListBeveragesParams, options?: RequestOptions): Promise<PaginatedBeverages> {
+  list(
+    params?: ListBeveragesParams,
+    options?: RequestOptions,
+  ): Promise<PaginatedBeverages> {
     const query = new URLSearchParams();
-    if (params?.page !== undefined) query.set('page', String(params.page));
-    if (params?.pageSize !== undefined) query.set('pageSize', String(params.pageSize));
-    if (params?.search) query.set('search', params.search);
-    if (params?.isActive !== undefined) query.set('isActive', String(params.isActive));
+    if (params?.page !== undefined) query.set("page", String(params.page));
+    if (params?.pageSize !== undefined)
+      query.set("pageSize", String(params.pageSize));
+    if (params?.search) query.set("search", params.search);
+    if (params?.isActive !== undefined)
+      query.set("isActive", String(params.isActive));
     const qs = query.toString();
-    return this.client.get<PaginatedBeverages>(`/api/v1/beverages${qs ? `?${qs}` : ''}`, options);
+    return this.client.get<PaginatedBeverages>(
+      `/api/v1/beverages${qs ? `?${qs}` : ""}`,
+      options,
+    );
   }
 
   findOne(id: string, options?: RequestOptions): Promise<Beverage> {
@@ -93,14 +101,25 @@ export class BeveragesResource {
   }
 
   create(dto: CreateBeverageDto, options?: RequestOptions): Promise<Beverage> {
-    return this.client.post<Beverage>('/api/v1/beverages', dto, options);
+    return this.client.post<Beverage>("/api/v1/beverages", dto, options);
   }
 
-  createMany(dtos: CreateBeverageDto[], options?: RequestOptions): Promise<Beverage[]> {
-    return this.client.post<Beverage[]>('/api/v1/beverages/bulk', { beverages: dtos }, options);
+  createMany(
+    dtos: CreateBeverageDto[],
+    options?: RequestOptions,
+  ): Promise<Beverage[]> {
+    return this.client.post<Beverage[]>(
+      "/api/v1/beverages/bulk",
+      { beverages: dtos },
+      options,
+    );
   }
 
-  update(id: string, dto: UpdateBeverageDto, options?: RequestOptions): Promise<Beverage> {
+  update(
+    id: string,
+    dto: UpdateBeverageDto,
+    options?: RequestOptions,
+  ): Promise<Beverage> {
     return this.client.patch<Beverage>(`/api/v1/beverages/${id}`, dto, options);
   }
 
@@ -108,15 +127,32 @@ export class BeveragesResource {
     return this.client.delete<void>(`/api/v1/beverages/${id}`, options);
   }
 
-  adjustStock(id: string, dto: AdjustStockDto, options?: RequestOptions): Promise<Beverage> {
-    return this.client.post<Beverage>(`/api/v1/beverages/${id}/stock`, dto, options);
+  adjustStock(
+    id: string,
+    dto: AdjustStockDto,
+    options?: RequestOptions,
+  ): Promise<Beverage> {
+    return this.client.post<Beverage>(
+      `/api/v1/beverages/${id}/stock`,
+      dto,
+      options,
+    );
   }
 
   getMovements(id: string, options?: RequestOptions): Promise<StockMovement[]> {
-    return this.client.get<StockMovement[]>(`/api/v1/beverages/${id}/stock`, options);
+    return this.client.get<StockMovement[]>(
+      `/api/v1/beverages/${id}/stock`,
+      options,
+    );
   }
 
-  getCurrentPrices(id: string, options?: RequestOptions): Promise<CurrentTierPrice[]> {
-    return this.client.get<CurrentTierPrice[]>(`/api/v1/beverages/${id}/prices`, options);
+  getCurrentPrices(
+    id: string,
+    options?: RequestOptions,
+  ): Promise<CurrentTierPrice[]> {
+    return this.client.get<CurrentTierPrice[]>(
+      `/api/v1/beverages/${id}/prices`,
+      options,
+    );
   }
 }

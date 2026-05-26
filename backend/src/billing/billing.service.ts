@@ -89,7 +89,7 @@ export class BillingService {
       },
     });
 
-    const [firstName, ...rest] = (user.name?.trim() || "Lela Kasa Owner").split(
+    const [firstName, ...rest] = (user.name?.trim() || "LeLa Kasa Owner").split(
       /\s+/,
     );
     const { checkoutUrl } = await this.chapa.initialize({
@@ -99,7 +99,7 @@ export class BillingService {
       firstName: firstName || "LelaKasa",
       lastName: rest.join(" ") || "Owner",
       txRef,
-      title: "Lela Kasa Plan",
+      title: "LeLa Kasa Plan",
       description: `${plan.name} subscription (${billingCycle})`,
     });
 

@@ -161,9 +161,8 @@ export interface AdminSale {
   subtotalCents: number;
   taxCents: number;
   discountCents: number;
-  totalCents: number;
   paidCents: number;
-  balanceCents: number;
+  creditDeltaCents: number;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
   shop?: { name: string } | null;
   customer?: { name: string } | null;
@@ -370,8 +369,15 @@ export class AdminResource {
 
   // ── Sales ───────────────────────────────────────────────────────────────────
 
-  listSales(options?: RequestOptions): Promise<AdminSale[]> {
-    return this.client.get<AdminSale[]>('/api/v1/admin/sales', options);
+  listSales(params?: { shopId?: string; includeLines?: boolean; customerId?: string; dateFrom?: string; dateTo?: string }, options?: RequestOptions): Promise<AdminSale[]> {
+    const query = new URLSearchParams();
+    if (params?.shopId) query.set('shopId', params.shopId);
+    if (params?.includeLines) query.set('includeLines', 'true');
+    if (params?.customerId) query.set('customerId', params.customerId);
+    if (params?.dateFrom) query.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) query.set('dateTo', params.dateTo);
+    const qs = query.toString();
+    return this.client.get<AdminSale[]>(`/api/v1/admin/sales${qs ? `?${qs}` : ''}`, options);
   }
 
   findOneSale(id: string, options?: RequestOptions): Promise<any> {

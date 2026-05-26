@@ -1,5 +1,5 @@
 export const home = {
-  heroTitle: "Lela Kasa — Beverage Shop Manager",
+  heroTitle: "LeLa Kasa · Beverage Shop Manager",
   heroSubtitle:
     "Track every sale, manage customers, and grow your beverage business with ease.",
   getStarted: "Get Started",

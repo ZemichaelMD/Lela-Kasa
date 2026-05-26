@@ -17,4 +17,13 @@ export const dashboard = {
   noRecentVoids: 'No recent voids',
   belowThreshold: 'below threshold',
   salesKpiNote: 'Sales KPIs are for the selected range. Switch the selector above to change the window.',
+  salesTrend: 'Sales Trend',
+  orders: 'Orders',
+  revenue: 'Revenue',
+  bottles: 'Bottles',
+  boxes: 'Boxes',
+  customersWithCredit: 'customers with credit',
+  stockLevel: 'Stock Level',
+  salesDate: 'Sale date',
+  voidedAt: 'Voided',
 } as const;

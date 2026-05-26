@@ -200,7 +200,9 @@ function SecretField({
             placeholder={placeholder}
             autoComplete="off"
             readOnly={!visible}
-            onFocus={(e) => { if (!visible) e.target.blur(); }}
+            onFocus={(e) => {
+              if (!visible) e.target.blur();
+            }}
           />
           <button
             type="button"
@@ -208,7 +210,11 @@ function SecretField({
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
             title={visible ? "Hide" : "Show"}
           >
-            {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {visible ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
           </button>
         </div>
         <button
@@ -285,7 +291,7 @@ async function saveSettings(entries: Record<string, string>): Promise<void> {
 
 function GeneralTab({ existing }: { existing: SystemSetting[] }) {
   const [appName, setAppName] = useState(
-    val(existing, "app_name", "Lela Kasa"),
+    val(existing, "app_name", "LeLa Kasa"),
   );
   const [timezone, setTimezone] = useState(
     val(existing, "default_timezone", "Africa/Addis_Ababa"),
@@ -541,6 +547,12 @@ function SecurityTab({ existing }: { existing: SystemSetting[] }) {
   const [minPwLen, setMinPwLen] = useState(
     val(existing, "password_min_length", "8"),
   );
+  const [maxPwLen, setMaxPwLen] = useState(
+    val(existing, "password_max_length", "128"),
+  );
+  const [minCharClasses, setMinCharClasses] = useState(
+    val(existing, "password_min_character_classes", "3"),
+  );
   const [sessionTimeout, setSessionTimeout] = useState(
     val(existing, "session_timeout_minutes", "60"),
   );
@@ -563,6 +575,8 @@ function SecurityTab({ existing }: { existing: SystemSetting[] }) {
     try {
       await saveSettings({
         password_min_length: minPwLen,
+        password_max_length: maxPwLen,
+        password_min_character_classes: minCharClasses,
         session_timeout_minutes: sessionTimeout,
         max_login_attempts: maxAttempts,
         lockout_duration_minutes: lockoutMins,
@@ -580,17 +594,48 @@ function SecurityTab({ existing }: { existing: SystemSetting[] }) {
   return (
     <Card className="p-6">
       <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold">
-        <Lock className="h-4 w-4" /> Password & Session Policy
+        <Lock className="h-4 w-4" /> Password Rules
       </h3>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Minimum Password Length">
+      <p className="mb-4 text-xs text-muted-foreground">
+        These rules are enforced server-side when users register, reset
+        passwords, or when admins change passwords. Passwords must meet at least
+        N of 4 character classes: lowercase, uppercase, numbers, and symbols.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label="Minimum Length">
           <input
             value={minPwLen}
             onChange={(e) => setMinPwLen(e.target.value)}
             type="number"
+            min={1}
             className={inputClass}
           />
         </Field>
+        <Field label="Maximum Length">
+          <input
+            value={maxPwLen}
+            onChange={(e) => setMaxPwLen(e.target.value)}
+            type="number"
+            min={1}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Min Character Classes Required">
+          <input
+            value={minCharClasses}
+            onChange={(e) => setMinCharClasses(e.target.value)}
+            type="number"
+            min={1}
+            max={4}
+            className={inputClass}
+          />
+        </Field>
+      </div>
+
+      <h3 className="mb-4 mt-8 flex items-center gap-2 text-sm font-semibold">
+        <Lock className="h-4 w-4" /> Session Policy
+      </h3>
+      <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Max Login Attempts">
           <input
             value={maxAttempts}
@@ -616,6 +661,7 @@ function SecurityTab({ existing }: { existing: SystemSetting[] }) {
           />
         </Field>
       </div>
+
       <div className="mt-5 space-y-3 border-t border-border pt-4">
         <div className="flex items-center justify-between">
           <span className="text-sm">Require Email Verification</span>
@@ -637,7 +683,9 @@ function SecurityTab({ existing }: { existing: SystemSetting[] }) {
 
 function EmailIntegration({ existing }: { existing: SystemSetting[] }) {
   const [enabled, setEnabled] = useState(bool(existing, "email_enabled", true));
-  const [provider, setProvider] = useState(val(existing, "mail_provider", "smtp"));
+  const [provider, setProvider] = useState(
+    val(existing, "mail_provider", "smtp"),
+  );
   const [smtpHost, setSmtpHost] = useState(val(existing, "smtp_host"));
   const [smtpPort, setSmtpPort] = useState(val(existing, "smtp_port", "587"));
   const [smtpUser, setSmtpUser] = useState(val(existing, "smtp_user"));
@@ -808,9 +856,7 @@ function AfroMessageBalance({ token }: { token: string }) {
             <p>
               Balance: <strong>{balance.balance}</strong> ETB
               {balance.estimatedMessages && (
-                <span>
-                  {" "}· ~{balance.estimatedMessages} messages remaining
-                </span>
+                <span> · ~{balance.estimatedMessages} messages remaining</span>
               )}
             </p>
           ) : (
@@ -891,7 +937,9 @@ function SmsIntegration({ existing }: { existing: SystemSetting[] }) {
           value={ethiopiaKey}
           onChange={setEthiopiaKey}
           placeholder="smsethiopia.et API key"
-          showValue={val(existing, "smsethiopia_api_key") ? "••••••••••••••••" : ""}
+          showValue={
+            val(existing, "smsethiopia_api_key") ? "••••••••••••••••" : ""
+          }
         />
       ) : provider === "twilio" ? (
         <SecretField
@@ -917,7 +965,9 @@ function SmsIntegration({ existing }: { existing: SystemSetting[] }) {
             value={afroMessageToken}
             onChange={setAfroMessageToken}
             placeholder="Bearer token from AfroMessage dashboard"
-            showValue={val(existing, "afromessage_token") ? "••••••••••••••••" : ""}
+            showValue={
+              val(existing, "afromessage_token") ? "••••••••••••••••" : ""
+            }
           />
           <Field label="Sender Name">
             <input
@@ -1104,21 +1154,27 @@ function ChapaIntegration({ existing }: { existing: SystemSetting[] }) {
           value={secretKey}
           onChange={setSecretKey}
           placeholder="CHASECK_TEST-..."
-          showValue={val(existing, "chapa_secret_key") ? "••••••••••••••••" : ""}
+          showValue={
+            val(existing, "chapa_secret_key") ? "••••••••••••••••" : ""
+          }
         />
         <SecretField
           label="Public Key"
           value={publicKey}
           onChange={setPublicKey}
           placeholder="CHAPUBK_TEST-..."
-          showValue={val(existing, "chapa_public_key") ? "••••••••••••••••" : ""}
+          showValue={
+            val(existing, "chapa_public_key") ? "••••••••••••••••" : ""
+          }
         />
         <SecretField
           label="Webhook Secret"
           hint="From your Chapa dashboard — used to verify webhook signatures."
           value={webhookSecret}
           onChange={setWebhookSecret}
-          showValue={val(existing, "chapa_webhook_secret") ? "••••••••••••••••" : ""}
+          showValue={
+            val(existing, "chapa_webhook_secret") ? "••••••••••••••••" : ""
+          }
         />
         <Field label="Callback URL" hint="Chapa posts payment events here.">
           <input
@@ -1204,7 +1260,9 @@ function TelegramIntegration({ existing }: { existing: SystemSetting[] }) {
           value={botToken}
           onChange={setBotToken}
           placeholder="123456:ABC-DEF..."
-          showValue={val(existing, "telegram_bot_token") ? "••••••••••••••••" : ""}
+          showValue={
+            val(existing, "telegram_bot_token") ? "••••••••••••••••" : ""
+          }
         />
         <Field label="Bot Username" hint="Used to build t.me connect links">
           <input
@@ -1341,7 +1399,11 @@ function WhatsAppIntegration({ existing }: { existing: SystemSetting[] }) {
             value={metaToken}
             onChange={setMetaToken}
             placeholder="EAAG..."
-            showValue={val(existing, "whatsapp_meta_access_token") ? "••••••••••••••••" : ""}
+            showValue={
+              val(existing, "whatsapp_meta_access_token")
+                ? "••••••••••••••••"
+                : ""
+            }
           />
           <Field label="Phone Number ID">
             <input
@@ -1379,7 +1441,9 @@ function WhatsAppIntegration({ existing }: { existing: SystemSetting[] }) {
             value={twilioToken}
             onChange={setTwilioToken}
             placeholder="your_auth_token"
-            showValue={val(existing, "whatsapp_twilio_token") ? "••••••••••••••••" : ""}
+            showValue={
+              val(existing, "whatsapp_twilio_token") ? "••••••••••••••••" : ""
+            }
           />
           <Field label="WhatsApp From Number" hint="E.164, e.g. +14155238886">
             <input
@@ -1415,7 +1479,9 @@ function WhatsAppIntegration({ existing }: { existing: SystemSetting[] }) {
 }
 
 function StorageIntegration({ existing }: { existing: SystemSetting[] }) {
-  const [driver, setDriver] = useState(val(existing, "storage_driver", "local"));
+  const [driver, setDriver] = useState(
+    val(existing, "storage_driver", "local"),
+  );
   const [bucket, setBucket] = useState(val(existing, "s3_bucket"));
   const [region, setRegion] = useState(val(existing, "s3_region", "us-east-1"));
   const [endpoint, setEndpoint] = useState(val(existing, "s3_endpoint"));

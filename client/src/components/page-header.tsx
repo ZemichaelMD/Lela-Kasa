@@ -34,7 +34,7 @@ export function PageHeader({
   );
 }
 
-/** A neutral notice strip — used on the skeleton pages to point at the plan. */
+/** A neutral notice strip · used on the skeleton pages to point at the plan. */
 export function PlanNote({ children }: { children: ReactNode }) {
   return (
     <div className="rounded-lg border border-dashed border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">

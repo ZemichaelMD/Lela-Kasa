@@ -1,11 +1,11 @@
-import { ArrowLeft, BarChart3, Beer, Building2, CreditCard, Crown, Download, Pencil, Plus, ShoppingCart, Tag, Trash2, Users, UserPlus, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Ban, BarChart3, Beer, Building2, ChevronDown, ChevronLeft, ChevronUp, CreditCard, Crown, Download, Pencil, Plus, ShoppingCart, Tag, Trash2, Users, UserPlus, X } from 'lucide-react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { DataTable, StatusChip } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { sdk } from '@/lib/sdk';
-import type { AdminBeverage, AdminShopDetail, AdminUser, AdminSale } from '@/sdk';
+import type { AdminBeverage, AdminShopDetail, AdminUser, AdminSale, Beverage, PriceTier, TierPrice } from '@/sdk';
 import { Card, EthiopianDateInput, FormattedDate, Skeleton } from '@/ui';
 import { formatMoneyCents } from '@/utils/money';
 
@@ -415,6 +415,292 @@ function CustomersTab({ shopId }: { shopId: string }) {
 
 type PriceTierItem = { id: string; name: string; kind: string; isDefault: boolean; _count?: { prices: number } };
 
+// ── Inline price edit form ────────────────────────────────────────────────────
+
+function EditPriceRow({ tierId, beverageId, current, onSaved, onCancel }: {
+  tierId: string; beverageId: string; current: TierPrice | undefined;
+  onSaved: (price: TierPrice) => void; onCancel: () => void;
+}) {
+  const [boxCents, setBoxCents] = useState(current ? String(current.pricePerBoxCents / 100) : '');
+  const [bottleCents, setBottleCents] = useState(current ? String(current.pricePerBottleCents / 100) : '');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const saved = await sdk.priceTiers.setPrice(tierId, {
+        beverageId,
+        pricePerBoxCents: Math.round(parseFloat(boxCents) * 100),
+        pricePerBottleCents: Math.round(parseFloat(bottleCents) * 100),
+      });
+      toast.success('Price updated');
+      onSaved(saved);
+    } catch { toast.error('Failed to update price'); }
+    finally { setSaving(false); }
+  }
+
+  const ic = 'h-9 w-28 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40';
+
+  return (
+    <tr className="border-b border-border bg-primary/5">
+      <td className="px-4 py-3" colSpan={5}>
+        <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-4">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Per Box</label>
+            <input value={boxCents} onChange={e => setBoxCents(e.target.value)} type="number" min={0} step="0.01" required className={ic} placeholder="0.00" autoFocus />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Per Bottle</label>
+            <input value={bottleCents} onChange={e => setBottleCents(e.target.value)} type="number" min={0} step="0.01" required className={ic} placeholder="0.00" />
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" disabled={saving} className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">Save</button>
+            <button type="button" onClick={onCancel} className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent">Cancel</button>
+          </div>
+        </form>
+      </td>
+    </tr>
+  );
+}
+
+// ── Price history placeholder ─────────────────────────────────────────────────
+
+function PriceHistoryRow() {
+  return (
+    <tr className="border-b border-border bg-muted/30">
+      <td className="px-6 py-3" colSpan={5}>
+        <p className="text-xs text-muted-foreground italic">Price history not available</p>
+      </td>
+    </tr>
+  );
+}
+
+// ── Bulk Price Modal ──────────────────────────────────────────────────────────
+
+function BulkPriceModal({ tierId, selectedIds, onClose, onSaved }: {
+  tierId: string; selectedIds: Set<string>; onClose: () => void; onSaved: (prices: TierPrice[]) => void;
+}) {
+  const [boxVal, setBoxVal] = useState('');
+  const [bottleVal, setBottleVal] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const count = selectedIds.size;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setProgress(0);
+    const ids = Array.from(selectedIds);
+    const saved: TierPrice[] = [];
+    let done = 0;
+    for (const beverageId of ids) {
+      try {
+        const result = await sdk.priceTiers.setPrice(tierId, {
+          beverageId,
+          pricePerBoxCents: Math.round(parseFloat(boxVal) * 100),
+          pricePerBottleCents: Math.round(parseFloat(bottleVal) * 100),
+        });
+        saved.push(result);
+      } catch { toast.error(`Failed to update price (${beverageId})`); }
+      done += 1;
+      setProgress(done);
+    }
+    if (saved.length > 0) {
+      toast.success(`Updated prices for ${saved.length} beverages`);
+      onSaved(saved);
+    }
+    setSaving(false);
+  }
+
+  const ic = 'h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <form onSubmit={handleSubmit} className="relative w-full max-w-sm rounded-xl bg-card p-6 shadow-xl space-y-4">
+        <h3 className="text-base font-semibold">Bulk Set Prices</h3>
+        <p className="text-sm text-muted-foreground">Setting price for {count} {count === 1 ? 'beverage' : 'beverages'}</p>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Per Box *</label>
+          <input value={boxVal} onChange={e => setBoxVal(e.target.value)} type="number" min={0} step="0.01" required className={ic} placeholder="0.00" autoFocus />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Per Bottle *</label>
+          <input value={bottleVal} onChange={e => setBottleVal(e.target.value)} type="number" min={0} step="0.01" required className={ic} placeholder="0.00" />
+        </div>
+        {saving && <p className="text-sm text-muted-foreground">{progress} / {count} Saving...</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50">Cancel</button>
+          <button type="submit" disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">Apply to All</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ── Tier Detail View (inline) ─────────────────────────────────────────────────
+
+interface PriceRow {
+  beverage: Beverage;
+  price: TierPrice | undefined;
+}
+
+function TierDetailView({ tierId, onBack }: { tierId: string; onBack: () => void }) {
+  const [tier, setTier] = useState<PriceTier | null>(null);
+  const [rows, setRows] = useState<PriceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingBeverageId, setEditingBeverageId] = useState<string | null>(null);
+  const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    async function load() {
+      try {
+        const [tierData, allBeverages, prices] = await Promise.all([
+          sdk.priceTiers.findOne(tierId),
+          sdk.beverages.list({ pageSize: 200 }),
+          sdk.priceTiers.getPrices(tierId),
+        ]);
+        setTier(tierData);
+        const priceMap = new Map(prices.map((p) => [p.beverageId, p]));
+        setRows(allBeverages.data.map((b) => ({ beverage: b, price: priceMap.get(b.id) })));
+      } catch { toast.error('Failed to load tier details'); }
+      finally { setLoading(false); }
+    }
+    void load();
+  }, [tierId]);
+
+  function handlePriceSaved(saved: TierPrice) {
+    setEditingBeverageId(null);
+    setRows((prev) => prev.map((r) => r.beverage.id === saved.beverageId ? { ...r, price: saved } : r));
+  }
+
+  function handleBulkSaved(saved: TierPrice[]) {
+    setBulkOpen(false);
+    setSelected(new Set());
+    setRows((prev) => prev.map((r) => {
+      const updated = saved.find((s) => s.beverageId === r.beverage.id);
+      return updated ? { ...r, price: updated } : r;
+    }));
+  }
+
+  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.beverage.id));
+
+  function toggleAll() {
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(rows.map((r) => r.beverage.id)));
+  }
+
+  function toggleOne(beverageId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(beverageId)) next.delete(beverageId);
+      else next.add(beverageId);
+      return next;
+    });
+  }
+
+  if (loading) {
+    return <Skeleton className="h-48 rounded-xl" />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <ChevronLeft className="h-4 w-4" /> Back to Tiers
+        </button>
+        <div className="text-sm font-semibold">{tier?.name} <span className="text-xs text-muted-foreground font-normal">({tier?.kind})</span></div>
+      </div>
+
+      {selected.size > 0 && (
+        <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
+          <span className="text-sm font-medium">{selected.size} {selected.size === 1 ? 'beverage' : 'beverages'} selected</span>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setSelected(new Set())} className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent">Clear</button>
+            <button type="button" onClick={() => setBulkOpen(true)} className="rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground">Set Price</button>
+          </div>
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th className="px-4 py-3 w-8">
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 rounded border-border" aria-label="Select all" />
+                </th>
+                <th className="px-4 py-3 font-medium">Beverage</th>
+                <th className="px-4 py-3 font-medium">Per Box</th>
+                <th className="px-4 py-3 font-medium">Per Bottle</th>
+                <th className="px-4 py-3 font-medium w-36">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">No beverages found</td></tr>
+              )}
+              {rows.map((row) => (
+                <Fragment key={row.beverage.id}>
+                  <tr className={`border-b border-border last:border-0 hover:bg-accent/40 ${selected.has(row.beverage.id) ? 'bg-primary/5' : ''}`}>
+                    <td className="px-4 py-3">
+                      <input type="checkbox" checked={selected.has(row.beverage.id)} onChange={() => toggleOne(row.beverage.id)} className="h-4 w-4 rounded border-border" aria-label={`Select ${row.beverage.name}`} />
+                    </td>
+                    <td className="px-4 py-3 font-medium">
+                      <div>{row.beverage.name}</div>
+                      {row.beverage.brand && <div className="text-xs text-muted-foreground">{row.beverage.brand}</div>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {row.price ? <span>{formatMoneyCents(row.price.pricePerBoxCents)}</span> : <span className="text-muted-foreground italic">Not set</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {row.price ? <span>{formatMoneyCents(row.price.pricePerBottleCents)}</span> : <span className="text-muted-foreground italic">Not set</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingBeverageId((prev) => prev === row.beverage.id ? null : row.beverage.id)}
+                          className="inline-flex items-center gap-1 rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          title="Edit prices"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          <span className="text-xs">Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHistoryOpenId((prev) => prev === row.beverage.id ? null : row.beverage.id)}
+                          className="inline-flex items-center gap-1 rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          title="Toggle price history"
+                        >
+                          {historyOpenId === row.beverage.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          <span className="text-xs">History</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {editingBeverageId === row.beverage.id && (
+                    <EditPriceRow tierId={tierId} beverageId={row.beverage.id} current={row.price} onSaved={handlePriceSaved} onCancel={() => setEditingBeverageId(null)} />
+                  )}
+                  {historyOpenId === row.beverage.id && <PriceHistoryRow />}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {bulkOpen && <BulkPriceModal tierId={tierId} selectedIds={selected} onClose={() => setBulkOpen(false)} onSaved={handleBulkSaved} />}
+    </div>
+  );
+}
+
+// ── Tier List View ────────────────────────────────────────────────────────────
+
 function PriceTiersTab({ shopId }: { shopId: string }) {
   const [list, setList] = useState<PriceTierItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -422,6 +708,7 @@ function PriceTiersTab({ shopId }: { shopId: string }) {
   const [name, setName] = useState('');
   const [kind, setKind] = useState('RETAIL');
   const [saving, setSaving] = useState(false);
+  const [detailTierId, setDetailTierId] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -449,6 +736,10 @@ function PriceTiersTab({ shopId }: { shopId: string }) {
 
   const KINDS = ['RETAIL', 'WHOLESALE', 'VIP', 'CUSTOM'];
 
+  if (detailTierId) {
+    return <TierDetailView tierId={detailTierId} onBack={() => setDetailTierId(null)} />;
+  }
+
   return (
     <div className="space-y-4">
       {loading ? (
@@ -456,13 +747,18 @@ function PriceTiersTab({ shopId }: { shopId: string }) {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {list.map(t => (
-            <Card key={t.id} className="p-4 flex flex-col gap-2">
+            <button
+              type="button"
+              key={t.id}
+              onClick={() => setDetailTierId(t.id)}
+              className="w-full text-left rounded-xl border border-border bg-card p-4 flex flex-col gap-2 hover:bg-accent/50 transition-colors"
+            >
               <div className="flex items-center justify-between">
                 <p className="font-semibold">{t.name}</p>
                 {t.isDefault && <span className="text-[10px] rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">Default</span>}
               </div>
               <p className="text-xs text-muted-foreground">{t.kind} · {t._count?.prices ?? 0} prices</p>
-            </Card>
+            </button>
           ))}
           <button type="button" onClick={() => { setName(''); setKind('RETAIL'); setDrawerOpen(true); }} className="flex items-center justify-center rounded-xl border-2 border-dashed border-border p-6 text-sm text-muted-foreground hover:border-primary/50 hover:text-primary">
             <Plus className="h-5 w-5 mr-2" /> Add Tier
@@ -636,26 +932,338 @@ function EmployeesTab({ shopId, allUsers, onRefresh }: { shopId: string; allUser
 
 // ─── Sales ────────────────────────────────────────────────────────────────────
 
-function SalesTab({ shopId }: { shopId: string }) {
-  const navigate = useNavigate();
-  const [sales, setSales] = useState<AdminSale[]>([]);
+function SaleDetailView({ saleId, onBack, shopId }: { saleId: string; onBack: () => void; shopId: string }) {
+  const [sale, setSale] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voiding, setVoiding] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
 
   useEffect(() => {
     setLoading(true);
-    sdk.admin.listSales().then(all => setSales(all.filter(s => s.shopId === shopId))).catch(() => toast.error('Failed to load sales')).finally(() => setLoading(false));
-  }, [shopId]);
+    sdk.admin.findOneSale(saleId)
+      .then(setSale)
+      .catch(() => toast.error('Failed to load sale'))
+      .finally(() => setLoading(false));
+  }, [saleId]);
+
+  async function handleVoid() {
+    if (!sale) return;
+    setVoiding(true);
+    try {
+      await sdk.sales.void(sale.id, voidReason.trim() || '');
+      toast.success('Sale voided');
+      setVoidOpen(false);
+      const data = await sdk.admin.findOneSale(sale.id);
+      setSale(data);
+    } catch { toast.error('Failed to void sale'); }
+    finally { setVoiding(false); }
+  }
+
+  function formatDateTime(iso: string) {
+    try { return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    catch { return iso; }
+  }
+
+  function sTone(status: string): 'success' | 'warning' | 'neutral' {
+    if (status === 'CONFIRMED') return 'success';
+    if (status === 'OPEN') return 'warning';
+    return 'neutral';
+  }
+
+  if (loading) return <Skeleton className="h-48 rounded-xl" />;
+
+  if (!sale) {
+    return (
+      <div className="space-y-4">
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="h-4 w-4" /> Back to Sales</button>
+        <Card className="p-12 text-center text-muted-foreground">Sale not found</Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <ChevronLeft className="h-4 w-4" /> Back to Sales
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">Sale #{sale.id.slice(-6).toUpperCase()}</span>
+          <StatusChip label={sale.status} tone={sTone(sale.status)} />
+          {sale.status !== 'CANCELLED' && (
+            <button type="button" onClick={() => { setVoidReason(''); setVoidOpen(true); }} className="inline-flex items-center gap-1 rounded-lg border border-destructive/20 px-2.5 py-1 text-xs text-destructive hover:bg-destructive/5"><Ban className="h-3.5 w-3.5" /> Void</button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <Card className="p-5">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sale Info</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Customer</p>
+                <p className="font-medium text-sm">{sale.customer?.name ?? 'Walk-in'}</p>
+                {sale.customer?.phone && <p className="text-xs text-muted-foreground">{sale.customer.phone}</p>}
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Date</p>
+                <p className="text-sm">{formatDateTime(sale.createdAt)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Price Tier</p>
+                <p className="text-sm">{sale.priceTier?.name ?? '—'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Created By</p>
+                <p className="text-sm">{sale.createdBy?.name ?? '—'}</p>
+              </div>
+            </div>
+            {sale.voidReason && (
+              <div className="mt-4 rounded-lg bg-destructive/5 p-3 text-sm text-destructive">
+                <p className="font-semibold">Void Reason</p>
+                <p className="mt-0.5">{sale.voidReason}</p>
+              </div>
+            )}
+          </Card>
+
+          <Card className="overflow-hidden">
+            <div className="border-b border-border bg-muted/30 px-4 sm:px-6 py-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Items</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <th className="px-4 sm:px-6 py-3">Beverage</th>
+                    <th className="px-4 sm:px-6 py-3">Qty</th>
+                    <th className="px-4 sm:px-6 py-3">Unit Price</th>
+                    <th className="px-4 sm:px-6 py-3 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(sale.lines ?? []).map((item: any) => {
+                    const qty: string[] = [];
+                    if (item.boxes > 0) qty.push(`${item.boxes} box${item.boxes > 1 ? 'es' : ''}`);
+                    if (item.bottles > 0) qty.push(`${item.bottles} btl`);
+                    return (
+                      <tr key={item.id} className="hover:bg-accent/20">
+                        <td className="px-4 sm:px-6 py-4 font-medium">{item.beverage?.name ?? 'Beverage'}</td>
+                        <td className="px-4 sm:px-6 py-4 tabular-nums">{qty.length > 0 ? qty.join(' + ') : '—'}</td>
+                        <td className="px-4 sm:px-6 py-4 tabular-nums">{formatMoneyCents(item.pricePerBoxCents)}/box</td>
+                        <td className="px-4 sm:px-6 py-4 text-right font-medium tabular-nums">{formatMoneyCents(item.lineTotalCents)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden">
+            <div className="border-b border-border bg-muted/30 px-4 sm:px-6 py-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Payments</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <th className="px-4 sm:px-6 py-3">Date</th>
+                    <th className="px-4 sm:px-6 py-3">Account</th>
+                    <th className="px-4 sm:px-6 py-3 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(sale.payments ?? []).length === 0 && (
+                    <tr><td colSpan={3} className="px-4 sm:px-6 py-8 text-center text-muted-foreground italic">No payments recorded</td></tr>
+                  )}
+                  {(sale.payments ?? []).map((p: any) => (
+                    <tr key={p.id} className="hover:bg-accent/20">
+                      <td className="px-4 sm:px-6 py-4 text-muted-foreground"><FormattedDate iso={p.createdAt} /></td>
+                      <td className="px-4 sm:px-6 py-4 font-medium">{p.paymentAccount?.name ?? 'Other'}</td>
+                      <td className="px-4 sm:px-6 py-4 text-right font-semibold text-success tabular-nums">{formatMoneyCents(p.amountCents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {(sale.containerKasas?.length ?? 0) > 0 && (
+            <Card className="overflow-hidden">
+              <div className="border-b border-border bg-muted/30 px-4 sm:px-6 py-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Container Kasa</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      <th className="px-4 sm:px-6 py-3">Beverage</th>
+                      <th className="px-4 sm:px-6 py-3 text-right">Count</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {(sale.containerKasas ?? []).map((k: any) => (
+                      <tr key={k.id} className="hover:bg-accent/20">
+                        <td className="px-4 sm:px-6 py-4 font-medium">{k.beverage?.name ?? 'Beverage'}</td>
+                        <td className="px-4 sm:px-6 py-4 text-right tabular-nums">{k.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {(sale.returnedContainers?.length ?? 0) > 0 && (
+            <Card className="overflow-hidden">
+              <div className="border-b border-border bg-muted/30 px-4 sm:px-6 py-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Returned Containers</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      <th className="px-4 sm:px-6 py-3">Beverage</th>
+                      <th className="px-4 sm:px-6 py-3">Boxes</th>
+                      <th className="px-4 sm:px-6 py-3 text-right">Bottles</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {(sale.returnedContainers ?? []).map((r: any) => (
+                      <tr key={r.id} className="hover:bg-accent/20">
+                        <td className="px-4 sm:px-6 py-4 font-medium">{r.beverage?.name ?? 'Beverage'}</td>
+                        <td className="px-4 sm:px-6 py-4 tabular-nums">{r.boxes}</td>
+                        <td className="px-4 sm:px-6 py-4 text-right tabular-nums">{r.bottles}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          <Card className="p-5">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Summary</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Total</span>
+                <span className="font-semibold tabular-nums">{formatMoneyCents(sale.subtotalCents)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Paid</span>
+                <span className="font-semibold text-success tabular-nums">{formatMoneyCents(sale.paidCents)}</span>
+              </div>
+              <div className="border-t border-border pt-3">
+                <div className="flex justify-between text-base font-bold">
+                  <span>Balance</span>
+                  <span className={sale.subtotalCents > sale.paidCents ? 'text-destructive tabular-nums' : 'tabular-nums'}>
+                    {formatMoneyCents(sale.subtotalCents - sale.paidCents)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {sale.notes && (
+            <Card className="p-5">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notes</h3>
+              <p className="text-sm text-muted-foreground">{sale.notes}</p>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {/* Void dialog */}
+      {voidOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setVoidOpen(false)} />
+          <div className="relative w-full max-w-sm rounded-xl bg-card p-6 shadow-xl">
+            <h3 className="text-base font-semibold">Void this sale?</h3>
+            <p className="mt-1 text-sm text-muted-foreground">This action cannot be undone.</p>
+            <div className="mt-3 space-y-1.5">
+              <label className="text-sm font-medium">Reason</label>
+              <textarea value={voidReason} onChange={e => setVoidReason(e.target.value)} rows={3} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/40" placeholder="Enter reason..." />
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setVoidOpen(false)} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent">Cancel</button>
+              <button type="button" onClick={handleVoid} disabled={voiding} className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+                {voiding ? 'Voiding...' : 'Confirm Void'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SalesTab({ shopId }: { shopId: string }) {
+  const [sales, setSales] = useState<AdminSale[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [filterCustomerId, setFilterCustomerId] = useState('');
+  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+
+  // Load customers for filter
+  useEffect(() => {
+    sdk.customers.list({ pageSize: 500 }).then(d => setCustomers(d.data)).catch(() => {});
+  }, []);
+
+  const fetchSales = useCallback(() => {
+    setLoading(true);
+    sdk.admin.listSales({ shopId, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, customerId: filterCustomerId || undefined })
+      .then(setSales)
+      .catch(() => toast.error('Failed to load sales'))
+      .finally(() => setLoading(false));
+  }, [shopId, dateFrom, dateTo, filterCustomerId]);
+
+  useEffect(() => { fetchSales(); }, [fetchSales]);
+
+  if (selectedSaleId) {
+    return <SaleDetailView saleId={selectedSaleId} onBack={() => setSelectedSaleId(null)} shopId={shopId} />;
+  }
 
   const columns = [
     { key: 'date', header: 'Date', render: (s: AdminSale) => <span><FormattedDate iso={s.saleDate} /></span> },
     { key: 'customer', header: 'Customer', render: (s: AdminSale) => <span>{s.customer?.name ?? '—'}</span> },
-    { key: 'total', header: 'Total', render: (s: AdminSale) => <span className="font-medium tabular-nums">{formatMoneyCents(s.totalCents)}</span> },
+    { key: 'total', header: 'Total', render: (s: AdminSale) => <span className="font-medium tabular-nums">{formatMoneyCents(s.subtotalCents)}</span> },
     { key: 'paid', header: 'Paid', render: (s: AdminSale) => <span className="tabular-nums text-success">{formatMoneyCents(s.paidCents)}</span> },
-    { key: 'balance', header: 'Balance', render: (s: AdminSale) => <span className={`tabular-nums ${s.balanceCents > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>{formatMoneyCents(s.balanceCents)}</span> },
+    { key: 'balance', header: 'Balance', render: (s: AdminSale) => <span className={`tabular-nums ${s.creditDeltaCents > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>{formatMoneyCents(s.creditDeltaCents)}</span> },
     { key: 'status', header: 'Status', render: (s: AdminSale) => <StatusChip label={s.status} tone={s.status === 'CONFIRMED' ? 'success' : s.status === 'CANCELLED' ? 'neutral' : 'warning'} /> },
   ];
 
-  return <DataTable columns={columns} rows={sales} empty={loading ? 'Loading...' : 'No sales'} onRowClick={s => navigate(`/sales/${s.id}`)} />;
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-medium text-muted-foreground">Date</span>
+      <EthiopianDateInput value={dateFrom} onChange={setDateFrom} />
+      <span className="text-xs text-muted-foreground">—</span>
+      <EthiopianDateInput value={dateTo} onChange={setDateTo} />
+      <select value={filterCustomerId} onChange={e => setFilterCustomerId(e.target.value)} className="h-8 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/40">
+        <option value="">All Customers</option>
+        {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <DataTable
+        columns={columns}
+        rows={sales}
+        filterBar={filterBar}
+        activeFilterCount={(dateFrom || dateTo ? 1 : 0) + (filterCustomerId ? 1 : 0)}
+        onClearFilters={() => { setDateFrom(''); setDateTo(''); setFilterCustomerId(''); }}
+        onRowClick={s => setSelectedSaleId(s.id)}
+        empty={loading ? 'Loading...' : 'No sales'}
+      />
+    </div>
+  );
 }
 
 // ─── Reports Tab ──────────────────────────────────────────────────────────────
@@ -671,8 +1279,8 @@ function ReportsTab({ shopId }: { shopId: string }) {
     setLoading(true);
     const load = async () => {
       try {
-        const all = await sdk.admin.listSales();
-        const shopSales = all.filter((s: any) => s.shopId === shopId && s.saleDate >= dateFrom && s.saleDate <= dateTo + 'T23:59:59');
+        const all = await sdk.admin.listSales({ shopId, includeLines: tab === 'beverages', dateFrom: dateFrom || undefined, dateTo: dateTo || undefined });
+        const shopSales = all.filter((s: any) => s.saleDate >= dateFrom && s.saleDate <= dateTo + 'T23:59:59');
 
         if (tab === 'sales') {
           const byDay: Record<string, any> = {};
@@ -680,7 +1288,7 @@ function ReportsTab({ shopId }: { shopId: string }) {
             const day = s.saleDate.slice(0, 10);
             if (!byDay[day]) byDay[day] = { date: day, count: 0, amountCents: 0 };
             byDay[day].count++;
-            byDay[day].amountCents += s.totalCents;
+            byDay[day].amountCents += s.subtotalCents;
           }
           setRows(Object.values(byDay).sort((a: any, b: any) => a.date.localeCompare(b.date)));
         } else if (tab === 'customers') {
@@ -689,7 +1297,7 @@ function ReportsTab({ shopId }: { shopId: string }) {
             const name = s.customer?.name ?? 'Walk-in';
             if (!byCust[name]) byCust[name] = { customerName: name, salesCount: 0, totalCents: 0, paidCents: 0 };
             byCust[name].salesCount++;
-            byCust[name].totalCents += s.totalCents;
+            byCust[name].totalCents += s.subtotalCents;
             byCust[name].paidCents += s.paidCents;
           }
           setRows(Object.values(byCust).sort((a: any, b: any) => b.totalCents - a.totalCents));
@@ -697,19 +1305,16 @@ function ReportsTab({ shopId }: { shopId: string }) {
           const lines: { name: string; boxes: number; bottles: number; total: number }[] = [];
           const seen = new Map<string, typeof lines[0]>();
           for (const sale of shopSales) {
-            try {
-              const detail = await sdk.admin.findOneSale(sale.id);
-              if (detail?.lines) {
-                for (const l of detail.lines) {
-                  const name = l.beverage?.name ?? 'Unknown';
-                  const existing = seen.get(name) || { name, boxes: 0, bottles: 0, total: 0 };
-                  existing.boxes += l.boxes || 0;
-                  existing.bottles += l.bottles || 0;
-                  existing.total += l.lineTotalCents || 0;
-                  seen.set(name, existing);
-                }
+            if ((sale as any).lines) {
+              for (const l of (sale as any).lines) {
+                const name = l.beverage?.name ?? 'Unknown';
+                const existing = seen.get(name) || { name, boxes: 0, bottles: 0, total: 0 };
+                existing.boxes += l.boxes || 0;
+                existing.bottles += l.bottles || 0;
+                existing.total += l.lineTotalCents || 0;
+                seen.set(name, existing);
               }
-            } catch {}
+            }
           }
           setRows(Array.from(seen.values()).sort((a, b) => b.total - a.total));
         }

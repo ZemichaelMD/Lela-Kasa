@@ -355,7 +355,7 @@ export class TelegramService {
   async sendTest(): Promise<{ ok: boolean; message: string }> {
     try {
       const sent = await this.sendMessage(
-        "<b>Lela Kasa test</b> — your Telegram integration is working.",
+        "<b>LeLa Kasa test</b> — your Telegram integration is working.",
       );
       return sent
         ? {

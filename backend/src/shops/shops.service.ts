@@ -37,6 +37,20 @@ const shopSelect = {
 export class ShopsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getMyBanners(shopId: string) {
+    return this.prisma.systemBanner.findMany({
+      where: {
+        isActive: true,
+        AND: [
+          { OR: [{ shopId: null }, { shopId }] },
+          { OR: [{ startAt: null }, { startAt: { lte: new Date() } }] },
+          { OR: [{ endAt: null }, { endAt: { gte: new Date() } }] },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async getMyShop(shopId: string) {
     const shop = await this.prisma.shop.findUnique({
       where: { id: shopId },

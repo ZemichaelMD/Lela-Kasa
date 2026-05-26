@@ -1,7 +1,7 @@
 import { API_URL as SDK_API_URL } from "./sdk";
 
 export const API_URL = SDK_API_URL;
-export const APP_NAME: string = import.meta.env.VITE_APP_NAME ?? "Lela Kasa";
+export const APP_NAME: string = import.meta.env.VITE_APP_NAME ?? "LeLa Kasa";
 
 export type ApprovalStatus = "APPROVED" | "PENDING" | "REJECTED";
 export type PriceRange = "BUDGET" | "MODERATE" | "EXPENSIVE" | "LUXURY";
@@ -346,14 +346,14 @@ export interface FetchRestaurantsParams {
   offset?: number;
 }
 
-/** All restaurants — not supported in the Lela Kasa SDK (legacy stub). */
+/** All restaurants — not supported in the LeLa Kasa SDK (legacy stub). */
 export async function fetchRestaurants(
   _params: FetchRestaurantsParams = {},
 ): Promise<{ items: AdminRestaurant[]; total: number }> {
   return { items: [], total: 0 };
 }
 
-/** All menu items — not supported in the Lela Kasa SDK (legacy stub). */
+/** All menu items — not supported in the LeLa Kasa SDK (legacy stub). */
 export async function fetchMenuItems(): Promise<AdminMenuItem[]> {
   return [];
 }

@@ -3,11 +3,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PERMISSION_REGISTRY, PERMISSION_GROUPS } from './permissions.registry';
 
 export interface PermissionGroupDto {
-  group: string;
+  group: { en: string; am: string };
   permissions: Array<{
     slug: string;
-    label: string;
-    description: string;
+    label: { en: string; am: string };
+    description: { en: string; am: string };
     granted: boolean;
   }>;
 }
@@ -36,21 +36,22 @@ export class PermissionsService {
 
     const groups = new Map<string, PermissionGroupDto['permissions']>();
     for (const def of PERMISSION_REGISTRY) {
-      const list = groups.get(def.group) || [];
+      const groupKey = def.group.en;
+      const list = groups.get(groupKey) || [];
       list.push({
         slug: def.slug,
         label: def.label,
         description: def.description,
         granted: grantedMap.get(def.slug) ?? def.defaultGranted,
       });
-      groups.set(def.group, list);
+      groups.set(groupKey, list);
     }
 
     return PERMISSION_GROUPS
-      .filter(g => groups.has(g))
+      .filter(g => groups.has(g.en))
       .map(group => ({
         group,
-        permissions: groups.get(group)!,
+        permissions: groups.get(group.en)!,
       }));
   }
 

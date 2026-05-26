@@ -9,6 +9,7 @@ import {
 } from "../common/phone.util";
 import { resolveLatLngFromMapUrl } from "../common/geo.util";
 import { VerificationService } from "../verification/verification.service";
+import { assertStrongPassword, loadPasswordPolicy } from "../common/password-policy";
 import * as argon2 from "argon2";
 
 const SENSITIVE_KEYS = new Set([
@@ -319,6 +320,10 @@ export class AdminService {
     const ownerPhone = await this.resolveUniquePhone(dto.ownerPhone);
     const shopPhone = await this.resolveUniqueShopPhone(dto.phone);
 
+    if (dto.ownerPassword) {
+      const pwSettings = await this.prisma.systemSetting.findMany();
+      assertStrongPassword(dto.ownerPassword, loadPasswordPolicy(pwSettings));
+    }
     const initialPassword = dto.ownerPassword || "Password123!";
     const passwordHash = await argon2.hash(initialPassword);
 
@@ -452,6 +457,10 @@ export class AdminService {
     role: string;
     shopId?: string;
   }) {
+    if (dto.password) {
+      const pwSettings = await this.prisma.systemSetting.findMany();
+      assertStrongPassword(dto.password, loadPasswordPolicy(pwSettings));
+    }
     const email = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing)
@@ -698,6 +707,8 @@ export class AdminService {
   }
 
   async changeUserPassword(userId: string, newPassword: string): Promise<void> {
+    const pwSettings = await this.prisma.systemSetting.findMany();
+    assertStrongPassword(newPassword, loadPasswordPolicy(pwSettings));
     const user = await this.prisma.user.findUnique({
       where: { id: userId, deletedAt: null },
     });
@@ -786,13 +797,31 @@ export class AdminService {
 
   // ─── Platform Sales ────────────────────────────────────────────────────────
 
-  async listSales() {
+  async listSales(params?: { shopId?: string; includeLines?: boolean; customerId?: string; dateFrom?: string; dateTo?: string }) {
+    const where: any = {};
+    if (params?.shopId) where.shopId = params.shopId;
+    if (params?.customerId) where.customerId = params.customerId;
+    if (params?.dateFrom || params?.dateTo) {
+      where.saleDate = {};
+      if (params.dateFrom) where.saleDate.gte = new Date(params.dateFrom);
+      if (params.dateTo) where.saleDate.lte = new Date(params.dateTo + 'T23:59:59');
+    }
     return this.prisma.sale.findMany({
+      where,
       orderBy: { saleDate: "desc" },
       include: {
         shop: { select: { name: true } },
         customer: { select: { name: true } },
         createdBy: { select: { name: true } },
+        ...(params?.includeLines
+          ? {
+              lines: {
+                include: {
+                  beverage: { select: { id: true, name: true } },
+                },
+              },
+            }
+          : {}),
       },
     });
   }
@@ -817,6 +846,16 @@ export class AdminService {
         },
         createdBy: { select: { id: true, name: true } },
         priceTier: { select: { id: true, name: true } },
+        containerKasas: {
+          include: {
+            beverage: { select: { id: true, name: true } },
+          },
+        },
+        returnedContainers: {
+          include: {
+            beverage: { select: { id: true, name: true } },
+          },
+        },
       },
     });
     if (!sale) throw new NotFoundException("Sale", id);
@@ -1877,7 +1916,7 @@ export class AdminService {
       ),
       maxLoginAttempts: parseInt(map["max_login_attempts"] || "5", 10),
       requireEmailVerification: map["require_email_verification"] === "true",
-      appName: map["app_name"] || "Lela Kasa",
+      appName: map["app_name"] || "LeLa Kasa",
       defaultTimezone: map["default_timezone"] || "Africa/Addis_Ababa",
       defaultCurrency: map["default_currency"] || "ETB",
       smtpHost: map["smtp_host"] || "",

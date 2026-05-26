@@ -9,7 +9,7 @@ export class AppService {
 
   getInfo() {
     return {
-      name: "Lela Kasa API",
+      name: "LeLa Kasa API",
       description:
         "Starter skeleton — the full API surface is specified in REBUILD_PLAN/04-API-CONTRACT.md.",
       apiVersion: API_VERSION,

@@ -1,5 +1,5 @@
 /**
- * Token store interface — allows swapping between memory, httpOnly cookies (via BFF),
+ * Token store interface · allows swapping between memory, httpOnly cookies (via BFF),
  * and expo-secure-store for React Native.
  */
 
@@ -14,7 +14,7 @@ export interface TokenStore {
   clearTokens(): void | Promise<void>;
 }
 
-/** In-memory token store — suitable for server-side / Node usage */
+/** In-memory token store · suitable for server-side / Node usage */
 export class MemoryTokenStore implements TokenStore {
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
@@ -38,7 +38,7 @@ export class MemoryTokenStore implements TokenStore {
   }
 }
 
-/** No-op token store — for public/unauthenticated requests */
+/** No-op token store · for public/unauthenticated requests */
 export class NoopTokenStore implements TokenStore {
   getAccessToken() {
     return null;
@@ -53,7 +53,7 @@ export class NoopTokenStore implements TokenStore {
 /**
  * Persists tokens in the browser via Web Storage. Suitable for the Next.js client
  * and Vite admin SPA when running in the browser; falls back to in-memory on the
- * server side so SSR doesn't crash. localStorage trades some XSS risk for UX —
+ * server side so SSR doesn't crash. localStorage trades some XSS risk for UX ·
  * upgrade to a BFF + httpOnly cookies if XSS is in your threat model.
  */
 export class BrowserTokenStore implements TokenStore {

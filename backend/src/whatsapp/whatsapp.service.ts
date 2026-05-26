@@ -98,7 +98,7 @@ export class WhatsAppService {
     try {
       await this.sendMessage(
         to,
-        "Lela Kasa test message — your WhatsApp integration is working.",
+        "LeLa Kasa test message — your WhatsApp integration is working.",
       );
       return {
         ok: true,

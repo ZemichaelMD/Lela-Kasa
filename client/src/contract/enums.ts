@@ -1,5 +1,5 @@
 /**
- * Shared enums — mirror the Prisma schema enums exactly.
+ * Shared enums · mirror the Prisma schema enums exactly.
  * DO NOT import from @prisma/client here; this package must work in browsers and React Native.
  * A test in packages/database asserts parity with the generated Prisma enums.
  */

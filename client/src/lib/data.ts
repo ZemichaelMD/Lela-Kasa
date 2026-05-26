@@ -1,7 +1,7 @@
 import { API_URL as SDK_API_URL } from "./sdk";
 
 export const API_URL = SDK_API_URL;
-export const APP_NAME: string = import.meta.env.VITE_APP_NAME ?? "Lela Kasa";
+export const APP_NAME: string = import.meta.env.VITE_APP_NAME ?? "LeLa Kasa";
 
 export type ApprovalStatus = "APPROVED" | "PENDING" | "REJECTED";
 export type PriceRange = "BUDGET" | "MODERATE" | "EXPENSIVE" | "LUXURY";
@@ -275,8 +275,8 @@ export function mapApiRestaurant(r: Record<string, unknown>): AdminRestaurant {
     id: (r.id as number) ?? 0,
     slug: (r.slug as string) ?? "",
     name: (r.name as string) ?? "",
-    city: (r.city as string) ?? "—",
-    neighborhood: (r.neighborhood as string) ?? "—",
+    city: (r.city as string) ?? "·",
+    neighborhood: (r.neighborhood as string) ?? "·",
     shortDescription: (r.shortDescription as string) ?? null,
     description: (r.description as string) ?? null,
     phone: (r.phone as string) ?? null,
@@ -325,12 +325,12 @@ export function mapApiRestaurant(r: Record<string, unknown>): AdminRestaurant {
     specialHours: Array.isArray(r.specialHours) ? r.specialHours : [],
     views30d: (r.views30d as number) ?? 0,
     ownerId: (r.ownerId as string) ?? undefined,
-    ownerName: (r.ownerName as string) ?? "—",
+    ownerName: (r.ownerName as string) ?? "·",
     tagIds: Array.isArray(r.tagIds) ? (r.tagIds as number[]) : [],
     claimStatus: (r.claimStatus as string) ?? undefined,
     rejectionReason: (r.rejectionReason as string) ?? null,
     isActive: (r.isActive as boolean) ?? undefined,
-    createdAt: typeof r.createdAt === "string" ? r.createdAt : "—",
+    createdAt: typeof r.createdAt === "string" ? r.createdAt : "·",
   };
 }
 
@@ -346,14 +346,14 @@ export interface FetchRestaurantsParams {
   offset?: number;
 }
 
-/** All restaurants — not supported in the Lela Kasa SDK (legacy stub). */
+/** All restaurants · not supported in the LeLa Kasa SDK (legacy stub). */
 export async function fetchRestaurants(
   _params: FetchRestaurantsParams = {},
 ): Promise<{ items: AdminRestaurant[]; total: number }> {
   return { items: [], total: 0 };
 }
 
-/** All menu items — not supported in the Lela Kasa SDK (legacy stub). */
+/** All menu items · not supported in the LeLa Kasa SDK (legacy stub). */
 export async function fetchMenuItems(): Promise<AdminMenuItem[]> {
   return [];
 }

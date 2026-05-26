@@ -10,7 +10,8 @@ export const billing = {
   failedDeleteAccount: "Failed to delete account",
   deleteAccountQuestion: "Delete payment account?",
   permanentlyRemoveAccount: "This will permanently remove",
-  cannotDeleteAccountWithTx: "Cannot delete: account has associated transactions",
+  cannotDeleteAccountWithTx:
+    "Cannot delete: account has associated transactions",
   holderName: "Holder name",
   bankName: "Bank name",
   accountNumber: "Account number",
@@ -25,6 +26,6 @@ export const billing = {
   bank: "Bank",
   mobileMoney: "Mobile Money",
   other: "Other",
-  activeClickToDeactivate: "Active — click to deactivate",
-  inactiveClickToActivate: "Inactive — click to activate",
+  activeClickToDeactivate: "Active · click to deactivate",
+  inactiveClickToActivate: "Inactive · click to activate",
 } as const;

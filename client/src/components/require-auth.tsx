@@ -1,9 +1,13 @@
-import { Navigate, useLocation } from 'react-router-dom';
-import type { ReactElement } from 'react';
+import { Navigate, useLocation } from "react-router-dom";
+import type { ReactElement } from "react";
 
-import { useAuthContext } from '@/lib/auth-context';
+import { useAuthContext } from "@/lib/auth-context";
 
-export function RequireAuth({ children }: { children: ReactElement }): ReactElement {
+export function RequireAuth({
+  children,
+}: {
+  children: ReactElement;
+}): ReactElement {
   const { user, isLoading, isVerified } = useAuthContext();
   const loc = useLocation();
 
@@ -20,8 +24,8 @@ export function RequireAuth({ children }: { children: ReactElement }): ReactElem
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
 
-  // Verification wall — require at least one channel verified
-  if (!isVerified && loc.pathname !== '/verify') {
+  // Verification wall · require at least one channel verified
+  if (!isVerified && loc.pathname !== "/verify") {
     return <Navigate to="/verify" replace />;
   }
 

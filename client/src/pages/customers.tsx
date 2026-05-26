@@ -153,7 +153,7 @@ function CustomerDrawer({ open, onClose, editing, onSaved }: DrawerProps) {
                 onChange={(e) => setTierId(e.target.value)}
                 className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
               >
-                <option value="">— {t("none")} —</option>
+                <option value="">· {t("none")} ·</option>
                 {tiers.map((tier) => (
                   <option key={tier.id} value={tier.id}>{tier.name} ({tier.kind.toLowerCase()})</option>
                 ))}
@@ -373,7 +373,7 @@ export default function CustomersPage() {
         try {
           await sdk.customers.recalculateAll();
         } catch {
-          /* non-fatal — fall through to showing stored values */
+          /* non-fatal · fall through to showing stored values */
         }
       }
       await fetchCustomers();
@@ -443,7 +443,7 @@ export default function CustomersPage() {
       key: "phone",
       header: t("phone"),
       render: (c: Customer) => (
-        <span className="text-muted-foreground">{c.phone ?? "—"}</span>
+        <span className="text-muted-foreground">{c.phone ?? "·"}</span>
       ),
     },
     {

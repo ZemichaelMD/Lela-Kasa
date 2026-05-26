@@ -70,7 +70,7 @@ function StockModal({ beverage, onClose, onAdjusted }: { beverage: Beverage; onC
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <form onSubmit={handleSubmit} className="relative w-full max-w-sm rounded-xl bg-card p-6 shadow-xl space-y-4">
-        <h3 className="text-base font-semibold">{t('adjustStock')} — {beverage.name}</h3>
+        <h3 className="text-base font-semibold">{t('adjustStock')} · {beverage.name}</h3>
         <p className="text-sm text-muted-foreground">{t('currentStock')}: {stockLabel(beverage, t)}</p>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">

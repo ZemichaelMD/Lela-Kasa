@@ -16,41 +16,17 @@ import { SmsTemplatesService } from "../sms/sms-templates.service";
 import { VerificationService } from "../verification/verification.service";
 import type { JwtPayload } from "./jwt.payload";
 import { AppException } from "../common/errors/app.exception";
-import { ethiopianPhoneVariants, normalizeEthiopianPhone } from "../common/phone.util";
+import {
+  ethiopianPhoneVariants,
+  normalizeEthiopianPhone,
+} from "../common/phone.util";
 import { ErrorCode } from "../contract";
+import {
+  assertStrongPassword,
+  loadPasswordPolicy,
+} from "../common/password-policy";
 import * as argon2 from "argon2";
 import crypto from "node:crypto";
-
-/**
- * Server-side password policy. Stops trivially weak passwords from
- * entering the system regardless of client-side validation.
- */
-function assertStrongPassword(password: string): void {
-  if (password.length < 8) {
-    throw AppException.badRequest(
-      "Password must be at least 8 characters",
-      ErrorCode.VALIDATION_ERROR,
-    );
-  }
-  if (password.length > 128) {
-    throw AppException.badRequest(
-      "Password must be at most 128 characters",
-      ErrorCode.VALIDATION_ERROR,
-    );
-  }
-  const classes = [
-    /[a-z]/.test(password),
-    /[A-Z]/.test(password),
-    /[0-9]/.test(password),
-    /[^A-Za-z0-9]/.test(password),
-  ].filter(Boolean).length;
-  if (classes < 3) {
-    throw AppException.badRequest(
-      "Password must contain at least 3 of: lowercase, uppercase, numbers, symbols",
-      ErrorCode.VALIDATION_ERROR,
-    );
-  }
-}
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 
@@ -141,29 +117,44 @@ export class AuthService {
    * then links User.shopId and Shop.defaultPriceTierId.
    * Both email and phone are required for dual-channel OTP verification.
    */
-  async register(dto: RegisterDto): Promise<LoginResult & { verificationRequired: boolean }> {
-    assertStrongPassword(dto.password);
+  async register(
+    dto: RegisterDto,
+  ): Promise<LoginResult & { verificationRequired: boolean }> {
+    const pwSettings = await this.prisma.systemSetting.findMany();
+    assertStrongPassword(dto.password, loadPasswordPolicy(pwSettings));
 
     if (!dto.phone?.trim()) {
-      throw new BadRequestException('Phone number is required');
+      throw new BadRequestException("Phone number is required");
     }
 
     if (!dto.email?.trim()) {
-      throw new BadRequestException('Email is required for registration');
+      throw new BadRequestException("Email is required for registration");
     }
 
     // Canonical 2519XXXXXXXX — throws a 400 with a clear message on a bad number.
     const phone = normalizeEthiopianPhone(dto.phone);
 
-    const regSetting = await this.prisma.systemSetting.findUnique({ where: { key: "registration_open" } });
+    const regSetting = await this.prisma.systemSetting.findUnique({
+      where: { key: "registration_open" },
+    });
     if (regSetting?.value === "false") {
-      throw new UnauthorizedException({ code: ErrorCode.UNAUTHORIZED, message: "Registration is currently closed. Please contact the administrator." });
+      throw new UnauthorizedException({
+        code: ErrorCode.UNAUTHORIZED,
+        message:
+          "Registration is currently closed. Please contact the administrator.",
+      });
     }
 
     const email = dto.email.trim().toLowerCase();
 
-    const existingEmail = await this.prisma.user.findUnique({ where: { email } });
-    if (existingEmail) throw new ConflictException({ code: ErrorCode.EMAIL_TAKEN, message: "Email is already registered" });
+    const existingEmail = await this.prisma.user.findUnique({
+      where: { email },
+    });
+    if (existingEmail)
+      throw new ConflictException({
+        code: ErrorCode.EMAIL_TAKEN,
+        message: "Email is already registered",
+      });
 
     // Reject a phone that is already tied to another account. Match against
     // every stored format so historically inconsistent rows are still caught.
@@ -174,7 +165,8 @@ export class AuthService {
     if (existingPhone) {
       throw new ConflictException({
         code: ErrorCode.PHONE_TAKEN,
-        message: "This phone number is already registered. Try logging in instead.",
+        message:
+          "This phone number is already registered. Try logging in instead.",
       });
     }
 
@@ -196,7 +188,10 @@ export class AuthService {
         data: { name: dto.shopName, ownerId: user.id },
       });
 
-      await tx.user.update({ where: { id: user.id }, data: { shopId: shop.id } });
+      await tx.user.update({
+        where: { id: user.id },
+        data: { shopId: shop.id },
+      });
 
       // Create default PriceTier "Retail"
       const tier = await tx.priceTier.create({
@@ -223,17 +218,21 @@ export class AuthService {
 
     // Send a verification OTP to the phone via SMS.
     try {
-      const code = await this.otp.generate(phone, 'phone_verification');
+      const code = await this.otp.generate(phone, "phone_verification");
       await this.sms.sendSms(phone, this.smsTemplates.otp(code));
     } catch (e) {
-      this.logger.warn(`Failed to send registration OTP to ${phone}: ${String(e)}`);
+      this.logger.warn(
+        `Failed to send registration OTP to ${phone}: ${String(e)}`,
+      );
     }
 
     // Send email OTP for verification
     try {
       await this.sendEmailOtp(user.id, email, user.name ?? null);
     } catch (e) {
-      this.logger.warn(`Failed to send verification email to ${email}: ${String(e)}`);
+      this.logger.warn(
+        `Failed to send verification email to ${email}: ${String(e)}`,
+      );
     }
 
     // Issue tokens
@@ -591,7 +590,8 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    assertStrongPassword(newPassword);
+    const pwSettings = await this.prisma.systemSetting.findMany();
+    assertStrongPassword(newPassword, loadPasswordPolicy(pwSettings));
 
     const tokenHash = this.hashToken(token);
     const record = await this.prisma.passwordResetToken.findUnique({
@@ -644,19 +644,26 @@ export class AuthService {
     await this.mail.sendOtp(email, {
       name: name ?? email,
       code,
-      appName: this.config.get<string>("app.appName") ?? "Lela Kasa",
+      appName: this.config.get<string>("app.appName") ?? "LeLa Kasa",
     });
   }
 
   async verifyEmailOtp(userId: string, code: string): Promise<void> {
     const codeHash = this.hashToken(code);
     const record = await this.prisma.emailVerificationToken.findFirst({
-      where: { userId, tokenHash: codeHash, usedAt: null, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: 'desc' },
+      where: {
+        userId,
+        tokenHash: codeHash,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!record) {
-      throw new BadRequestException('Invalid or expired email verification code');
+      throw new BadRequestException(
+        "Invalid or expired email verification code",
+      );
     }
 
     await this.prisma.$transaction([
@@ -675,7 +682,7 @@ export class AuthService {
       select: { email: true },
     });
     if (user?.email) {
-      await this.verification.record(userId, 'EMAIL', user.email);
+      await this.verification.record(userId, "EMAIL", user.email);
     }
   }
 
@@ -709,7 +716,11 @@ export class AuthService {
       select: { email: true },
     });
     if (verifiedUser?.email) {
-      await this.verification.record(record.userId, 'EMAIL', verifiedUser.email);
+      await this.verification.record(
+        record.userId,
+        "EMAIL",
+        verifiedUser.email,
+      );
     }
   }
 
@@ -723,7 +734,10 @@ export class AuthService {
     // For login, don't send a code (or burn SMS quota) to an unknown number.
     if (purpose === "login") {
       const user = await this.prisma.user.findFirst({
-        where: { phone: { in: ethiopianPhoneVariants(normalized) }, deletedAt: null },
+        where: {
+          phone: { in: ethiopianPhoneVariants(normalized) },
+          deletedAt: null,
+        },
         select: { id: true },
       });
       if (!user) {
@@ -743,7 +757,10 @@ export class AuthService {
     await this.otp.verify(normalized, code, "login");
 
     const user = await this.prisma.user.findFirst({
-      where: { phone: { in: ethiopianPhoneVariants(normalized) }, deletedAt: null },
+      where: {
+        phone: { in: ethiopianPhoneVariants(normalized) },
+        deletedAt: null,
+      },
       select: {
         id: true,
         email: true,
@@ -904,15 +921,19 @@ export class AuthService {
     return this.verification.getStatus(userId);
   }
 
-  async verifyPhone(phone: string, code: string): Promise<{ success: boolean }> {
+  async verifyPhone(
+    phone: string,
+    code: string,
+  ): Promise<{ success: boolean }> {
     const user = await this.prisma.user.findFirst({
       where: { phone: { in: ethiopianPhoneVariants(phone) }, deletedAt: null },
       select: { id: true, phone: true },
     });
-    if (!user) throw new UnauthorizedException('User with this phone not found');
-    await this.otp.verify(user.phone ?? phone, code, 'phone_verification');
+    if (!user)
+      throw new UnauthorizedException("User with this phone not found");
+    await this.otp.verify(user.phone ?? phone, code, "phone_verification");
     // Register the PHONE channel as verified for this user.
-    await this.verification.record(user.id, 'PHONE', user.phone ?? phone);
+    await this.verification.record(user.id, "PHONE", user.phone ?? phone);
     return { success: true };
   }
 
@@ -934,11 +955,11 @@ export class AuthService {
     if (taken) {
       throw new ConflictException({
         code: ErrorCode.PHONE_TAKEN,
-        message: 'This phone number is already in use by another account.',
+        message: "This phone number is already in use by another account.",
       });
     }
 
-    const code = await this.otp.generate(normalized, 'phone_change');
+    const code = await this.otp.generate(normalized, "phone_change");
     await this.sms.sendSms(normalized, this.smsTemplates.otp(code));
   }
 
@@ -952,7 +973,7 @@ export class AuthService {
     code: string,
   ): Promise<{ success: boolean; phone: string }> {
     const normalized = normalizeEthiopianPhone(newPhone);
-    await this.otp.verify(normalized, code, 'phone_change');
+    await this.otp.verify(normalized, code, "phone_change");
 
     const taken = await this.prisma.user.findFirst({
       where: {
@@ -965,7 +986,7 @@ export class AuthService {
     if (taken) {
       throw new ConflictException({
         code: ErrorCode.PHONE_TAKEN,
-        message: 'This phone number is already in use by another account.',
+        message: "This phone number is already in use by another account.",
       });
     }
 
@@ -973,7 +994,7 @@ export class AuthService {
       where: { id: userId },
       data: { phone: normalized },
     });
-    await this.verification.record(userId, 'PHONE', normalized);
+    await this.verification.record(userId, "PHONE", normalized);
     return { success: true, phone: normalized };
   }
 
@@ -987,15 +1008,15 @@ export class AuthService {
     if (taken && taken.id !== userId && !taken.deletedAt) {
       throw new ConflictException({
         code: ErrorCode.EMAIL_TAKEN,
-        message: 'This email is already in use by another account.',
+        message: "This email is already in use by another account.",
       });
     }
 
-    const code = await this.otp.generate(email, 'email_change');
+    const code = await this.otp.generate(email, "email_change");
     await this.mail.sendOtp(email, {
       name: email,
       code,
-      appName: this.config.get<string>("app.appName") ?? "Lela Kasa",
+      appName: this.config.get<string>("app.appName") ?? "LeLa Kasa",
     });
   }
 
@@ -1008,13 +1029,13 @@ export class AuthService {
     code: string,
   ): Promise<{ success: boolean; email: string }> {
     const email = newEmail.trim().toLowerCase();
-    await this.otp.verify(email, code, 'email_change');
+    await this.otp.verify(email, code, "email_change");
 
     const taken = await this.prisma.user.findUnique({ where: { email } });
     if (taken && taken.id !== userId && !taken.deletedAt) {
       throw new ConflictException({
         code: ErrorCode.EMAIL_TAKEN,
-        message: 'This email is already in use by another account.',
+        message: "This email is already in use by another account.",
       });
     }
 
@@ -1022,7 +1043,7 @@ export class AuthService {
       where: { id: userId },
       data: { email, emailVerified: false },
     });
-    await this.verification.revoke(userId, 'EMAIL');
+    await this.verification.revoke(userId, "EMAIL");
     return { success: true, email };
   }
 

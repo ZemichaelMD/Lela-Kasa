@@ -14,11 +14,13 @@ export interface DashboardData {
   outstandingBottles: number;
 
   topCustomers: Array<{
+    id: string;
     name: string;
     totalCents: number;
   }>;
 
   topBeverages: Array<{
+    id: string;
     name: string;
     totalBoxes: number;
   }>;
@@ -30,8 +32,11 @@ export interface DashboardData {
 
   recentVoids: Array<{
     id: string;
+    customerId: string | null;
     customerName?: string | null;
+    saleDate: string | null;
     voidedAt: string | null;
+    subtotalCents: number;
   }>;
 }
 

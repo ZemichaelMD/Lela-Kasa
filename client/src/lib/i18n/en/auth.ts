@@ -1,5 +1,5 @@
 export const auth = {
-  signInAdmin: "Sign in to Lela Kasa",
+  signInAdmin: "Sign in to LeLa Kasa",
   phonePassword: "Phone + Password",
   emailPassword: "Email + Password",
   phoneOtp: "Phone + OTP",

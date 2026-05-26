@@ -1,4 +1,4 @@
-# Lela Kasa
+# LeLa Kasa
 ## Beer and beverage sales management app. 
 
 The app is built using NestJs as a backend framework, React with vite as a client app. It uses Prisma ORM and PostgreSQL as the database. The app is designed to manage sales, inventory, and customer data for a beer and beverage business. It includes features such as order management, inventory tracking, and customer relationship management. The app is built with scalability and maintainability in mind, allowing for easy updates and additions of new features in the future. It is a mobile first application, ensuring that it is accessible and user-friendly on a variety of devices and sets focus on responsive web design and intutiveness and ease of aceess as well as perfomance. The app is also designed to be secure, with proper authentication and authorization mechanisms in place to protect sensitive data. Overall, this app aims to streamline the operations of a beer and beverage business, making it easier for owners and employees to manage their sales and inventory effectively.

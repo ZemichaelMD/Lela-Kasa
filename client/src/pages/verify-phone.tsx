@@ -18,7 +18,7 @@ export default function VerifyPhonePage() {
   const [resending, setResending] = useState(false);
   const [verified, setVerified] = useState(false);
 
-  // The OTP was already sent once during registration — this page does not
+  // The OTP was already sent once during registration · this page does not
   // auto-send, so a new account receives exactly one SMS. "Resend" is a manual
   // action for when the original code expires or the page is reached later.
   async function resend() {
@@ -48,7 +48,8 @@ export default function VerifyPhonePage() {
       toast.success("Phone verified");
       setTimeout(() => navigate("/sales", { replace: true }), 1500);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Invalid code. Please try again.";
+      const msg =
+        err instanceof Error ? err.message : "Invalid code. Please try again.";
       setError(msg);
       toast.error(msg);
     } finally {
@@ -61,7 +62,9 @@ export default function VerifyPhonePage() {
       <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 text-center">
         <Check className="h-12 w-12 text-success mb-4" />
         <h1 className="text-xl font-bold">Phone Verified!</h1>
-        <p className="text-sm text-muted-foreground mt-1">Redirecting to your dashboard...</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Redirecting to your dashboard...
+        </p>
       </div>
     );
   }

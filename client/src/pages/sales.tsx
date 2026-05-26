@@ -468,7 +468,7 @@ function SaleDrawer({
       toast.error(t("selectPriceTierRequired"));
       return;
     }
-    // Flag any selected lines missing a price in this tier — block submit.
+    // Flag any selected lines missing a price in this tier · block submit.
     const missingPrice = validLines.filter((l) => !getPriceForLine(l));
     if (missingPrice.length > 0) {
       const names = missingPrice
@@ -1722,7 +1722,7 @@ export default function SalesPage() {
         const { summary, full } = buildItemsSummary(s, beveragesMap);
         return (
           <span className="text-xs text-muted-foreground" title={full}>
-            {summary || "—"}
+            {summary || "·"}
           </span>
         );
       },
@@ -1865,7 +1865,7 @@ export default function SalesPage() {
           value={dateFrom}
           onChange={(v) => { setDateFrom(v); setParam("dateFrom", v || undefined); }}
         />
-        <span className="text-xs text-muted-foreground">—</span>
+        <span className="text-xs text-muted-foreground">·</span>
         <EthiopianDateInput
           value={dateTo}
           onChange={(v) => { setDateTo(v); setParam("dateTo", v || undefined); }}
@@ -2024,7 +2024,7 @@ export default function SalesPage() {
 
       {/* Mobile: card list */}
       <div className="md:hidden space-y-3">
-        {/* Mobile filter bar — collapsed by default */}
+        {/* Mobile filter bar · collapsed by default */}
         <div className="rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between px-3 py-2">
             <button

@@ -13,7 +13,7 @@ const DEFAULT_REMINDER_TEMPLATE =
 @Injectable()
 export class SmsTemplatesService {
   otp(code: string): string {
-    return `Your Lela Kasa OTP is ${code}. Valid for 5 minutes. Do not share this code.`;
+    return `Your LeLa Kasa OTP is ${code}. Valid for 5 minutes. Do not share this code.`;
   }
 
   welcomeEmployee(shopName: string, name: string): string {

@@ -5,13 +5,13 @@ import { sdk } from "@/lib/sdk";
 import type { Employee } from "@/sdk";
 import { useI18n } from "@/lib/i18n";
 
-function PasswordStrength({ password }: { password: string }) {
+function PasswordStrength({ password, t }: { password: string; t: (key: any) => string }) {
   const checks = [
-    { label: "Min. 8 characters", met: password.length >= 8 },
-    { label: "Contains lowercase", met: /[a-z]/.test(password) },
-    { label: "Contains uppercase", met: /[A-Z]/.test(password) },
-    { label: "Contains number", met: /[0-9]/.test(password) },
-    { label: "Contains symbol", met: /[^A-Za-z0-9]/.test(password) },
+    { key: 'pwMinChars', label: t('pwMinChars'), met: password.length >= 8 },
+    { key: 'pwContainsLowercase', label: t('pwContainsLowercase'), met: /[a-z]/.test(password) },
+    { key: 'pwContainsUppercase', label: t('pwContainsUppercase'), met: /[A-Z]/.test(password) },
+    { key: 'pwContainsNumber', label: t('pwContainsNumber'), met: /[0-9]/.test(password) },
+    { key: 'pwContainsSymbol', label: t('pwContainsSymbol'), met: /[^A-Za-z0-9]/.test(password) },
   ];
   const classesMet = checks.filter((c) => c.met).length - 1;
   const minClassesMet = classesMet >= 3;
@@ -19,7 +19,7 @@ function PasswordStrength({ password }: { password: string }) {
   return (
     <ul className="space-y-1 pt-1">
       {checks.map((c) => (
-        <li key={c.label} className="flex items-center gap-1.5 text-[11px]">
+        <li key={c.key} className="flex items-center gap-1.5 text-[11px]">
           {c.met ? (
             <Check className="h-3 w-3 shrink-0 text-success" />
           ) : (
@@ -39,7 +39,7 @@ function PasswordStrength({ password }: { password: string }) {
         <span
           className={minClassesMet ? "text-success" : "text-muted-foreground"}
         >
-          At least 3 of: lowercase, uppercase, numbers, symbols
+          {t('pwMinClasses')}
         </span>
       </li>
     </ul>
@@ -87,31 +87,30 @@ export function EmployeeDrawer({
   }, [open, editing]);
 
   function validatePassword(pw: string): string | null {
-    if (pw.length < 8) return "Password must be at least 8 characters";
-    if (pw.length > 128) return "Password must be at most 128 characters";
+    if (pw.length < 8) return t('pwErrorMinLength');
+    if (pw.length > 128) return t('pwErrorMaxLength');
     const classes = [
       /[a-z]/.test(pw),
       /[A-Z]/.test(pw),
       /[0-9]/.test(pw),
       /[^A-Za-z0-9]/.test(pw),
     ].filter(Boolean).length;
-    if (classes < 3)
-      return "Use at least 3 of: lowercase, uppercase, numbers, symbols";
+    if (classes < 3) return t('pwErrorMinClasses');
     return null;
   }
 
   async function handleResetPassword() {
     if (!editing) return;
     if (!resetPw) {
-      toast.error("New password is required");
+      toast.error(t('pwErrorRequired'));
       return;
     }
     if (resetPw.length < 8) {
-      toast.error("Password must be at least 8 characters");
+      toast.error(t('pwErrorMinLength'));
       return;
     }
     if (resetPw !== resetPwConfirm) {
-      toast.error("Passwords do not match");
+      toast.error(t('passwordsDoNotMatch'));
       return;
     }
     const classes = [
@@ -121,19 +120,19 @@ export function EmployeeDrawer({
       /[^A-Za-z0-9]/.test(resetPw),
     ].filter(Boolean).length;
     if (classes < 3) {
-      toast.error("Use at least 3 of: lowercase, uppercase, numbers, symbols");
+      toast.error(t('pwErrorMinClasses'));
       return;
     }
 
     setResettingPw(true);
     try {
       await sdk.employees.resetPassword(editing.id, resetPw);
-      toast.success("Password reset. Employee sessions revoked.");
+      toast.success(t('pwResetSuccess'));
       setResetPwOpen(false);
       setResetPw("");
       setResetPwConfirm("");
     } catch (err: any) {
-      toast.error(err?.message || "Failed to reset password");
+      toast.error(err?.message || t('pwResetFailed'));
     } finally {
       setResettingPw(false);
     }
@@ -143,11 +142,11 @@ export function EmployeeDrawer({
     e.preventDefault();
     if (!editing) {
       if (!email.trim() && !phone.trim()) {
-        toast.error("Either email or phone is required");
+        toast.error(t('contactRequired'));
         return;
       }
       if (!password) {
-        toast.error("Password is required");
+        toast.error(t('pwRequired'));
         return;
       }
       const pwError = validatePassword(password);
@@ -268,7 +267,7 @@ export function EmployeeDrawer({
                   onBlur={() => setPasswordFocused(false)}
                 />
                 {(passwordFocused || password.length > 0) && (
-                  <PasswordStrength password={password} />
+                  <PasswordStrength password={password} t={t} />
                 )}
               </div>
             </>
@@ -276,7 +275,7 @@ export function EmployeeDrawer({
           {editing && (
             <>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Email</label>
+                <label className="text-sm font-medium">{t('email')}</label>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -286,7 +285,7 @@ export function EmployeeDrawer({
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Phone</label>
+                <label className="text-sm font-medium">{t('phone')}</label>
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -325,9 +324,9 @@ export function EmployeeDrawer({
                   className="flex w-full items-center justify-between px-3.5 py-3 text-left"
                 >
                   <div>
-                    <p className="text-sm font-medium">Reset Password</p>
+                    <p className="text-sm font-medium">{t('resetPassword')}</p>
                     <p className="text-xs text-muted-foreground">
-                      Set a new password. Active sessions will be revoked.
+                      {t('resetPasswordDesc')}
                     </p>
                   </div>
                   <span className="text-xs text-muted-foreground">
@@ -338,7 +337,7 @@ export function EmployeeDrawer({
                   <div className="space-y-3 border-t border-border px-3.5 py-3">
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium">
-                        New Password
+                        {t('newPassword')}
                       </label>
                       <div className="relative">
                         <input
@@ -364,7 +363,7 @@ export function EmployeeDrawer({
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium">
-                        Confirm Password
+                        {t('confirmPassword')}
                       </label>
                       <input
                         value={resetPwConfirm}
@@ -381,7 +380,7 @@ export function EmployeeDrawer({
                       disabled={resettingPw}
                       className="w-full rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                     >
-                      {resettingPw ? "Resetting..." : "Set New Password"}
+                      {resettingPw ? t('resetting') : t('setNewPassword')}
                     </button>
                   </div>
                 )}

@@ -23,6 +23,17 @@ export interface Shop {
   updatedAt: string;
 }
 
+export interface Banner {
+  id: string;
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'danger';
+  shopId: string | null;
+  isActive: boolean;
+  startAt: string | null;
+  endAt: string | null;
+  createdAt: string;
+}
+
 export interface UpdateShopDto {
   name?: string;
   phone?: string;
@@ -42,6 +53,10 @@ export interface UpdateShopDto {
 
 export class ShopsResource {
   constructor(private readonly client: SdkClient) {}
+
+  getBanners(options?: RequestOptions): Promise<Banner[]> {
+    return this.client.get<Banner[]>('/api/v1/shops/me/banners', options);
+  }
 
   getMyShop(options?: RequestOptions): Promise<Shop> {
     return this.client.get<Shop>('/api/v1/shops/me', options);

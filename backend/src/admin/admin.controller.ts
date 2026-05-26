@@ -8,8 +8,9 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { IsBoolean, IsEmail, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
 import { AdminService } from './admin.service';
@@ -591,8 +592,25 @@ export class AdminController {
 
   @Get('sales')
   @ApiOperation({ summary: 'List platform transactions across all shops' })
-  listSales() {
-    return this.adminService.listSales();
+  @ApiQuery({ name: 'shopId', required: false })
+  @ApiQuery({ name: 'includeLines', required: false })
+  @ApiQuery({ name: 'customerId', required: false })
+  @ApiQuery({ name: 'dateFrom', required: false })
+  @ApiQuery({ name: 'dateTo', required: false })
+  listSales(
+    @Query('shopId') shopId?: string,
+    @Query('includeLines') includeLines?: string,
+    @Query('customerId') customerId?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+  ) {
+    return this.adminService.listSales({
+      shopId,
+      includeLines: includeLines === 'true',
+      customerId,
+      dateFrom,
+      dateTo,
+    });
   }
 
   @Get('sales/:id')

@@ -30,15 +30,17 @@ type TabId = "info" | "permissions" | "activity";
 
 // ─── Permission helpers ────────────────────────────────────────────────────────
 
+type LocalizedString = string | { en: string; am: string };
+
 interface PermissionItem {
   slug: string;
-  label: string;
-  description: string;
+  label: LocalizedString;
+  description: LocalizedString;
   granted: boolean;
 }
 
 interface PermissionGroup {
-  group: string;
+  group: LocalizedString;
   permissions: PermissionItem[];
 }
 
@@ -92,7 +94,7 @@ function InfoTab({ employee }: { employee: EmployeeDetail }) {
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("phone")}</label>
           <div className={`${inputClass} flex items-center gap-2`}>
             <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span>{employee.phone ?? "—"}</span>
+            <span>{employee.phone ?? "·"}</span>
           </div>
         </div>
         <div className="space-y-1.5">
@@ -218,7 +220,7 @@ function PasswordResetSection({ employeeId }: { employeeId: string }) {
 // ─── Permissions Tab ───────────────────────────────────────────────────────────
 
 function PermissionsTab({ employeeId }: { employeeId: string }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [groups, setGroups] = useState<PermissionGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -254,11 +256,12 @@ function PermissionsTab({ employeeId }: { employeeId: string }) {
 
   function toggleGroup(groupName: string, grant: boolean) {
     setGroups((prev) =>
-      prev.map((g) =>
-        g.group === groupName
+      prev.map((g) => {
+        const gn = typeof g.group === 'string' ? g.group : g.group.en;
+        return gn === groupName
           ? { ...g, permissions: g.permissions.map((p) => ({ ...p, granted: grant })) }
-          : g,
-      ),
+          : g;
+      }),
     );
     setDirty(true);
   }
@@ -343,14 +346,15 @@ function PermissionsTab({ employeeId }: { employeeId: string }) {
       )}
 
       {groups.map((group) => {
+        const groupName = typeof group.group === 'string' ? group.group : group.group[lang];
         const allGranted = group.permissions.every((p) => p.granted);
         return (
-          <Card key={group.group} className="p-5">
+          <Card key={groupName} className="p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                {group.group}
+                {groupName}
               </h3>
-              <button type="button" onClick={() => toggleGroup(group.group, !allGranted)}
+              <button type="button" onClick={() => toggleGroup(groupName, !allGranted)}
                 className="text-xs text-primary hover:underline">
                 {allGranted ? t("revokeAll") : t("grantAll")}
               </button>
@@ -359,8 +363,8 @@ function PermissionsTab({ employeeId }: { employeeId: string }) {
               {group.permissions.map((perm) => (
                 <div key={perm.slug} className="flex items-center justify-between rounded-lg px-3 py-2.5 hover:bg-accent/50 transition-colors">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{perm.label}</p>
-                    <p className="text-xs text-muted-foreground">{perm.description}</p>
+                    <p className="text-sm font-medium">{typeof perm.label === 'string' ? perm.label : perm.label[lang]}</p>
+                    <p className="text-xs text-muted-foreground">{typeof perm.description === 'string' ? perm.description : perm.description[lang]}</p>
                   </div>
                   <button type="button" onClick={() => toggle(perm.slug, perm.granted)}
                     className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${perm.granted ? "bg-primary" : "bg-muted"}`}>
