@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -81,6 +82,14 @@ export default function OnboardingScreen() {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.brand}>
+        <Image
+          source={require('../../assets/icon.png')}
+          style={styles.brandLogo}
+          resizeMode="contain"
+        />
+      </View>
+
       <FlatList
         ref={flatListRef}
         data={slides}
@@ -125,6 +134,8 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing[5], paddingVertical: spacing[3] },
+  brand: { alignItems: 'center', paddingVertical: spacing[3] },
+  brandLogo: { width: 72, height: 72, borderRadius: 16 },
   skipText: { ...type.body },
   slide: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[8] },
   iconContainer: { width: 120, height: 120, borderRadius: 60, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[8] },

@@ -19,6 +19,16 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ["@kasa/contract", "@kasa/sdk", "@kasa/ui", "@kasa/utils"],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-ui": ["lucide-react", "sonner", "clsx", "tailwind-merge"],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     strictPort: true,

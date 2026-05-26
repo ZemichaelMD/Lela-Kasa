@@ -717,7 +717,7 @@ export default function SubscriptionScreen() {
                       {formatCurrency(plan.yearlyPriceCents)} billed yearly
                     </Text>
                   )}
-                  {plan.features?.length > 0 && (
+                  {plan.features && plan.features.length > 0 && (
                     <View style={styles.featureList}>
                       {plan.features.map((f: string, i: number) => (
                         <View key={i} style={styles.featureItem}>

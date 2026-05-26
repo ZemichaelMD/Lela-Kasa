@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -25,14 +25,11 @@ export default function WelcomeScreen() {
         <LanguageSwitcher />
       </View>
       <View style={styles.content}>
-        <View
-          style={[
-            styles.logoContainer,
-            { backgroundColor: colors.primaryLight },
-          ]}
-        >
-          <Ionicons name="beer" size={64} color={colors.primary} />
-        </View>
+        <Image
+          source={require("../../assets/icon.png")}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
         <Text style={[styles.title, { color: colors.textPrimary }]}>
           {t("appName")}
         </Text>
@@ -82,12 +79,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: spacing[6],
   },
-  logoContainer: {
+  logoImage: {
     width: 120,
     height: 120,
-    borderRadius: radius.full,
-    alignItems: "center",
-    justifyContent: "center",
+    borderRadius: 24,
     marginTop: spacing[4],
     marginBottom: spacing[6],
   },

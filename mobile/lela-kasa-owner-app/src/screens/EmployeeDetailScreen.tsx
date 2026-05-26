@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', gap: spacing[2] },
   badge: {
     paddingHorizontal: spacing[2],
-    paddingVertical: spacing[0.5],
+    paddingVertical: 2,
     borderRadius: radius.full,
   },
   badgeText: { ...type.micro },
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
   permBadge: {
     borderRadius: radius.full,
     paddingHorizontal: spacing[2],
-    paddingVertical: spacing[0.5],
+    paddingVertical: 2,
   },
   permBadgeText: { ...type.micro },
   summaryRow: { flexDirection: 'row', gap: spacing[3], marginBottom: spacing[4] },

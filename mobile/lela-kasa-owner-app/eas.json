@@ -7,20 +7,23 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "ios": { "simulator": true }
+      "ios": { "simulator": true },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://lela-kasa.vercel.app"
+      }
     },
     "preview": {
       "distribution": "internal",
-      "android": { "buildType": "apk" }
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://lela-kasa.vercel.app"
+      }
     },
     "production": {
-      "android": { "buildType": "apk" }
-    }
-  },
-  "extra": {
-    "apiUrl": "https://lela-kasa.vercel.app",
-    "eas": {
-      "projectId": "863ca630-31cf-47aa-aa80-7502b3d0feb9"
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://lela-kasa.vercel.app"
+      }
     }
   },
   "submit": {

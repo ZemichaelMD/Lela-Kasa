@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing[3],
-    paddingVertical: spacing[1.5],
+    paddingVertical: 6,
   },
   langButtonText: { ...type.caption, fontWeight: '600' },
   content: {
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[2],
-    marginBottom: spacing[1.5],
+    marginBottom: 6,
   },
   contactText: { ...type.caption },
   contactSmall: { ...type.caption, fontSize: 11 },

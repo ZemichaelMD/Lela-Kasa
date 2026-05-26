@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -13,18 +22,40 @@ import { useTheme } from '../context/ThemeContext';
 import { t } from '../lib/i18n';
 import { showToast } from '../components/Toast';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { ModalSheet } from '../components/ModalSheet';
 import { radius, spacing, type } from '../theme';
+
+type Employee = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  isActive: boolean;
+  username?: string;
+  hasPin: boolean;
+};
+
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.field}>
+      <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
+      {children}
+    </View>
+  );
+}
 
 export default function EmployeesScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<{ id: string; name: string; email: string; phone?: string | null; isActive: boolean; username?: string; hasPin: boolean } | null>(null);
+  const [showPinField, setShowPinField] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
@@ -32,13 +63,11 @@ export default function EmployeesScreen() {
   const [formPhone, setFormPhone] = useState('');
   const [formUsername, setFormUsername] = useState('');
   const [formPin, setFormPin] = useState('');
-  const [showEditPin, setShowEditPin] = useState(false);
 
   const { data, isRefetching, refetch, isLoading, error } = useQuery({
     queryKey: QK.employees(),
     queryFn: () => getSdk().employees.list(),
   });
-
   const employees = data ?? [];
 
   const addMutation = useMutation({
@@ -50,9 +79,7 @@ export default function EmployeesScreen() {
       resetForm();
       showToast(t('employeeAdded'), 'success');
     },
-    onError: (err: any) => {
-      showToast(err?.message ?? t('failedToAddEmployee'), 'error');
-    },
+    onError: (err: any) => showToast(err?.message ?? t('failedToAddEmployee'), 'error'),
   });
 
   const updateMutation = useMutation({
@@ -64,9 +91,7 @@ export default function EmployeesScreen() {
       resetForm();
       showToast(t('employeeUpdated'), 'success');
     },
-    onError: (err: any) => {
-      showToast(err?.message ?? t('failedToUpdateEmployee'), 'error');
-    },
+    onError: (err: any) => showToast(err?.message ?? t('failedToUpdateEmployee'), 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -77,336 +102,324 @@ export default function EmployeesScreen() {
       setDeleteTarget(null);
       showToast(t('employeeDeleted'), 'success');
     },
-    onError: () => {
-      showToast(t('failedToDelete'), 'error');
-    },
+    onError: () => showToast(t('failedToDelete'), 'error'),
   });
 
   const toggleActiveMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       getSdk().employees.update(id, { isActive }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QK.employees() });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QK.employees() }),
   });
 
   const resetForm = () => {
-    setFormName('');
-    setFormEmail('');
-    setFormPassword('');
-    setFormPhone('');
-    setFormUsername('');
-    setFormPin('');
-    setShowEditPin(false);
+    setFormName(''); setFormEmail(''); setFormPassword('');
+    setFormPhone(''); setFormUsername(''); setFormPin('');
+    setShowPinField(false); setShowPassword(false);
     setEditingEmployee(null);
   };
 
-  const openAdd = () => {
-    resetForm();
-    setShowAddModal(true);
-  };
+  const openAdd = () => { resetForm(); setShowAddModal(true); };
 
-  const openEdit = (item: { id: string; name: string; email: string; phone?: string | null; isActive: boolean; username?: string; hasPin: boolean }) => {
-    setEditingEmployee({ id: item.id, name: item.name, email: item.email, phone: item.phone, isActive: item.isActive, username: item.username, hasPin: item.hasPin });
+  const openEdit = (item: Employee) => {
+    setEditingEmployee(item);
     setFormName(item.name);
     setFormEmail(item.email);
-    setFormPhone(item.phone || '');
-    setFormUsername(item.username || '');
+    setFormPhone(item.phone ?? '');
+    setFormUsername(item.username ?? '');
     setFormPin('');
-    setShowEditPin(false);
+    setShowPinField(false);
     setShowEditModal(true);
   };
 
   const handleAdd = () => {
     if (!formName || !formEmail || !formPassword) {
-      showToast(t('fillRequiredFields'), 'error');
-      return;
+      showToast(t('fillRequiredFields'), 'error'); return;
     }
     if (formPassword.length < 8) {
-      showToast(t('passwordTooShort'), 'error');
-      return;
+      showToast(t('passwordTooShort'), 'error'); return;
     }
     addMutation.mutate({ name: formName, email: formEmail, password: formPassword, phone: formPhone || undefined });
   };
 
   const handleUpdate = () => {
-    if (!formName) {
-      showToast(t('enterName'), 'error');
-      return;
-    }
+    if (!formName) { showToast(t('enterName'), 'error'); return; }
     if (!editingEmployee) return;
     const dto: any = { name: formName, phone: formPhone || null };
-    if (showEditPin) {
+    if (showPinField) {
       if (formUsername) dto.username = formUsername;
       if (formPin && formPin.length >= 4) dto.pin = formPin;
     }
-    updateMutation.mutate({
-      id: editingEmployee.id,
-      dto,
-    });
+    updateMutation.mutate({ id: editingEmployee.id, dto });
   };
 
-  const handleDelete = () => {
-    if (!deleteTarget) return;
-    deleteMutation.mutate(deleteTarget.id);
-  };
+  const inputStyle = [styles.inputRow, { borderColor: colors.border, backgroundColor: colors.surfaceMuted }] as any;
 
-  const renderEmployeeCard = (item: { id: string; name: string; email: string; phone?: string | null; isActive: boolean; username?: string; hasPin: boolean }) => (
-    <TouchableOpacity style={[styles.card, { backgroundColor: colors.surface }]} onPress={() => navigation.navigate('EmployeeDetail', { employeeId: item.id, employeeName: item.name })} activeOpacity={0.7}>
-      <View style={styles.cardHeader}>
-        <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
-          <Ionicons name="person" size={20} color={colors.primary} />
-        </View>
-        <View style={styles.cardInfo}>
-          <Text style={[styles.cardName, { color: colors.textPrimary }]}>{item.name}</Text>
-          <Text style={[styles.cardEmail, { color: colors.textSecondary }]}>{item.email}</Text>
-          {item.phone && (
-            <Text style={[styles.cardPhone, { color: colors.textMuted }]}>{item.phone}</Text>
-          )}
-        </View>
-        <View style={styles.cardActions}>
-          <TouchableOpacity
-            style={[styles.toggleButton, { backgroundColor: item.isActive ? colors.successLight : colors.surfaceMuted }]}
-            onPress={() => toggleActiveMutation.mutate({ id: item.id, isActive: !item.isActive })}
-          >
-            <Text style={[styles.toggleText, { color: item.isActive ? colors.success : colors.textMuted }]}>
-              {item.isActive ? t('active') : t('inactive')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.permsButton, { backgroundColor: colors.surfaceMuted }]}
-            onPress={() => navigation.navigate('EmployeePermissions', { employeeId: item.id, employeeName: item.name })}
-          >
-            <Ionicons name="shield-checkmark-outline" size={14} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
+  const renderItem = ({ item }: { item: Employee }) => (
+    <TouchableOpacity
+      style={[styles.row, { backgroundColor: colors.surface }]}
+      onPress={() => navigation.navigate('EmployeeDetail', { employeeId: item.id, employeeName: item.name })}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
+        <Ionicons name="person" size={18} color={colors.primary} />
+      </View>
+      <View style={styles.rowInfo}>
+        <Text style={[styles.rowName, { color: colors.textPrimary }]} numberOfLines={1}>{item.name}</Text>
+        <Text style={[styles.rowEmail, { color: colors.textSecondary }]} numberOfLines={1}>{item.email}</Text>
+        {item.phone && (
+          <Text style={[styles.rowPhone, { color: colors.textMuted }]}>{item.phone}</Text>
+        )}
+      </View>
+      <View style={styles.rowActions}>
+        <TouchableOpacity
+          style={[styles.statusPill, { backgroundColor: item.isActive ? colors.successLight : colors.surfaceMuted }]}
+          onPress={() => toggleActiveMutation.mutate({ id: item.id, isActive: !item.isActive })}
+        >
+          <View style={[styles.statusDot, { backgroundColor: item.isActive ? colors.success : colors.textMuted }]} />
+          <Text style={[styles.statusText, { color: item.isActive ? colors.success : colors.textMuted }]}>
+            {item.isActive ? t('active') : t('inactive')}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.iconBtn, { backgroundColor: colors.surfaceMuted }]}
+          onPress={() => openEdit(item)}
+        >
+          <Ionicons name="pencil-outline" size={15} color={colors.textSecondary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.iconBtn, { backgroundColor: colors.surfaceMuted }]}
+          onPress={() => navigation.navigate('EmployeePermissions', { employeeId: item.id, employeeName: item.name })}
+        >
+          <Ionicons name="shield-checkmark-outline" size={15} color={colors.textSecondary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.iconBtn, { backgroundColor: colors.dangerLight }]}
+          onPress={() => { setDeleteTarget({ id: item.id, name: item.name }); setShowDeleteDialog(true); }}
+        >
+          <Ionicons name="trash-outline" size={15} color={colors.danger} />
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
 
-  const renderAddModal = () => (
-    <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
-      <View style={[styles.modalOverlay, { backgroundColor: colors.scrim }]}>
-        <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, spacing[6]) }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('addEmployee')}</Text>
-            <TouchableOpacity onPress={() => setShowAddModal(false)}>
-              <Ionicons name="close" size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.modalContent}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('employeeName')} *</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
-              value={formName}
-              onChangeText={setFormName}
-              placeholder={t('enterName')}
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="words"
-            />
-
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[4] }]}>{t('employeeEmail')} *</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
-              value={formEmail}
-              onChangeText={setFormEmail}
-              placeholder={t('enterEmail')}
-              placeholderTextColor={colors.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[4] }]}>{t('password')} *</Text>
-            <View style={[styles.pinInputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <TextInput
-                style={[styles.pinInput, { color: colors.textPrimary }]}
-                value={formPassword}
-                onChangeText={setFormPassword}
-                placeholder={t('enterPassword')}
-                placeholderTextColor={colors.textMuted}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.pinToggle}>
-                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-            <Text style={[styles.fieldHint, { color: colors.textMuted }]}>{t('passwordMin')} 8 {t('characters')}</Text>
-
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[4] }]}>{t('phoneNumber')} ({t('optional').toLowerCase()})</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
-              value={formPhone}
-              onChangeText={setFormPhone}
-              placeholder="+251 9XX XXX XXX"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="phone-pad"
-            />
-
-            <TouchableOpacity
-              style={[styles.submitButton, { backgroundColor: colors.primary }, addMutation.isPending && styles.submitButtonDisabled]}
-              onPress={handleAdd}
-              disabled={addMutation.isPending}
-            >
-              <Text style={styles.submitButtonText}>
-                {addMutation.isPending ? t('saving') : t('addEmployee')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  const renderEditModal = () => (
-    <Modal visible={showEditModal} transparent animationType="slide" onRequestClose={() => setShowEditModal(false)}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.modalOverlay, { backgroundColor: colors.scrim }]}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, spacing[6]) }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('editEmployee')}</Text>
-            <TouchableOpacity onPress={() => setShowEditModal(false)}>
-              <Ionicons name="close" size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('employeeName')} *</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
-              value={formName}
-              onChangeText={setFormName}
-              placeholder={t('enterName')}
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="words"
-            />
-
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[4] }]}>{t('employeeEmail')}</Text>
-            <View style={[styles.input, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
-              <Text style={[styles.disabledText, { color: colors.textMuted }]}>{formEmail}</Text>
-            </View>
-            <Text style={[styles.fieldHint, { color: colors.textMuted }]}>{t('emailCannotChange')}</Text>
-
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[4] }]}>{t('phoneNumber')}</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
-              value={formPhone}
-              onChangeText={setFormPhone}
-              placeholder="+251 9XX XXX XXX"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="phone-pad"
-            />
-
-            <TouchableOpacity
-              style={[styles.pinToggleRow, { marginTop: spacing[4] }]}
-              onPress={() => setShowEditPin(!showEditPin)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name={showEditPin ? 'chevron-up' : 'chevron-down'} size={18} color={colors.primary} />
-              <Text style={[styles.pinToggleText, { color: colors.primary }]}>{showEditPin ? t('hideCredentials') : t('editCredentials')}</Text>
-            </TouchableOpacity>
-
-            {showEditPin && (
-              <>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[3] }]}>{t('username')}</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
-                  value={formUsername}
-                  onChangeText={setFormUsername}
-                  placeholder={t('enterUsername')}
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="none"
-                />
-                {editingEmployee?.username && (
-                  <Text style={[styles.fieldHint, { color: colors.textMuted }]}>{t('current')}: {editingEmployee.username}</Text>
-                )}
-
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[3] }]}>{t('pin')}</Text>
-                <View style={[styles.pinInputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <TextInput
-                    style={[styles.pinInput, { color: colors.textPrimary }]}
-                    value={formPin}
-                    onChangeText={(v) => setFormPin(v.replace(/\D/g, '').slice(0, 6))}
-                    placeholder={editingEmployee?.hasPin ? t('enterNewPin') : t('setPin')}
-                    placeholderTextColor={colors.textMuted}
-                    secureTextEntry={!showPassword}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.pinToggle}>
-                    <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
-                  </TouchableOpacity>
-                </View>
-                <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
-                  {editingEmployee?.hasPin ? t('pinChangeHint') : t('pinSetHint')}
-                </Text>
-              </>
-            )}
-
-            <TouchableOpacity
-              style={[styles.submitButton, { backgroundColor: colors.primary }, updateMutation.isPending && styles.submitButtonDisabled]}
-              onPress={handleUpdate}
-              disabled={updateMutation.isPending}
-            >
-              <Text style={styles.submitButtonText}>
-                {updateMutation.isPending ? t('saving') : t('save')}
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8} style={styles.headerBtn}>
+          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('employees')}</Text>
-        <TouchableOpacity onPress={openAdd} hitSlop={8}>
-          <Ionicons name="add-circle" size={28} color={colors.primary} />
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t('employees')}</Text>
+        <TouchableOpacity onPress={openAdd} hitSlop={8} style={[styles.addBtn, { backgroundColor: colors.primary }]}>
+          <Ionicons name="add" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
       {isLoading ? (
-        <View style={styles.centerContent}>
+        <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : error ? (
-        <View style={styles.centerContent}>
+        <View style={styles.center}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.danger} />
-          <Text style={[styles.errorText, { color: colors.textPrimary }]}>{t('failedToLoad')}</Text>
-          <Text style={[styles.errorSubtext, { color: colors.textSecondary }]}>{(error as any)?.message}</Text>
-          <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>{t('retry')}</Text>
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>{t('failedToLoad')}</Text>
+          <TouchableOpacity style={[styles.retryBtn, { backgroundColor: colors.primary }]} onPress={() => refetch()}>
+            <Text style={styles.retryBtnText}>{t('retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : employees.length === 0 ? (
-        <View style={styles.centerContent}>
+        <View style={styles.center}>
           <Ionicons name="people-outline" size={48} color={colors.textMuted} />
-          <Text style={[styles.emptyText, { color: colors.textPrimary }]}>{t('noEmployees')}</Text>
-          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>{t('addFirstEmployee')}</Text>
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>{t('noEmployees')}</Text>
+          <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>{t('addFirstEmployee')}</Text>
         </View>
       ) : (
         <FlatList
           data={employees}
           keyExtractor={item => item.id}
-          renderItem={({ item }) => renderEmployeeCard(item)}
-          contentContainerStyle={styles.listContent}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.border }]} />}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />
           }
         />
       )}
 
-      {renderAddModal()}
-      {renderEditModal()}
+      {/* Add Modal */}
+      <ModalSheet
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title={t('addEmployee')}
+        footer={
+          <TouchableOpacity
+            style={[styles.footerBtn, { backgroundColor: colors.primary }, addMutation.isPending && styles.btnDisabled]}
+            onPress={handleAdd}
+            disabled={addMutation.isPending}
+            activeOpacity={0.85}
+          >
+            {addMutation.isPending
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={styles.footerBtnText}>{t('addEmployee')}</Text>
+            }
+          </TouchableOpacity>
+        }
+      >
+        <FormField label={`${t('employeeName')} *`}>
+          <View style={inputStyle}>
+            <Ionicons name="person-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.inputText, { color: colors.textPrimary }]}
+              value={formName} onChangeText={setFormName}
+              placeholder={t('enterName')} placeholderTextColor={colors.textMuted}
+              autoCapitalize="words"
+            />
+          </View>
+        </FormField>
+
+        <FormField label={`${t('employeeEmail')} *`}>
+          <View style={inputStyle}>
+            <Ionicons name="mail-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.inputText, { color: colors.textPrimary }]}
+              value={formEmail} onChangeText={setFormEmail}
+              placeholder={t('enterEmail')} placeholderTextColor={colors.textMuted}
+              keyboardType="email-address" autoCapitalize="none"
+            />
+          </View>
+        </FormField>
+
+        <FormField label={`${t('password')} *`}>
+          <View style={inputStyle}>
+            <Ionicons name="lock-closed-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.inputText, { color: colors.textPrimary }]}
+              value={formPassword} onChangeText={setFormPassword}
+              placeholder="••••••••" placeholderTextColor={colors.textMuted}
+              secureTextEntry={!showPassword} autoCapitalize="none"
+            />
+            <TouchableOpacity onPress={() => setShowPassword(v => !v)} hitSlop={8}>
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+          <Text style={[styles.hint, { color: colors.textMuted }]}>{t('passwordMin')} 8 {t('characters')}</Text>
+        </FormField>
+
+        <FormField label={`${t('phoneNumber')} (${t('optional').toLowerCase()})`}>
+          <View style={inputStyle}>
+            <Ionicons name="call-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.inputText, { color: colors.textPrimary }]}
+              value={formPhone} onChangeText={setFormPhone}
+              placeholder="+251 9XX XXX XXX" placeholderTextColor={colors.textMuted}
+              keyboardType="phone-pad"
+            />
+          </View>
+        </FormField>
+      </ModalSheet>
+
+      {/* Edit Modal */}
+      <ModalSheet
+        visible={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title={t('editEmployee')}
+        footer={
+          <TouchableOpacity
+            style={[styles.footerBtn, { backgroundColor: colors.primary }, updateMutation.isPending && styles.btnDisabled]}
+            onPress={handleUpdate}
+            disabled={updateMutation.isPending}
+            activeOpacity={0.85}
+          >
+            {updateMutation.isPending
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={styles.footerBtnText}>{t('save')}</Text>
+            }
+          </TouchableOpacity>
+        }
+      >
+        <FormField label={`${t('employeeName')} *`}>
+          <View style={inputStyle}>
+            <Ionicons name="person-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.inputText, { color: colors.textPrimary }]}
+              value={formName} onChangeText={setFormName}
+              placeholder={t('enterName')} placeholderTextColor={colors.textMuted}
+              autoCapitalize="words"
+            />
+          </View>
+        </FormField>
+
+        <FormField label={t('employeeEmail')}>
+          <View style={[inputStyle, { backgroundColor: colors.surfaceMuted }]}>
+            <Ionicons name="mail-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
+            <Text style={[styles.inputText, { color: colors.textMuted }]}>{formEmail}</Text>
+          </View>
+          <Text style={[styles.hint, { color: colors.textMuted }]}>{t('emailCannotChange')}</Text>
+        </FormField>
+
+        <FormField label={t('phoneNumber')}>
+          <View style={inputStyle}>
+            <Ionicons name="call-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.inputText, { color: colors.textPrimary }]}
+              value={formPhone} onChangeText={setFormPhone}
+              placeholder="+251 9XX XXX XXX" placeholderTextColor={colors.textMuted}
+              keyboardType="phone-pad"
+            />
+          </View>
+        </FormField>
+
+        <TouchableOpacity
+          style={[styles.collapseRow, { backgroundColor: colors.surfaceTinted }]}
+          onPress={() => setShowPinField(v => !v)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name={showPinField ? 'chevron-up' : 'chevron-down'} size={16} color={colors.primary} />
+          <Text style={[styles.collapseText, { color: colors.primary }]}>
+            {showPinField ? t('hideCredentials') : t('editCredentials')}
+          </Text>
+        </TouchableOpacity>
+
+        {showPinField && (
+          <>
+            <FormField label={t('username')}>
+              <View style={inputStyle}>
+                <Ionicons name="at-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.inputText, { color: colors.textPrimary }]}
+                  value={formUsername} onChangeText={setFormUsername}
+                  placeholder={t('enterUsername')} placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                />
+              </View>
+              {editingEmployee?.username && (
+                <Text style={[styles.hint, { color: colors.textMuted }]}>{t('current')}: {editingEmployee.username}</Text>
+              )}
+            </FormField>
+
+            <FormField label={t('pin')}>
+              <View style={inputStyle}>
+                <Ionicons name="keypad-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.inputText, { color: colors.textPrimary }]}
+                  value={formPin}
+                  onChangeText={v => setFormPin(v.replace(/\D/g, '').slice(0, 6))}
+                  placeholder={editingEmployee?.hasPin ? t('enterNewPin') : t('setPin')}
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry={!showPassword}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(v => !v)} hitSlop={8}>
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.hint, { color: colors.textMuted }]}>
+                {editingEmployee?.hasPin ? t('pinChangeHint') : t('pinSetHint')}
+              </Text>
+            </FormField>
+          </>
+        )}
+      </ModalSheet>
 
       <ConfirmDialog
         visible={showDeleteDialog}
@@ -415,7 +428,7 @@ export default function EmployeesScreen() {
         destructive
         confirmText={t('delete')}
         cancelText={t('cancel')}
-        onConfirm={handleDelete}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onCancel={() => { setShowDeleteDialog(false); setDeleteTarget(null); }}
         isLoading={deleteMutation.isPending}
       />
@@ -425,43 +438,96 @@ export default function EmployeesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing[5], paddingVertical: spacing[4] },
-  title: { ...type.h3 },
-  listContent: { paddingHorizontal: spacing[5], paddingBottom: spacing[6] },
-  card: { borderRadius: radius.md, padding: spacing[4], marginBottom: spacing[2] },
-  cardHeader: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 40, height: 40, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', marginRight: spacing[3] },
-  cardInfo: { flex: 1 },
-  cardName: { ...type.bodyBold },
-  cardEmail: { ...type.caption, marginTop: 1 },
-  cardPhone: { ...type.micro, marginTop: 1 },
-  cardActions: { alignItems: 'flex-end', gap: spacing[2] },
-  toggleButton: { paddingHorizontal: spacing[2], paddingVertical: spacing[1], borderRadius: radius.full },
-  toggleText: { ...type.micro },
-  permsButton: { width: 28, height: 28, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  modalSheet: { borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing[5], paddingVertical: spacing[4], borderBottomWidth: 1 },
-  modalTitle: { ...type.h3 },
-  modalContent: { paddingHorizontal: spacing[5], paddingVertical: spacing[4] },
-  modalScroll: { maxHeight: 420 },
-  fieldLabel: { ...type.caption, marginBottom: spacing[2] },
-  fieldHint: { ...type.micro, marginTop: spacing[1] },
-  input: { ...type.body, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
-  disabledText: { ...type.body },
-  pinInputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing[4] },
-  pinInput: { ...type.body, flex: 1, paddingVertical: spacing[3] },
-  pinToggle: { padding: spacing[2] },
-  pinToggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
-  pinToggleText: { ...type.bodyMedium },
-  submitButton: { borderRadius: radius.md, paddingVertical: spacing[4], alignItems: 'center', marginTop: spacing[4] },
-  submitButtonDisabled: { opacity: 0.6 },
-  submitButtonText: { ...type.bodyBold, color: '#fff', fontSize: 16 },
-  centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing[6] },
-  errorText: { ...type.h4, marginTop: spacing[4], marginBottom: spacing[2] },
-  errorSubtext: { ...type.body, textAlign: 'center', marginBottom: spacing[4] },
-  retryButton: { borderRadius: radius.md, paddingHorizontal: spacing[6], paddingVertical: spacing[3] },
-  retryButtonText: { ...type.bodyBold, color: '#fff' },
-  emptyText: { ...type.h4, marginTop: spacing[4], marginBottom: spacing[2] },
-  emptySubtext: { ...type.body, textAlign: 'center' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[3],
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { ...type.h3 },
+  addBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  list: { paddingTop: spacing[1], paddingBottom: spacing[6] },
+  separator: { height: StyleSheet.hairlineWidth, marginHorizontal: spacing[5] },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[3],
+    gap: spacing[3],
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  rowInfo: { flex: 1, minWidth: 0 },
+  rowName: { ...type.bodyMedium, fontSize: 14 },
+  rowEmail: { ...type.caption, marginTop: 1 },
+  rowPhone: { ...type.micro, marginTop: 1 },
+  rowActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], flexShrink: 0 },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing[2],
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { ...type.micro },
+  iconBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing[6] },
+  emptyTitle: { ...type.h4, marginTop: spacing[4], marginBottom: spacing[2], textAlign: 'center' },
+  emptyDesc: { ...type.body, textAlign: 'center' },
+  retryBtn: { marginTop: spacing[4], borderRadius: radius.md, paddingHorizontal: spacing[6], paddingVertical: spacing[3] },
+  retryBtnText: { ...type.bodyBold, color: '#fff' },
+  // Modal form
+  field: { marginBottom: spacing[4] },
+  fieldLabel: { ...type.caption, fontWeight: '600', marginBottom: spacing[2] },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing[3],
+    height: 50,
+  },
+  inputIcon: { marginRight: spacing[2] },
+  inputText: { ...type.body, flex: 1, paddingVertical: 0 },
+  hint: { ...type.micro, marginTop: spacing[1] },
+  collapseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    padding: spacing[3],
+    borderRadius: radius.md,
+    marginBottom: spacing[4],
+  },
+  collapseText: { ...type.bodyMedium, fontSize: 14 },
+  footerBtn: {
+    height: 52,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnDisabled: { opacity: 0.6 },
+  footerBtnText: { ...type.bodyBold, fontSize: 16, color: '#fff' },
 });

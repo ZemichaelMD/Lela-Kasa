@@ -1,6 +1,7 @@
-import { AlertCircle, ArrowLeft, CheckCircle, Shield } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import logo from "@/assets/logo.png";
 import { APP_NAME } from "@/lib/data";
 import { sdk } from "@/lib/sdk";
 import { ThemeToggle } from "@/components/theme";
@@ -52,7 +53,7 @@ export default function ForgotPasswordPage() {
             <div className="relative">
               <div className="absolute inset-0 scale-110 rounded-2xl bg-[#096136]/30 blur-2xl" />
               <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-[#096136] ring-1 ring-[#096136]/50">
-                <Shield className="h-7 w-7 text-white" />
+                <img src={logo} alt={APP_NAME} className="h-8 w-8 object-contain" />
               </div>
             </div>
             <div>

@@ -1,20 +1,133 @@
 # LeLa Kasa
-## Beer and beverage sales management app. 
 
-The app is built using NestJs as a backend framework, React with vite as a client app. It uses Prisma ORM and PostgreSQL as the database. The app is designed to manage sales, inventory, and customer data for a beer and beverage business. It includes features such as order management, inventory tracking, and customer relationship management. The app is built with scalability and maintainability in mind, allowing for easy updates and additions of new features in the future. It is a mobile first application, ensuring that it is accessible and user-friendly on a variety of devices and sets focus on responsive web design and intutiveness and ease of aceess as well as perfomance. The app is also designed to be secure, with proper authentication and authorization mechanisms in place to protect sensitive data. Overall, this app aims to streamline the operations of a beer and beverage business, making it easier for owners and employees to manage their sales and inventory effectively.
+Beer and beverage sales management platform for grocery shop owners and their employees. Manage sales, customers, inventory, payment accounts, and generate reports — all in one place.
 
-The features are
-- Order management: Allows users to create and manage orders, track order status, and generate invoices.
-- Inventory tracking: Enables users to track inventory levels, manage stock, and receive notifications for low inventory.
-- Customer relationship management: Provides tools for managing customer data, tracking customer interactions, and analyzing customer behavior.
-- Sales reporting: Generates reports on sales performance, inventory levels, and customer data to help users make informed business decisions.
-- User authentication and authorization: Ensures that only authorized users can access sensitive data and perform certain actions within the app.
-- Mobile-first design: Ensures that the app is accessible and user-friendly on a variety of devices, with a focus on responsive web design and performance.
+## Apps
 
-The main page of the app is a very interactive table where users can add Name of the customer, how many boxes he/she took, if they took single bottles, how many bottles they took, what type of beverage they took and if they take different ones we need to agregate it (for eg, if a customer took 1 box of harar beer, two boxes of St George and 5 bottles of Dashin beer) we need to have a ui to add agreegates, the amount of boxes and bottles they haven't returned, the credit money (if they took credit), the amount they paid if they did, what way they used to pay and to what avvount they paid (cash to Dagim, Cash to Bereket, CBE bereket, Abysinia bank Dagim and so on...), a note or remark, the price per box and per bottle, the total amount, and the date of the order. The table also has a search functionality that allows users to search for specific orders based on customer name or date. The table also need a filter functionality and sort by functionality (like a proper data table). The app also includes a dashboard that provides an overview of sales performance, inventory levels, and customer data. Users can also generate reports on sales performance, inventory levels, and customer data to help them make informed business decisions. Overall, this app is designed to streamline the operations of a beer and beverage business, making it easier for owners and employees to manage their sales and inventory effectively. By users, we mean owners of grosory shops and the employees of the shops and not the customers thay come into the shop to buy beer and liquire. 
+| App | Description | Stack |
+|-----|-------------|-------|
+| `client/` | Owner & staff web portal (PWA) | React 19, Vite, Tailwind CSS |
+| `admin/` | Super-admin dashboard | React 19, Vite, Tailwind CSS |
+| `backend/` | REST API + WebSockets | NestJS 11, Prisma, PostgreSQL, Redis |
+| `mobile/lela-kasa-owner-app/` | Mobile app | Expo (React Native) |
 
-We need to have mamagement pages (CRUD) for customer, beverage types, current prices management (can add multiple tiers or prices and the previous prices should still show), payment account managemnt, and user management (for the employees of the shop). The app also includes a dashboard that provides an overview of sales performance, inventory levels, and customer data. Users can also generate reports on sales performance, inventory levels, and customer data to help them make informed business decisions. Overall, this app is designed to streamline the operations of a beer and beverage business, making it easier for owners and employees to manage their sales and inventory effectively.
+## Features
 
-The app is designed to be user-friendly and intuitive, allowing users to easily navigate and manage their sales and inventory data. The app also includes features such as order management, inventory tracking, and customer relationship management, which are essential for running a successful beer and beverage business. With this app, users can easily manage their sales and inventory data, track customer interactions, and make informed business decisions based on the data provided by the app.
+- **Sales management** — Record sales with multiple beverages, box/bottle quantities, return tracking, and credit
+- **Payment accounts** — Log payments to multiple accounts (cash, CBE, Abyssinia, etc.)
+- **Customer management** — Full CRM with interaction history
+- **Beverage & price tiers** — Multiple price tiers with historical price tracking
+- **Employee management** — Register employees, assign roles and permissions
+- **Reports & dashboard** — Sales performance, inventory levels, and customer analytics
+- **Subscription gating** — Shop-level subscription management
+- **PWA** — Installable on mobile and desktop from the browser
 
-New users can be registered as a shop owner and the owner can register new employees and assign them roles and permissions. The app also includes a login and authentication system to ensure that only authorized users can access the app's features. The app is built with security in mind, with proper authentication and authorization mechanisms in place to protect sensitive data. Overall, this app is designed to be a comprehensive solution for managing sales and inventory for a beer and beverage business, providing users with the tools they need to run their business effectively.
+## Prerequisites
+
+- Node.js 20+
+- pnpm 9+
+- PostgreSQL
+- Redis
+
+## Getting Started
+
+**1. Install dependencies**
+
+```bash
+# from each app directory
+cd backend && pnpm install
+cd client  && pnpm install
+cd admin   && pnpm install
+cd mobile/lela-kasa-owner-app && pnpm install
+```
+
+**2. Configure environment**
+
+Copy `.env.example` to `.env` in `backend/` and fill in the required values:
+
+```
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://...
+JWT_SECRET=...
+```
+
+**3. Run database migrations**
+
+```bash
+cd backend
+pnpm db:migrate
+pnpm db:seed   # optional seed data
+```
+
+**4. Start development servers**
+
+```bash
+# backend — http://localhost:3000
+cd backend && pnpm dev
+
+# client portal — http://localhost:5174
+cd client && pnpm dev
+
+# admin dashboard — http://localhost:5175
+cd admin && pnpm dev
+```
+
+## Deployment
+
+### Backend
+
+Deploy to any Node.js host. Run migrations before starting:
+
+```bash
+pnpm db:deploy
+pnpm start:prod
+```
+
+### Client & Admin (Cloudflare Pages)
+
+Both apps deploy automatically via GitHub Actions on push to `main`. Each app also gets a preview URL on every pull request.
+
+To deploy manually:
+
+```bash
+cd client && pnpm deploy:prod
+cd admin  && pnpm deploy:prod
+```
+
+**Required GitHub secrets:**
+
+| Secret | Description |
+|--------|-------------|
+| `CLOUDFLARE_API_TOKEN` | API token with Cloudflare Pages edit permissions |
+| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID |
+
+### Mobile
+
+```bash
+cd mobile/lela-kasa-owner-app
+eas build
+eas submit
+```
+
+## Project Structure
+
+```
+lela-kasa/
+├── admin/                      # Super-admin web app
+│   ├── src/
+│   ├── wrangler.toml           # Cloudflare Pages config (lala-kasa-admin)
+│   └── package.json
+├── backend/                    # NestJS API
+│   ├── prisma/                 # Schema & migrations
+│   └── src/
+├── client/                     # Owner/staff web app (PWA)
+│   ├── src/
+│   ├── wrangler.toml           # Cloudflare Pages config (lela-kasa-owner)
+│   └── package.json
+├── mobile/
+│   └── lela-kasa-owner-app/   # Expo mobile app
+└── .github/
+    └── workflows/
+        ├── deploy-client.yml   # Auto-deploy client on push to main
+        └── deploy-admin.yml    # Auto-deploy admin on push to main
+```

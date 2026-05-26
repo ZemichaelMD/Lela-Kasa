@@ -627,10 +627,20 @@ export default function ReportsScreen() {
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
     >
+      {/* Header with inline date badge */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>
           {t("reports")}
         </Text>
+        <TouchableOpacity
+          style={[styles.dateBadge, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+          onPress={() => setShowDateFilter(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="calendar-outline" size={13} color={colors.primary} />
+          <Text style={[styles.dateBadgeText, { color: colors.primary }]}>{range.label}</Text>
+          <Ionicons name="chevron-down" size={11} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.tabBarContainer}>
@@ -678,28 +688,6 @@ export default function ReportsScreen() {
         </ScrollView>
       </View>
 
-      <TouchableOpacity
-        style={[
-          styles.dateFilterButton,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-            ...shadow.sm,
-          },
-        ]}
-        onPress={() => setShowDateFilter(true)}
-      >
-        <Ionicons
-          name="calendar-outline"
-          size={18}
-          color={colors.primary}
-        />
-        <Text style={[styles.dateFilterText, { color: colors.textPrimary }]}>
-          {range.label}
-        </Text>
-        <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
-      </TouchableOpacity>
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -735,8 +723,29 @@ export default function ReportsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: spacing[5], paddingVertical: spacing[3] },
-  title: { ...type.h1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[4],
+    paddingBottom: spacing[3],
+  },
+  title: { ...type.h2 },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    paddingHorizontal: spacing[3],
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  dateBadgeText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    lineHeight: 14,
+  },
   tabBarContainer: {
     paddingHorizontal: spacing[5],
     paddingVertical: spacing[2],
@@ -753,18 +762,6 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   tabText: { ...type.micro },
-  dateFilterButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[2],
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    marginHorizontal: spacing[5],
-    marginBottom: spacing[3],
-    borderRadius: radius.md,
-    borderWidth: 1,
-  },
-  dateFilterText: { ...type.bodyMedium, flex: 1 },
   scrollContent: { paddingVertical: spacing[3] },
   statsRow: {
     flexDirection: "row",

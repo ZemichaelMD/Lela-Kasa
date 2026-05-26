@@ -5,6 +5,7 @@ import {
 import type { ComponentType } from "react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/ui";
+import logo from "@/assets/logo.png";
 import { APP_NAME } from "@/lib/data";
 import { useI18n } from "@/lib/i18n";
 import { useAuthContext } from "@/lib/auth-context";

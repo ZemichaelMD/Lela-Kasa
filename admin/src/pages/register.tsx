@@ -1,6 +1,7 @@
-import { AlertCircle, ArrowRight, Check, Eye, EyeOff, Loader, Shield, X } from "lucide-react";
+import { AlertCircle, ArrowRight, Check, Eye, EyeOff, Loader, X } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import logo from "@/assets/logo.png";
 import { APP_NAME } from "@/lib/data";
 import { sdk, tokenStore } from "@/lib/sdk";
 import { ThemeToggle } from "@/components/theme";
@@ -130,7 +131,7 @@ export default function RegisterPage() {
           <div className="relative">
             <div className="absolute inset-0 scale-110 rounded-2xl bg-[#096136]/30 blur-2xl" />
             <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#096136] ring-1 ring-[#096136]/50">
-              <Shield className="h-8 w-8 text-white" />
+              <img src={logo} alt={APP_NAME} className="h-10 w-10 object-contain" />
             </div>
           </div>
           <div>

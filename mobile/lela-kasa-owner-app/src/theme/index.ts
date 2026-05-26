@@ -2,16 +2,25 @@ import { Platform, ViewStyle } from "react-native";
 
 export const palette = {
   brand: {
-    50: "#f0f9ff",
-    100: "#e0f2fe",
-    200: "#bae6fd",
-    300: "#7dd3fc",
-    400: "#38bdf8",
-    500: "#0ea5e9",
-    600: "#0284c7",
-    700: "#0369a1",
-    800: "#075985",
-    900: "#0c4a6e",
+    50: "#f2fbf5", // Ultra-clean faint brand tint
+    100: "#e0f6e8",
+    200: "#c2ead2",
+    300: "#91d7b3",
+    400: "#5bbd90", // Accessible bright brand accent
+    500: "#349e6f",
+    600: "#237e56",
+    700: "#096136", // Your core logo color
+    800: "#074d2b",
+    900: "#05381f",
+  },
+  // Repurposed forest to be a sleek charcoal/slate system for an elegant dark mode
+  forest: {
+    950: "#090b0e",
+    900: "#12151c",
+    800: "#1a1f26",
+    700: "#242b35",
+    600: "#303946",
+    500: "#414d5e",
   },
   accent: {
     50: "#fff7ed",
@@ -32,13 +41,13 @@ export const palette = {
   },
   green: {
     50: "#ecfdf5",
-    100: "#dcfce7",
+    100: "#d1fae5",
     300: "#6ee7b7",
-    400: "#4ade80",
-    500: "#22c55e",
-    600: "#16a34a",
-    700: "#15803d",
-    900: "#14532d",
+    400: "#34d399",
+    500: "#10b981",
+    600: "#059669",
+    700: "#047857",
+    900: "#064e3b",
   },
   red: {
     50: "#fef2f2",
@@ -87,19 +96,19 @@ export const palette = {
 };
 
 export const lightColors = {
-  background: palette.slate[50],
+  background: "#f8fafc", // Clean, crisp slate-white canvas
   surface: palette.white,
-  surfaceMuted: palette.slate[100],
-  surfaceTinted: palette.brand[50],
+  surfaceMuted: "#f1f5f9", // Neutral, non-green muted gray
+  surfaceTinted: palette.brand[50], // Barely-there brand wash
   textPrimary: palette.slate[900],
   textSecondary: palette.slate[600],
   textMuted: palette.slate[400],
   textInverse: palette.white,
-  primary: palette.brand[500],
-  primaryDark: palette.brand[700],
+  primary: palette.brand[700], // Sharp rendering of logo color
+  primaryDark: palette.brand[800],
   primaryLight: palette.brand[100],
-  accent: palette.warm[500],
-  accentLight: palette.warm[50],
+  accent: palette.accent[500],
+  accentLight: palette.accent[50],
   success: palette.green[600],
   successLight: palette.green[100],
   warning: palette.amber[500],
@@ -108,48 +117,49 @@ export const lightColors = {
   dangerLight: palette.red[100],
   border: palette.slate[200],
   borderStrong: palette.slate[300],
-  scrim: "rgba(15, 23, 42, 0.55)",
-  scrimLight: "rgba(15, 23, 42, 0.30)",
+  scrim: "rgba(15, 23, 42, 0.6)", // Sleek slate-dark overlay
+  scrimLight: "rgba(15, 23, 42, 0.3)",
 };
 
 export const darkColors = {
-  background: palette.slate[900],
-  surface: palette.slate[800],
-  surfaceMuted: palette.slate[700],
-  surfaceTinted: palette.brand[900],
-  textPrimary: palette.slate[100],
-  textSecondary: palette.slate[400],
+  background: palette.forest[900], // Deep premium charcoal
+  surface: palette.forest[800], // Slightly elevated dark slate
+  surfaceMuted: palette.forest[700],
+  surfaceTinted: palette.forest[600],
+  textPrimary: "#f1f5f9", // Clean off-white text
+  textSecondary: palette.slate[400], // Muted gray text
   textMuted: palette.slate[500],
-  textInverse: palette.slate[900],
-  primary: palette.brand[400],
+  textInverse: palette.forest[950],
+  primary: palette.brand[400], // Bright emerald highlight for readability
   primaryDark: palette.brand[300],
-  primaryLight: palette.brand[900],
-  accent: palette.warm[400],
-  accentLight: palette.warm[700],
+  primaryLight: palette.forest[600],
+  accent: palette.accent[400],
+  accentLight: palette.forest[600],
   success: palette.green[400],
-  successLight: palette.green[700],
+  successLight: palette.green[900],
   warning: palette.amber[400],
-  warningLight: palette.amber[700],
+  warningLight: palette.amber[900],
   danger: palette.red[400],
-  dangerLight: palette.red[700],
-  border: palette.slate[700],
-  borderStrong: palette.slate[600],
-  scrim: "rgba(0, 0, 0, 0.7)",
-  scrimLight: "rgba(0, 0, 0, 0.4)",
+  dangerLight: palette.red[900],
+  border: palette.forest[700],
+  borderStrong: palette.forest[600],
+  scrim: "rgba(0, 0, 0, 0.85)",
+  scrimLight: "rgba(0, 0, 0, 0.5)",
 };
 
 export type ColorScheme = typeof lightColors;
 
 export const colors = lightColors;
 
+// Tighter radius configurations optimized for modern mobile views
 export const radius = {
-  xs: 6,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  "2xl": 24,
-  "3xl": 32,
+  xs: 4,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 18,
+  "2xl": 22,
+  "3xl": 28,
   full: 9999,
 };
 
@@ -185,42 +195,42 @@ export const type = {
 export const shadow = {
   sm: Platform.select<ViewStyle>({
     ios: {
-      shadowColor: palette.slate[900],
+      shadowColor: palette.black,
       shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
+      shadowOpacity: 0.06,
+      shadowRadius: 1.5,
     },
     android: { elevation: 1 },
     default: {},
   })!,
   md: Platform.select<ViewStyle>({
     ios: {
-      shadowColor: palette.slate[900],
+      shadowColor: palette.black,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.08,
-      shadowRadius: 12,
+      shadowRadius: 8,
     },
     android: { elevation: 3 },
     default: {},
   })!,
   lg: Platform.select<ViewStyle>({
     ios: {
-      shadowColor: palette.slate[900],
+      shadowColor: palette.black,
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.12,
-      shadowRadius: 24,
+      shadowRadius: 16,
     },
-    android: { elevation: 8 },
+    android: { elevation: 6 },
     default: {},
   })!,
   brand: Platform.select<ViewStyle>({
     ios: {
-      shadowColor: palette.brand[500],
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.35,
-      shadowRadius: 16,
+      shadowColor: palette.brand[700],
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 10,
     },
-    android: { elevation: 6 },
+    android: { elevation: 5 },
     default: {},
   })!,
 };
