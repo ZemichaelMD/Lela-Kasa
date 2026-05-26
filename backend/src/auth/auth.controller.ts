@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -27,9 +28,9 @@ import type { AuthenticatedUser } from "../common/types/authenticated-user";
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 
 export class RegisterDto {
-  @IsOptional()
   @IsEmail()
-  email?: string;
+  @IsNotEmpty()
+  email!: string;
 
   @IsString()
   @MinLength(8)
@@ -113,6 +114,15 @@ class PhoneChangeConfirmDto {
   @IsString() @Length(6, 6) declare code: string;
 }
 
+class EmailChangeRequestDto {
+  @IsEmail() @IsNotEmpty() declare email: string;
+}
+
+class EmailChangeConfirmDto {
+  @IsEmail() @IsNotEmpty() declare email: string;
+  @IsString() @Length(6, 6) declare code: string;
+}
+
 // ── Throttle helper ───────────────────────────────────────────────────────────
 
 /** Strict per-IP throttle for credential / token endpoints (10/min). */
@@ -140,6 +150,15 @@ export class AuthController {
     return {
       registrationOpen: map["registration_open"] !== "false",
       passwordMinLength: parseInt(map["password_min_length"] || "8", 10),
+      passwordPolicy: {
+        minLength: parseInt(map["password_min_length"] || "8", 10),
+        maxLength: 128,
+        requireLowercase: true,
+        requireUppercase: true,
+        requireNumber: true,
+        requireSymbol: true,
+        minCharacterClasses: 3,
+      },
       maintenanceMode: map["maintenance_mode"] === "true",
       appName: map["app_name"] || "Lela Kasa",
       supportPhone: map["support_phone"] || "",
@@ -230,6 +249,38 @@ export class AuthController {
     await this.authService.verifyEmail(dto.token);
   }
 
+  @Post("email-otp/send")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Send an email OTP to the current user's email" })
+  async sendEmailOtp(@CurrentUser() user: AuthenticatedUser) {
+    const u = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { email: true, name: true },
+    });
+    if (!u?.email) throw new BadRequestException("No email on this account");
+    await this.authService.sendEmailOtp(user.id, u.email, u.name);
+  }
+
+  @Post("email-otp/verify")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Verify email with the OTP code sent via email" })
+  async verifyEmailOtp(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: { code: string },
+  ) {
+    await this.authService.verifyEmailOtp(user.id, dto.code);
+  }
+
+  @Get("verification/status")
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Check current user's verification status" })
+  async verificationStatus(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.getVerificationStatus(user.id);
+  }
+
   @Post("otp/request")
   @Public()
   @AuthThrottle()
@@ -289,6 +340,31 @@ export class AuthController {
     @Body() dto: PhoneChangeConfirmDto,
   ) {
     return this.authService.confirmPhoneChange(user.id, dto.phone, dto.code);
+  }
+
+  @Post("email/change/request")
+  @AuthThrottle()
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Send an OTP to a new email address to change it" })
+  async requestEmailChange(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: EmailChangeRequestDto,
+  ) {
+    await this.authService.requestEmailChange(user.id, dto.email);
+    return { sent: true };
+  }
+
+  @Post("email/change/confirm")
+  @AuthThrottle()
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Confirm an email address change with the OTP" })
+  confirmEmailChange(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: EmailChangeConfirmDto,
+  ) {
+    return this.authService.confirmEmailChange(user.id, dto.email, dto.code);
   }
 
   @Post("customer-login")

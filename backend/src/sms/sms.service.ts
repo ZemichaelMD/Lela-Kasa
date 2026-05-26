@@ -9,6 +9,9 @@ const SMS_KEYS = [
   "sms_provider",
   "sms_api_key",
   "smsethiopia_api_key",
+  "afromessage_token",
+  "afromessage_sender",
+  "afromessage_from",
 ];
 
 @Injectable()
@@ -25,6 +28,9 @@ export class SmsService {
     provider: string;
     apiKey: string;
     smsEthiopiaApiKey: string;
+    afroMessageToken: string;
+    afroMessageSender: string;
+    afroMessageFrom: string;
   }> {
     const rows = await this.prisma.systemSetting.findMany({
       where: { key: { in: SMS_KEYS } },
@@ -41,6 +47,9 @@ export class SmsService {
       provider: map["sms_provider"] || "log",
       apiKey: map["sms_api_key"] || "",
       smsEthiopiaApiKey: map["smsethiopia_api_key"] || "",
+      afroMessageToken: map["afromessage_token"] || "",
+      afroMessageSender: map["afromessage_sender"] || "",
+      afroMessageFrom: map["afromessage_from"] || "",
     };
   }
 
@@ -76,6 +85,15 @@ export class SmsService {
         break;
       case "twilio":
         await this.sendViaTwilio(`+${to}`, text, settings.apiKey);
+        break;
+      case "afromessage":
+        await this.sendViaAfroMessage(
+          `+${to}`,
+          text,
+          settings.afroMessageToken,
+          settings.afroMessageSender,
+          settings.afroMessageFrom,
+        );
         break;
       default:
         this.logger.log(`[sms:log] To: ${to} | ${text}`);
@@ -192,6 +210,76 @@ export class SmsService {
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       this.logger.error(`[sms] Twilio error ${res.status}: ${body}`);
+      throw new Error(`SMS delivery failed (${res.status})`);
+    }
+  }
+
+  async checkAfroMessageBalance(): Promise<{
+    ok: boolean;
+    balance?: string;
+    estimatedMessages?: string;
+    message?: string;
+  }> {
+    const settings = await this.getSettings();
+    if (!settings.afroMessageToken) {
+      return { ok: false, message: "AfroMessage token not configured." };
+    }
+    try {
+      const res = await fetch("https://api.afromessage.com/api/balance", {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${settings.afroMessageToken}`,
+        },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && body.acknowledge === "success") {
+        return {
+          ok: true,
+          balance: body.response.balance,
+          estimatedMessages: body.response.estimatedMessages,
+        };
+      }
+      return {
+        ok: false,
+        message: body.response?.errors?.[0] ?? "Failed to fetch balance.",
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        message: e instanceof Error ? e.message : "Unknown error.",
+      };
+    }
+  }
+
+  private async sendViaAfroMessage(
+    msisdn: string,
+    text: string,
+    token: string,
+    sender: string,
+    from: string,
+  ): Promise<void> {
+    if (!token) {
+      this.logger.warn(`[sms] AfroMessage token not configured`);
+      return;
+    }
+    const res = await fetch("https://api.afromessage.com/api/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        from: from || undefined,
+        sender: sender || undefined,
+        to: msisdn,
+        message: text,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || body.acknowledge !== "success") {
+      this.logger.error(
+        `[sms] AfroMessage error ${res.status}: ${JSON.stringify(body)}`,
+      );
       throw new Error(`SMS delivery failed (${res.status})`);
     }
   }

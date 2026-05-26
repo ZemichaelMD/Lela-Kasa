@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -511,6 +513,27 @@ export class AdminController {
     return this.adminService.updateShopUser(id, userId, dto);
   }
 
+  @Post('users/:id/verify-email')
+  @ApiOperation({ summary: 'Toggle email verification status (admin override)' })
+  async toggleUserEmailVerified(@Param('id') id: string, @Body() dto: { verified: boolean }) {
+    await this.adminService.toggleUserEmailVerified(id, dto.verified);
+    return { success: true };
+  }
+
+  @Post('users/:id/verify-phone')
+  @ApiOperation({ summary: 'Toggle phone verification status (admin override)' })
+  async toggleUserPhoneVerified(@Param('id') id: string, @Body() dto: { verified: boolean }) {
+    await this.adminService.toggleUserPhoneVerified(id, dto.verified);
+    return { success: true };
+  }
+
+  @Post('users/:id/change-password')
+  @ApiOperation({ summary: 'Change a user password (admin override)' })
+  async changeUserPassword(@Param('id') id: string, @Body() dto: { newPassword: string }) {
+    await this.adminService.changeUserPassword(id, dto.newPassword);
+    return { success: true };
+  }
+
   // ── Users Management ───────────────────────────────────────────────────────
 
   @Get('users')
@@ -525,10 +548,23 @@ export class AdminController {
     return this.adminService.createUser(dto);
   }
 
+  @Get('users/:id')
+  @ApiOperation({ summary: 'Get full user details with shops' })
+  findUser(@Param('id') id: string) {
+    return this.adminService.findUser(id);
+  }
+
   @Patch('users/:id')
   @ApiOperation({ summary: 'Update platform user properties' })
   updateUser(@Param('id') id: string, @Body() dto: UpdateUserAdminDto) {
     return this.adminService.updateUser(id, dto);
+  }
+
+  @Delete('users/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Permanently delete a user and all associated data' })
+  async deleteUser(@Param('id') id: string) {
+    await this.adminService.deleteUser(id);
   }
 
   // ── Global Beverages ───────────────────────────────────────────────────────
@@ -605,6 +641,12 @@ export class AdminController {
   @ApiOperation({ summary: 'Send a test SMS using the saved settings' })
   testSms(@Body() dto: TestChannelDto) {
     return this.smsService.sendTest(dto.to);
+  }
+
+  @Post('sms/afromessage-balance')
+  @ApiOperation({ summary: 'Check AfroMessage account balance' })
+  checkAfroMessageBalance() {
+    return this.smsService.checkAfroMessageBalance();
   }
 
   @Post('test/telegram')

@@ -76,6 +76,9 @@ export const envSchema = z.object({
 
   // SMS
   ETHIO_SMS_API_KEY: z.string().optional(),
+  AFROMESSAGE_TOKEN: z.string().optional(),
+  AFROMESSAGE_SENDER: z.string().optional(),
+  AFROMESSAGE_FROM: z.string().optional(),
 
   // Chapa payments (admin-overridable via SystemSetting at runtime)
   CHAPA_SECRET_KEY: z.string().optional(),

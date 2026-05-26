@@ -4,7 +4,7 @@ import type { ReactElement } from 'react';
 import { useAuthContext } from '@/lib/auth-context';
 
 export function RequireAuth({ children }: { children: ReactElement }): ReactElement {
-  const { user, isLoading } = useAuthContext();
+  const { user, isLoading, isVerified } = useAuthContext();
   const loc = useLocation();
 
   if (isLoading) {
@@ -18,6 +18,11 @@ export function RequireAuth({ children }: { children: ReactElement }): ReactElem
   if (!user) {
     const redirect = encodeURIComponent(`${loc.pathname}${loc.search}`);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
+  }
+
+  // Verification wall — require at least one channel verified
+  if (!isVerified && loc.pathname !== '/verify') {
+    return <Navigate to="/verify" replace />;
   }
 
   return children;

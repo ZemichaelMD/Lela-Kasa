@@ -22,7 +22,7 @@ import { StatusChip } from "@/components/data-table";
 import { EmployeeDrawer } from "@/components/employee-drawer";
 import { sdk, API_URL, tokenStore } from "@/lib/sdk";
 import type { Employee, EmployeeDetail, Sale } from "@/sdk";
-import { Card, FormattedDate, Skeleton } from "@/ui";
+import { Card, EthiopianDateInput, FormattedDate, Skeleton } from "@/ui";
 import { formatMoneyCents } from "@/utils/money";
 import { useI18n } from "@/lib/i18n";
 
@@ -116,6 +116,101 @@ function InfoTab({ employee }: { employee: EmployeeDetail }) {
           </div>
         </div>
       </div>
+
+      {/* Password reset */}
+      <PasswordResetSection employeeId={employee.id} />
+    </div>
+  );
+}
+
+// ─── Password Reset Section ─────────────────────────────────────────────────────
+
+function PasswordResetSection({ employeeId }: { employeeId: string }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
+    if (password !== confirm) { toast.error("Passwords do not match"); return; }
+    if (password.length < 8) { toast.error("Password must be at least 8 characters"); return; }
+    const classes = [/[a-z]/.test(password), /[A-Z]/.test(password), /[0-9]/.test(password), /[^A-Za-z0-9]/.test(password)].filter(Boolean).length;
+    if (classes < 3) { toast.error("Use at least 3 of: lowercase, uppercase, numbers, symbols"); return; }
+
+    setSaving(true);
+    try {
+      await sdk.employees.resetPassword(employeeId, password);
+      toast.success("Password reset successfully. Employee sessions have been revoked.");
+      setOpen(false);
+      setPassword("");
+      setConfirm("");
+    } catch {
+      toast.error("Failed to reset password");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const ic = "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40";
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold">Reset Password</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Set a new password for this employee. Their active sessions will be revoked.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          {open ? "Cancel" : "Reset Password"}
+        </button>
+      </div>
+      {open && (
+        <form onSubmit={handleReset} className="mt-4 space-y-3 border-t border-border pt-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium">New Password</label>
+            <div className="relative">
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type={showPassword ? "text" : "password"}
+                required
+                className={ic}
+                placeholder="••••••••"
+              />
+              <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium">Confirm Password</label>
+            <input
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              type="password"
+              required
+              className={ic}
+              placeholder="••••••••"
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground disabled:opacity-60 hover:bg-primary/90"
+            >
+              {saving ? "Resetting..." : "Set New Password"}
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }
@@ -368,20 +463,16 @@ function ActivityTab({ employeeId }: { employeeId: string }) {
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
         <div className="flex items-center gap-2">
           <label className="text-xs text-muted-foreground">{t("from")}</label>
-          <input
-            type="date"
+          <EthiopianDateInput
             value={dateFrom}
-            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-            className="h-8 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/40"
+            onChange={(v) => { setDateFrom(v); setPage(1); }}
           />
         </div>
         <div className="flex items-center gap-2">
           <label className="text-xs text-muted-foreground">{t("to")}</label>
-          <input
-            type="date"
+          <EthiopianDateInput
             value={dateTo}
-            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-            className="h-8 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/40"
+            onChange={(v) => { setDateTo(v); setPage(1); }}
           />
         </div>
         <input

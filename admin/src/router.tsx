@@ -24,6 +24,7 @@ const PaymentAccountsPage = lazy(() => import('@/pages/payment-accounts'));
 const PaymentAccountDetailPage = lazy(() => import('@/pages/payment-account-detail'));
 const EmployeesPage = lazy(() => import('@/pages/employees'));
 const UsersPage = lazy(() => import('@/pages/users'));
+const UserDetailPage = lazy(() => import('@/pages/user-detail'));
 const ShopsPage = lazy(() => import('@/pages/shops'));
 const ShopDetailPage = lazy(() => import('@/pages/shop-detail'));
 const AuditLogsPage = lazy(() => import('@/pages/audit-logs'));
@@ -234,6 +235,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageLoader />}>
             <UsersPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'users/:id',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <UserDetailPage />
           </Suspense>
         ),
       },

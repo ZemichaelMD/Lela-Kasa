@@ -1,4 +1,4 @@
-import { ArrowRight, Eye, EyeOff, Loader, UtensilsCrossed } from "lucide-react";
+import { ArrowRight, Check, Eye, EyeOff, Loader, UtensilsCrossed, X } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -10,6 +10,45 @@ import { useI18n } from "@/lib/i18n";
 
 const inputClass =
   "h-11 w-full rounded-lg border border-border bg-background px-3.5 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/40";
+
+function PasswordStrength({ password }: { password: string }) {
+  const checks = [
+    { label: "Min. 8 characters", met: password.length >= 8 },
+    { label: "Contains lowercase", met: /[a-z]/.test(password) },
+    { label: "Contains uppercase", met: /[A-Z]/.test(password) },
+    { label: "Contains number", met: /[0-9]/.test(password) },
+    { label: "Contains symbol", met: /[^A-Za-z0-9]/.test(password) },
+  ];
+  const classesMet = checks.filter((c) => c.met).length - 1; // exclude min length
+  const minClassesMet = classesMet >= 3;
+
+  return (
+    <ul className="space-y-1 pt-1">
+      {checks.map((c) => (
+        <li key={c.label} className="flex items-center gap-1.5 text-[11px]">
+          {c.met ? (
+            <Check className="h-3 w-3 shrink-0 text-success" />
+          ) : (
+            <X className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+          )}
+          <span className={c.met ? "text-success" : "text-muted-foreground"}>
+            {c.label}
+          </span>
+        </li>
+      ))}
+      <li className="flex items-center gap-1.5 text-[11px]">
+        {minClassesMet ? (
+          <Check className="h-3 w-3 shrink-0 text-success" />
+        ) : (
+          <X className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+        )}
+        <span className={minClassesMet ? "text-success" : "text-muted-foreground"}>
+          At least 3 of: lowercase, uppercase, numbers, symbols
+        </span>
+      </li>
+    </ul>
+  );
+}
 
 export default function RegisterPage() {
   const { t } = useI18n();
@@ -30,6 +69,7 @@ export default function RegisterPage() {
     passwordMinLength: number;
   } | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   useEffect(() => {
     fetch(`${API_URL}/api/v1/auth/config`)
@@ -67,33 +107,46 @@ export default function RegisterPage() {
     );
   }
 
+  function validatePassword(pw: string): string | null {
+    const minLen = config?.passwordMinLength ?? 8;
+    if (pw.length < minLen) return `Password must be at least ${minLen} characters`;
+    if (pw.length > 128) return "Password must be at most 128 characters";
+    const classes = [
+      /[a-z]/.test(pw),
+      /[A-Z]/.test(pw),
+      /[0-9]/.test(pw),
+      /[^A-Za-z0-9]/.test(pw),
+    ].filter(Boolean).length;
+    if (classes < 3) return "Use at least 3 of: lowercase, uppercase, numbers, symbols";
+    return null;
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!email.trim()) { setError("Email is required"); return; }
+    if (!phone.trim()) { setError("Phone number is required"); return; }
 
     if (password !== confirmPassword) {
       setError(t("passwordsDoNotMatch"));
       return;
     }
 
-    const minLen = config?.passwordMinLength ?? 8;
-    if (password.length < minLen) {
-      setError(`Password must be at least ${minLen} characters`);
-      return;
-    }
+    const pwError = validatePassword(password);
+    if (pwError) { setError(pwError); return; }
 
-    if (!phone.trim()) { setError('Phone number is required'); return; }
     setSubmitting(true);
     try {
       const res = await sdk.auth.register({
         name: name.trim(),
-        email: email.trim() || `phone_${phone.replace(/[^0-9]/g, '')}@kasa.app`,
+        email: email.trim(),
         password,
         shopName: shopName.trim(),
         phone: phone.trim(),
       });
       tokenStore.setTokens(res.accessToken, res.refreshToken);
-      navigate(`/verify-phone?phone=${encodeURIComponent(phone.trim())}`, { replace: true });
+      navigate(`/verify?phone=${encodeURIComponent(phone.trim())}`, { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : t("registrationFailed");
       setError(msg);
@@ -140,11 +193,12 @@ export default function RegisterPage() {
 
             <div className="space-y-1.5">
               <label htmlFor="email" className="text-sm font-medium">
-                {t("email")} <span className="text-xs text-muted-foreground">(optional)</span>
+                {t("email")} *
               </label>
               <input
                 id="email"
                 type="email"
+                required
                 autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -195,6 +249,8 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
                   placeholder="••••••••"
                   className={inputClass}
                 />
@@ -216,9 +272,9 @@ export default function RegisterPage() {
                   )}
                 </button>
               </div>
-              <p className="text-[11px] text-muted-foreground">
-                Min. {config?.passwordMinLength ?? 8} characters
-              </p>
+              {(passwordFocused || password.length > 0) && (
+                <PasswordStrength password={password} />
+              )}
             </div>
 
             <div className="space-y-1.5">

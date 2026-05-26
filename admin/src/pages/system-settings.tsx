@@ -767,6 +767,61 @@ function EmailIntegration({ existing }: { existing: SystemSetting[] }) {
   );
 }
 
+function AfroMessageBalance({ token }: { token: string }) {
+  const [balance, setBalance] = useState<{
+    ok: boolean;
+    balance?: string;
+    estimatedMessages?: string;
+    message?: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function check() {
+    setLoading(true);
+    setBalance(null);
+    try {
+      const r = await sdk.admin.checkAfroMessageBalance();
+      setBalance(r);
+    } catch {
+      setBalance({ ok: false, message: "Could not reach the server." });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3">
+      <p className="mb-2 text-xs font-medium text-muted-foreground">
+        Account balance
+      </p>
+      <button
+        type="button"
+        onClick={check}
+        disabled={loading || !token}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-3.5 py-2 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+      >
+        {loading ? "Checking…" : "Get Balance"}
+      </button>
+      {balance && (
+        <div className="mt-2 text-sm">
+          {balance.ok ? (
+            <p>
+              Balance: <strong>{balance.balance}</strong> ETB
+              {balance.estimatedMessages && (
+                <span>
+                  {" "}· ~{balance.estimatedMessages} messages remaining
+                </span>
+              )}
+            </p>
+          ) : (
+            <p className="text-destructive">{balance.message}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SmsIntegration({ existing }: { existing: SystemSetting[] }) {
   const [enabled, setEnabled] = useState(bool(existing, "sms_enabled", true));
   const [provider, setProvider] = useState(
@@ -775,6 +830,15 @@ function SmsIntegration({ existing }: { existing: SystemSetting[] }) {
   const [apiKey, setApiKey] = useState(val(existing, "sms_api_key"));
   const [ethiopiaKey, setEthiopiaKey] = useState(
     val(existing, "smsethiopia_api_key"),
+  );
+  const [afroMessageToken, setAfroMessageToken] = useState(
+    val(existing, "afromessage_token"),
+  );
+  const [afroMessageSender, setAfroMessageSender] = useState(
+    val(existing, "afromessage_sender"),
+  );
+  const [afroMessageFrom, setAfroMessageFrom] = useState(
+    val(existing, "afromessage_from"),
   );
   const [saving, setSaving] = useState(false);
 
@@ -786,6 +850,9 @@ function SmsIntegration({ existing }: { existing: SystemSetting[] }) {
         sms_provider: provider,
         sms_api_key: apiKey,
         smsethiopia_api_key: ethiopiaKey,
+        afromessage_token: afroMessageToken,
+        afromessage_sender: afroMessageSender,
+        afromessage_from: afroMessageFrom,
       });
       toast.success("SMS settings saved");
     } catch {
@@ -815,6 +882,7 @@ function SmsIntegration({ existing }: { existing: SystemSetting[] }) {
           <option value="africastalking">Africa's Talking</option>
           <option value="smsethiopia">SMS Ethiopia (smsethiopia.et)</option>
           <option value="twilio">Twilio</option>
+          <option value="afromessage">AfroMessage</option>
         </select>
       </Field>
       {provider === "smsethiopia" ? (
@@ -842,6 +910,33 @@ function SmsIntegration({ existing }: { existing: SystemSetting[] }) {
           placeholder="AT API key"
           showValue={val(existing, "sms_api_key") ? "••••••••••••••••" : ""}
         />
+      ) : provider === "afromessage" ? (
+        <>
+          <SecretField
+            label="Bearer Token"
+            value={afroMessageToken}
+            onChange={setAfroMessageToken}
+            placeholder="Bearer token from AfroMessage dashboard"
+            showValue={val(existing, "afromessage_token") ? "••••••••••••••••" : ""}
+          />
+          <Field label="Sender Name">
+            <input
+              value={afroMessageSender}
+              onChange={(e) => setAfroMessageSender(e.target.value)}
+              placeholder="Your verified sender name"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Identifier ID (optional)">
+            <input
+              value={afroMessageFrom}
+              onChange={(e) => setAfroMessageFrom(e.target.value)}
+              placeholder="System identifier ID for multiple short codes"
+              className={inputClass}
+            />
+          </Field>
+          <AfroMessageBalance token={afroMessageToken} />
+        </>
       ) : (
         <p className="text-xs text-muted-foreground">
           Log mode prints messages to the server log — no key required.

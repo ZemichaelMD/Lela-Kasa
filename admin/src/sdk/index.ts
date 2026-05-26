@@ -99,6 +99,7 @@ export type {
   ChangeShopOwnerDto,
   AdminShopSettings,
   AdminUser,
+  AdminUserDetail,
   UpdateUserAdminDto,
   AdminBeverage,
   CreateBeverageAdminDto,

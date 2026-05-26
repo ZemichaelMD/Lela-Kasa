@@ -12,7 +12,10 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import type { RootStackParamList } from "../navigation/types";
@@ -45,16 +48,6 @@ export default function CustomerLoginScreen() {
   const [changing, setChanging] = useState(false);
   const [changeError, setChangeError] = useState<string | null>(null);
 
-export default function CustomerLoginScreen() {
-  const { colors } = useTheme();
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [username, setUsername] = useState("");
-  const [pin, setPin] = useState("");
-  const [showPin, setShowPin] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
   async function handleSubmit() {
     if (!username.trim() || !pin.trim()) return;
     setSubmitting(true);
@@ -62,7 +55,7 @@ export default function CustomerLoginScreen() {
     try {
       const data = await getSdk().auth.customerLogin(
         username.trim(),
-        pin.trim()
+        pin.trim(),
       );
 
       if (data.customer?.mustChangePassword) {
@@ -76,8 +69,7 @@ export default function CustomerLoginScreen() {
         accessToken: data.accessToken,
       });
     } catch (err: any) {
-      const msg =
-        err?.message || t("customerInvalidCredentials");
+      const msg = err?.message || t("customerInvalidCredentials");
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -109,7 +101,8 @@ export default function CustomerLoginScreen() {
       });
       const envelope = await res.json();
       const responseData = envelope?.data ?? envelope;
-      if (!res.ok) throw new Error(responseData?.message || "Failed to change PIN");
+      if (!res.ok)
+        throw new Error(responseData?.message || "Failed to change PIN");
 
       navigation.replace("CustomerPortal", {
         customerId: responseData.customer.id,
@@ -160,9 +153,7 @@ export default function CustomerLoginScreen() {
               <Ionicons name="people" size={40} color="#fff" />
             </View>
             <Text style={styles.headerTitle}>{t("customerPortal")}</Text>
-            <Text style={styles.headerSubtitle}>
-              {t("customerSignIn")}
-            </Text>
+            <Text style={styles.headerSubtitle}>{t("customerSignIn")}</Text>
           </View>
         </SafeAreaView>
       </View>
@@ -282,11 +273,7 @@ export default function CustomerLoginScreen() {
               activeOpacity={0.8}
             >
               {submitting ? (
-                <Ionicons
-                  name="ellipsis-horizontal"
-                  size={20}
-                  color="#fff"
-                />
+                <Ionicons name="ellipsis-horizontal" size={20} color="#fff" />
               ) : (
                 <Text style={styles.buttonText}>{t("signIn")}</Text>
               )}
@@ -297,10 +284,7 @@ export default function CustomerLoginScreen() {
               onPress={() => navigation.navigate("Login")}
             >
               <Text
-                style={[
-                  styles.loginLinkText,
-                  { color: colors.textSecondary },
-                ]}
+                style={[styles.loginLinkText, { color: colors.textSecondary }]}
               >
                 {t("ownerStaffLogin")}
               </Text>
@@ -310,79 +294,171 @@ export default function CustomerLoginScreen() {
       </KeyboardAvoidingView>
 
       {/* Forced PIN Change Modal */}
-      <Modal visible={showChangePin} transparent animationType="slide" onRequestClose={() => {}}>
+      <Modal
+        visible={showChangePin}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {}}
+      >
         <View style={[styles.modalOverlay, { backgroundColor: colors.scrim }]}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, spacing[6]) }]}>
-            <View style={[styles.modalHeader, { paddingTop: Math.max(insets.top, spacing[4]), borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Change Your PIN</Text>
-            </View>
-            <ScrollView style={styles.modalContent}>
-              <Text style={[styles.modalDesc, { color: colors.textMuted }]}>
-                For security, you must change your PIN before accessing the portal.
-              </Text>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Current PIN</Text>
-              <View style={[styles.inputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <TextInput
-                  style={[styles.input, { color: colors.textPrimary }]}
-                  value={currentPin}
-                  onChangeText={setCurrentPin}
-                  secureTextEntry={!showCurrentPin}
-                  keyboardType="number-pad"
-                  maxLength={10}
-                  placeholder="••••••"
-                  placeholderTextColor={colors.textMuted}
-                />
-                <TouchableOpacity onPress={() => setShowCurrentPin(!showCurrentPin)} style={styles.passwordToggle}>
-                  <Ionicons name={showCurrentPin ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>New PIN</Text>
-              <View style={[styles.inputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <TextInput
-                  style={[styles.input, { color: colors.textPrimary }]}
-                  value={newPin}
-                  onChangeText={setNewPin}
-                  secureTextEntry={!showNewPin}
-                  keyboardType="number-pad"
-                  maxLength={10}
-                  placeholder="••••••"
-                  placeholderTextColor={colors.textMuted}
-                />
-                <TouchableOpacity onPress={() => setShowNewPin(!showNewPin)} style={styles.passwordToggle}>
-                  <Ionicons name={showNewPin ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Confirm New PIN</Text>
-              <View style={[styles.inputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <TextInput
-                  style={[styles.input, { color: colors.textPrimary }]}
-                  value={confirmPin}
-                  onChangeText={setConfirmPin}
-                  secureTextEntry
-                  keyboardType="number-pad"
-                  maxLength={10}
-                  placeholder="••••••"
-                  placeholderTextColor={colors.textMuted}
-                />
-              </View>
-              {changeError && (
-                <View style={[styles.errorBox, { backgroundColor: colors.danger + '1A', borderColor: colors.danger + '40' }]}>
-                  <Text style={[styles.errorText, { color: colors.danger }]}>{changeError}</Text>
-                </View>
-              )}
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: colors.primary }, changing && styles.buttonDisabled]}
-                onPress={handleChangePin}
-                disabled={changing}
-                activeOpacity={0.8}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <View
+              style={[
+                styles.modalSheet,
+                {
+                  backgroundColor: colors.background,
+                  paddingBottom: Math.max(insets.bottom, spacing[6]),
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.modalHeader,
+                  {
+                    paddingTop: Math.max(insets.top, spacing[4]),
+                    borderBottomColor: colors.border,
+                  },
+                ]}
               >
-                <Text style={styles.buttonText}>
-                  {changing ? "Changing PIN..." : "Change PIN & Continue"}
+                <Text
+                  style={[styles.modalTitle, { color: colors.textPrimary }]}
+                >
+                  Change Your PIN
                 </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
+              </View>
+              <ScrollView style={styles.modalContent}>
+                <Text style={[styles.modalDesc, { color: colors.textMuted }]}>
+                  For security, you must change your PIN before accessing the
+                  portal.
+                </Text>
+                <Text
+                  style={[styles.fieldLabel, { color: colors.textSecondary }]}
+                >
+                  Current PIN
+                </Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <TextInput
+                    style={[styles.input, { color: colors.textPrimary }]}
+                    value={currentPin}
+                    onChangeText={setCurrentPin}
+                    secureTextEntry={!showCurrentPin}
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    placeholder="••••••"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowCurrentPin(!showCurrentPin)}
+                    style={styles.passwordToggle}
+                  >
+                    <Ionicons
+                      name={showCurrentPin ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color={colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <Text
+                  style={[styles.fieldLabel, { color: colors.textSecondary }]}
+                >
+                  New PIN
+                </Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <TextInput
+                    style={[styles.input, { color: colors.textPrimary }]}
+                    value={newPin}
+                    onChangeText={setNewPin}
+                    secureTextEntry={!showNewPin}
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    placeholder="••••••"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowNewPin(!showNewPin)}
+                    style={styles.passwordToggle}
+                  >
+                    <Ionicons
+                      name={showNewPin ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color={colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <Text
+                  style={[styles.fieldLabel, { color: colors.textSecondary }]}
+                >
+                  Confirm New PIN
+                </Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <TextInput
+                    style={[styles.input, { color: colors.textPrimary }]}
+                    value={confirmPin}
+                    onChangeText={setConfirmPin}
+                    secureTextEntry
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    placeholder="••••••"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                </View>
+                {changeError && (
+                  <View
+                    style={[
+                      styles.errorBox,
+                      {
+                        backgroundColor: colors.danger + "1A",
+                        borderColor: colors.danger + "40",
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.errorText, { color: colors.danger }]}>
+                      {changeError}
+                    </Text>
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={[
+                    styles.button,
+                    { backgroundColor: colors.primary },
+                    changing && styles.buttonDisabled,
+                  ]}
+                  onPress={handleChangePin}
+                  disabled={changing}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.buttonText}>
+                    {changing ? "Changing PIN..." : "Change PIN & Continue"}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -483,10 +559,25 @@ const styles = StyleSheet.create({
   },
   loginLinkText: { ...type.bodyBold },
   modalOverlay: { flex: 1, justifyContent: "flex-end" },
-  modalSheet: { borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: "90%" },
-  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing[5], paddingVertical: spacing[4], borderBottomWidth: 1 },
+  modalSheet: {
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    maxHeight: "90%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[4],
+    borderBottomWidth: 1,
+  },
   modalTitle: { ...type.h3 },
   modalContent: { paddingHorizontal: spacing[5], paddingVertical: spacing[4] },
   modalDesc: { ...type.body, marginBottom: spacing[4], textAlign: "center" },
-  fieldLabel: { ...type.caption, marginBottom: spacing[2], marginTop: spacing[3] },
+  fieldLabel: {
+    ...type.caption,
+    marginBottom: spacing[2],
+    marginTop: spacing[3],
+  },
 });

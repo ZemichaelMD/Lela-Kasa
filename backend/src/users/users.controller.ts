@@ -16,6 +16,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MinLength,
 } from 'class-validator';
 
@@ -26,8 +27,9 @@ import { Roles } from '../common/decorators/roles.decorator';
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 
 class InviteEmployeeDto {
+  @IsOptional()
   @IsEmail()
-  email!: string;
+  email?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -39,7 +41,21 @@ class InviteEmployeeDto {
 
   @IsOptional()
   @IsString()
+  @Matches(/^[+]?[0-9\s-]{9,16}$/, {
+    message: "Enter a valid phone number, e.g. 0927646246",
+  })
   phone?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  username?: string;
+}
+
+class ResetEmployeePasswordDto {
+  @IsString()
+  @MinLength(8)
+  newPassword!: string;
 }
 
 class UpdateEmployeeDto {
@@ -47,6 +63,10 @@ class UpdateEmployeeDto {
   @IsString()
   @IsNotEmpty()
   name?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 
   @IsOptional()
   @IsString()
@@ -95,6 +115,17 @@ export class UsersController {
     @Body() dto: InviteEmployeeDto,
   ) {
     return this.usersService.inviteEmployee(shopId, dto);
+  }
+
+  @Post(':id/reset-password')
+  @ApiOperation({ summary: 'Reset an employee password (OWNER only)' })
+  async resetEmployeePassword(
+    @CurrentShopId() shopId: string,
+    @Param('id') id: string,
+    @Body() dto: ResetEmployeePasswordDto,
+  ) {
+    await this.usersService.resetEmployeePassword(shopId, id, dto.newPassword);
+    return { success: true };
   }
 
   @Patch(':id')

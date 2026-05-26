@@ -1,4 +1,4 @@
-import { ArrowRight, Eye, EyeOff, Loader, UtensilsCrossed } from 'lucide-react';
+import { ArrowRight, Check, Eye, EyeOff, Loader, UtensilsCrossed, X } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { APP_NAME } from '@/lib/data';
@@ -8,6 +8,35 @@ import { useI18n } from '@/lib/i18n';
 
 const inputClass =
   'h-11 w-full rounded-lg border border-border bg-background px-3.5 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/40';
+
+function PasswordStrength({ password }: { password: string }) {
+  const checks = [
+    { label: 'Min. 8 characters', met: password.length >= 8 },
+    { label: 'Contains lowercase', met: /[a-z]/.test(password) },
+    { label: 'Contains uppercase', met: /[A-Z]/.test(password) },
+    { label: 'Contains number', met: /[0-9]/.test(password) },
+    { label: 'Contains symbol', met: /[^A-Za-z0-9]/.test(password) },
+  ];
+  const classesMet = checks.filter((c) => c.met).length - 1;
+  const minClassesMet = classesMet >= 3;
+
+  return (
+    <ul className="space-y-1 pt-1">
+      {checks.map((c) => (
+        <li key={c.label} className="flex items-center gap-1.5 text-[11px]">
+          {c.met ? <Check className="h-3 w-3 shrink-0 text-success" /> : <X className="h-3 w-3 shrink-0 text-muted-foreground/50" />}
+          <span className={c.met ? 'text-success' : 'text-muted-foreground'}>{c.label}</span>
+        </li>
+      ))}
+      <li className="flex items-center gap-1.5 text-[11px]">
+        {minClassesMet ? <Check className="h-3 w-3 shrink-0 text-success" /> : <X className="h-3 w-3 shrink-0 text-muted-foreground/50" />}
+        <span className={minClassesMet ? 'text-success' : 'text-muted-foreground'}>
+          At least 3 of: lowercase, uppercase, numbers, symbols
+        </span>
+      </li>
+    </ul>
+  );
+}
 
 export default function RegisterPage() {
   const { t } = useI18n();
@@ -25,6 +54,7 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [config, setConfig] = useState<{ registrationOpen: boolean; passwordMinLength: number; appName: string } | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   useEffect(() => {
     sdk.auth.getPublicConfig()
@@ -39,20 +69,28 @@ export default function RegisterPage() {
     }
   }, [config]);
 
+  function validatePassword(pw: string): string | null {
+    if (pw.length < 8) return 'Password must be at least 8 characters';
+    if (pw.length > 128) return 'Password must be at most 128 characters';
+    const classes = [/[a-z]/.test(pw), /[A-Z]/.test(pw), /[0-9]/.test(pw), /[^A-Za-z0-9]/.test(pw)].filter(Boolean).length;
+    if (classes < 3) return 'Use at least 3 of: lowercase, uppercase, numbers, symbols';
+    return null;
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!email.trim()) { setError('Email is required'); return; }
+    if (!phone.trim()) { setError('Phone number is required'); return; }
 
     if (password !== confirmPassword) {
       setError(t('passwordsDoNotMatch'));
       return;
     }
 
-    const minLen = config?.passwordMinLength ?? 8;
-    if (password.length < minLen) {
-      setError(`Password must be at least ${minLen} characters`);
-      return;
-    }
+    const pwError = validatePassword(password);
+    if (pwError) { setError(pwError); return; }
 
     setSubmitting(true);
     try {
@@ -64,7 +102,7 @@ export default function RegisterPage() {
         phone: phone.trim(),
       });
       tokenStore.setTokens(res.accessToken, res.refreshToken);
-      navigate('/sales', { replace: true });
+      navigate(`/verify?phone=${encodeURIComponent(phone.trim())}`, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('registrationFailed'));
     } finally {
@@ -182,6 +220,8 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
                   placeholder="••••••••"
                   className={inputClass}
                 />
@@ -195,7 +235,9 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-[11px] text-muted-foreground">Min. {config?.passwordMinLength ?? 8} characters</p>
+              {(passwordFocused || password.length > 0) && (
+                <PasswordStrength password={password} />
+              )}
             </div>
 
             <div className="space-y-1.5">

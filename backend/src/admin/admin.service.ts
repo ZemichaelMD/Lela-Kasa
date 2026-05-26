@@ -487,6 +487,98 @@ export class AdminService {
     });
   }
 
+  async findUser(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isActive: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+        lastLoginAt: true,
+        username: true,
+        shopId: true,
+        shop: {
+          select: { id: true, name: true, phone: true, address: true, createdAt: true },
+        },
+        ownedShop: {
+          select: { id: true, name: true, phone: true, address: true, createdAt: true },
+        },
+      },
+    });
+    if (!user) throw AppException.notFound("User", id);
+
+    const phoneVerified = await this.verification.isVerified(id, "PHONE");
+
+    return {
+      ...user,
+      phoneVerified,
+      shops: [user.shop, user.ownedShop].filter(Boolean),
+    };
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id, deletedAt: null },
+      select: { id: true, role: true, name: true },
+    });
+    if (!user) throw AppException.notFound("User", id);
+
+    await this.prisma.$transaction(async (tx) => {
+      // Delete sessions
+      await tx.session.deleteMany({ where: { userId: id } });
+      // Auth tokens
+      await tx.passwordResetToken.deleteMany({ where: { userId: id } });
+      await tx.emailVerificationToken.deleteMany({ where: { userId: id } });
+      // Permissions
+      await tx.userPermission.deleteMany({ where: { userId: id } });
+      // Verifications
+      await tx.userVerification.deleteMany({ where: { userId: id } });
+      // Audit logs
+      await tx.auditLog.deleteMany({ where: { actorUserId: id } });
+
+      // If user owns a shop, delete the shop and all its data
+      const ownedShop = await tx.shop.findUnique({ where: { ownerId: id } });
+      if (ownedShop) {
+        // Delete shop-scoped data first
+        await tx.beveragePrice.deleteMany({ where: { priceTier: { shopId: ownedShop.id } } });
+        await tx.priceTier.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.beverage.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.customer.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.paymentAccount.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.shopSetting.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.userPermission.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.saleLine.deleteMany({ where: { sale: { shopId: ownedShop.id } } });
+        await tx.sale.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.stockMovement.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.payment.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.customerOrderLine.deleteMany({ where: { order: { shopId: ownedShop.id } } });
+        await tx.customerOrder.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.paymentTransaction.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.subscriptionLog.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.subscription.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.systemBanner.deleteMany({ where: { shopId: ownedShop.id } });
+        await tx.auditLog.deleteMany({ where: { shopId: ownedShop.id } });
+
+        // Unlink employees
+        await tx.user.updateMany({
+          where: { shopId: ownedShop.id },
+          data: { shopId: null },
+        });
+
+        await tx.shop.delete({ where: { id: ownedShop.id } });
+      }
+
+      // Finally delete the user
+      await tx.user.delete({ where: { id } });
+    });
+  }
+
   async listUsers() {
     const users = await this.prisma.user.findMany({
       where: { deletedAt: null },
@@ -533,6 +625,26 @@ export class AdminService {
     });
     if (!user) throw AppException.notFound("User", id);
 
+    // Validate phone uniqueness if being changed
+    if (dto.phone !== undefined && dto.phone?.trim()) {
+      const normalized = normalizeEthiopianPhone(dto.phone);
+      const existing = await this.prisma.user.findFirst({
+        where: {
+          phone: { in: ethiopianPhoneVariants(normalized) },
+          deletedAt: null,
+          id: { not: id },
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        throw AppException.conflict(
+          "PHONE_TAKEN" as never,
+          "This phone number is already in use by another account",
+        );
+      }
+      dto.phone = normalized;
+    }
+
     return this.prisma.user.update({
       where: { id },
       data: {
@@ -542,6 +654,68 @@ export class AdminService {
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       },
     });
+  }
+
+  // ─── Verification Management ─────────────────────────────────────────────────
+
+  async toggleUserEmailVerified(userId: string, verified: boolean): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId, deletedAt: null },
+      select: { email: true },
+    });
+    if (!user) throw AppException.notFound("User", userId);
+    if (!user.email) throw new Error("User has no email");
+
+    if (verified) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { emailVerified: true },
+      });
+      await this.verification.record(userId, "EMAIL", user.email);
+    } else {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { emailVerified: false },
+      });
+      await this.verification.revoke(userId, "EMAIL");
+    }
+  }
+
+  async toggleUserPhoneVerified(userId: string, verified: boolean): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId, deletedAt: null },
+      select: { phone: true },
+    });
+    if (!user) throw AppException.notFound("User", userId);
+    if (!user.phone) throw new Error("User has no phone");
+
+    if (verified) {
+      const normalized = normalizeEthiopianPhone(user.phone);
+      await this.verification.record(userId, "PHONE", normalized);
+    } else {
+      await this.verification.revoke(userId, "PHONE");
+    }
+  }
+
+  async changeUserPassword(userId: string, newPassword: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId, deletedAt: null },
+    });
+    if (!user) throw AppException.notFound("User", userId);
+
+    const pepper = process.env["PASSWORD_PEPPER"] ?? "";
+    const passwordHash = await argon2.hash(newPassword + pepper, { type: argon2.argon2id });
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+      }),
+      this.prisma.session.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
   }
 
   // ─── Global Beverages ───────────────────────────────────────────────────────

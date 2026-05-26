@@ -212,4 +212,13 @@ export class MailService {
       text: `Hello ${opts.name}, welcome to Kasa!`,
     });
   }
+
+  async sendOtp(to: string, opts: { name: string; code: string; appName: string }): Promise<void> {
+    await this.send({
+      to,
+      subject: `Your ${opts.appName} verification code`,
+      html: `<p>Hello ${opts.name},</p><p>Your verification code is: <strong>${opts.code}</strong></p><p>This code expires in 1 hour. Do not share this code.</p>`,
+      text: `Your verification code is: ${opts.code}. Valid for 1 hour. Do not share.`,
+    });
+  }
 }

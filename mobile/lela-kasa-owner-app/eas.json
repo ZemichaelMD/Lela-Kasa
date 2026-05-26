@@ -17,6 +17,12 @@
       "android": { "buildType": "apk" }
     }
   },
+  "extra": {
+    "apiUrl": "https://lela-kasa.vercel.app",
+    "eas": {
+      "projectId": "863ca630-31cf-47aa-aa80-7502b3d0feb9"
+    }
+  },
   "submit": {
     "production": {}
   }

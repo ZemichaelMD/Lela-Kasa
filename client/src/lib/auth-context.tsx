@@ -10,7 +10,7 @@ import {
 } from 'react';
 
 import type { LoginInput } from '@/contract';
-import type { Shop } from '@/sdk';
+import type { Shop, VerificationStatus } from '@/sdk';
 
 import { sdk, tokenStore, API_URL } from './sdk';
 
@@ -23,6 +23,7 @@ export interface User {
   phone?: string | null;
   avatarUrl?: string | null;
   createdAt?: string;
+  verifications?: VerificationStatus;
 }
 
 export type AuthContextValue = {
@@ -35,6 +36,8 @@ export type AuthContextValue = {
   permissions: string[];
   hasPermission: (slug: string) => boolean;
   refreshPermissions: () => Promise<void>;
+  isVerified: boolean;
+  refreshVerificationStatus: () => Promise<VerificationStatus | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -44,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [shop, setShop] = useState<Shop | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [isVerified, setIsVerified] = useState(true);
   const loadedRef = useRef(false);
 
   const fetchPermissions = useCallback(async () => {
@@ -58,6 +62,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data?.granted) setPermissions(data.granted);
     } catch {
       // Non-blocking
+    }
+  }, []);
+
+  const updateVerificationStatus = useCallback((me: User) => {
+    const v = me.verifications;
+    if (!v) { setIsVerified(true); return; }
+    const verified = (v.email?.verified ?? false) || (v.phone?.verified ?? false);
+    setIsVerified(verified);
+  }, []);
+
+  const refreshVerificationStatus = useCallback(async (): Promise<VerificationStatus | null> => {
+    try {
+      const v = await sdk.auth.getVerificationStatus();
+      if (v) {
+        const verified = v.email?.verified || v.phone?.verified;
+        setIsVerified(verified);
+      }
+      return v;
+    } catch {
+      return null;
     }
   }, []);
 
@@ -80,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       setUser(me);
+      updateVerificationStatus(me);
       void fetchPermissions();
       try {
         const myShop = await sdk.shops.getMyShop();
@@ -91,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setShop(null);
       setPermissions([]);
     } finally { setIsLoading(false); }
-  }, [fetchPermissions]);
+  }, [fetchPermissions, updateVerificationStatus]);
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -138,8 +163,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchPermissions]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, shop, isLoading, login, logout, refreshMe, permissions, hasPermission, refreshPermissions }),
-    [user, shop, isLoading, login, logout, refreshMe, permissions, hasPermission, refreshPermissions],
+    () => ({ user, shop, isLoading, login, logout, refreshMe, permissions, hasPermission, refreshPermissions, isVerified, refreshVerificationStatus }),
+    [user, shop, isLoading, login, logout, refreshMe, permissions, hasPermission, refreshPermissions, isVerified, refreshVerificationStatus],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

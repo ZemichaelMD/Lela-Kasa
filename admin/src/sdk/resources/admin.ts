@@ -105,6 +105,19 @@ export interface AdminUser {
   } | null;
 }
 
+export interface AdminUserDetail extends AdminUser {
+  updatedAt: string;
+  lastLoginAt: string | null;
+  username: string | null;
+  shops: Array<{
+    id: string;
+    name: string;
+    phone: string | null;
+    address: string | null;
+    createdAt: string;
+  }>;
+}
+
 export interface UpdateUserAdminDto {
   name?: string;
   phone?: string | null;
@@ -321,6 +334,26 @@ export class AdminResource {
     return this.client.patch<any>(`/api/v1/admin/users/${id}`, dto, options);
   }
 
+  findUser(id: string, options?: RequestOptions): Promise<AdminUserDetail> {
+    return this.client.get<AdminUserDetail>(`/api/v1/admin/users/${id}`, options);
+  }
+
+  deleteUser(id: string, options?: RequestOptions): Promise<void> {
+    return this.client.delete<void>(`/api/v1/admin/users/${id}`, options);
+  }
+
+  toggleUserEmailVerified(id: string, verified: boolean, options?: RequestOptions): Promise<{ success: boolean }> {
+    return this.client.post<{ success: boolean }>(`/api/v1/admin/users/${id}/verify-email`, { verified }, options);
+  }
+
+  toggleUserPhoneVerified(id: string, verified: boolean, options?: RequestOptions): Promise<{ success: boolean }> {
+    return this.client.post<{ success: boolean }>(`/api/v1/admin/users/${id}/verify-phone`, { verified }, options);
+  }
+
+  changeUserPassword(id: string, newPassword: string, options?: RequestOptions): Promise<{ success: boolean }> {
+    return this.client.post<{ success: boolean }>(`/api/v1/admin/users/${id}/change-password`, { newPassword }, options);
+  }
+
   // ── Beverages ───────────────────────────────────────────────────────────────
 
   listBeverages(options?: RequestOptions): Promise<AdminBeverage[]> {
@@ -501,6 +534,15 @@ export class AdminResource {
       {},
       options,
     );
+  }
+
+  checkAfroMessageBalance(): Promise<{
+    ok: boolean;
+    balance?: string;
+    estimatedMessages?: string;
+    message?: string;
+  }> {
+    return this.client.post('/api/v1/admin/sms/afromessage-balance', {});
   }
 
   testWhatsapp(to: string, options?: RequestOptions): Promise<{ ok: boolean; message: string }> {

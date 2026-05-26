@@ -55,7 +55,7 @@ function assertStrongPassword(password: string): void {
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 
 export interface RegisterDto {
-  email?: string;
+  email: string;
   password: string;
   name: string;
   shopName: string;
@@ -139,12 +139,17 @@ export class AuthService {
   /**
    * Creates User (OWNER) + Shop + default PriceTier in one transaction,
    * then links User.shopId and Shop.defaultPriceTierId.
+   * Both email and phone are required for dual-channel OTP verification.
    */
-  async register(dto: RegisterDto): Promise<LoginResult & { phoneVerificationRequired: boolean }> {
+  async register(dto: RegisterDto): Promise<LoginResult & { verificationRequired: boolean }> {
     assertStrongPassword(dto.password);
 
     if (!dto.phone?.trim()) {
       throw new BadRequestException('Phone number is required');
+    }
+
+    if (!dto.email?.trim()) {
+      throw new BadRequestException('Email is required for registration');
     }
 
     // Canonical 2519XXXXXXXX — throws a 400 with a clear message on a bad number.
@@ -155,10 +160,9 @@ export class AuthService {
       throw new UnauthorizedException({ code: ErrorCode.UNAUTHORIZED, message: "Registration is currently closed. Please contact the administrator." });
     }
 
-    const email = dto.email?.trim().toLowerCase();
-    const finalEmail = email || `phone_${phone}@kasa.app`;
+    const email = dto.email.trim().toLowerCase();
 
-    const existingEmail = await this.prisma.user.findUnique({ where: { email: finalEmail } });
+    const existingEmail = await this.prisma.user.findUnique({ where: { email } });
     if (existingEmail) throw new ConflictException({ code: ErrorCode.EMAIL_TAKEN, message: "Email is already registered" });
 
     // Reject a phone that is already tied to another account. Match against
@@ -179,12 +183,12 @@ export class AuthService {
     const { user, shop } = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
-          email: finalEmail,
+          email,
           name: dto.name,
           phone,
           passwordHash,
           role: "OWNER",
-          emailVerified: !!email,
+          emailVerified: false,
         },
       });
 
@@ -225,14 +229,19 @@ export class AuthService {
       this.logger.warn(`Failed to send registration OTP to ${phone}: ${String(e)}`);
     }
 
+    // Send email OTP for verification
+    try {
+      await this.sendEmailOtp(user.id, email, user.name ?? null);
+    } catch (e) {
+      this.logger.warn(`Failed to send verification email to ${email}: ${String(e)}`);
+    }
+
     // Issue tokens
     const { accessToken, refreshToken } = await this.createSession(
       user.id,
       "OWNER",
       shop.id,
     );
-
-    if (email) void this.sendVerificationEmail(user.id, user.email, user.name ?? null);
 
     return {
       accessToken,
@@ -243,10 +252,10 @@ export class AuthService {
         name: user.name ?? null,
         role: "OWNER",
         shopId: shop.id,
-        emailVerified: !!email,
+        emailVerified: false,
       },
       shop,
-      phoneVerificationRequired: true,
+      verificationRequired: true,
     };
   }
 
@@ -615,32 +624,62 @@ export class AuthService {
     ]);
   }
 
-  // ── Email verification ────────────────────────────────────────────────────
+  // ── Email verification (OTP-based) ────────────────────────────────────────
 
-  private async sendVerificationEmail(
+  async sendEmailOtp(
     userId: string,
     email: string,
     name: string | null,
   ): Promise<void> {
-    const rawToken = crypto.randomBytes(32).toString("hex");
-    const tokenHash = this.hashToken(rawToken);
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const codeHash = this.hashToken(code);
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+    expiresAt.setHours(expiresAt.getHours() + 1);
 
     await this.prisma.emailVerificationToken.deleteMany({ where: { userId } });
     await this.prisma.emailVerificationToken.create({
-      data: { userId, tokenHash, expiresAt },
+      data: { userId, tokenHash: codeHash, expiresAt },
     });
 
-    const clientUrl =
-      this.config.get<string>("app.clientUrl") ?? "http://localhost:3000";
-    await this.mail.sendEmailVerification(email, {
+    await this.mail.sendOtp(email, {
       name: name ?? email,
-      token: rawToken,
-      clientUrl,
+      code,
+      appName: this.config.get<string>("app.appName") ?? "Lela Kasa",
     });
   }
 
+  async verifyEmailOtp(userId: string, code: string): Promise<void> {
+    const codeHash = this.hashToken(code);
+    const record = await this.prisma.emailVerificationToken.findFirst({
+      where: { userId, tokenHash: codeHash, usedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!record) {
+      throw new BadRequestException('Invalid or expired email verification code');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { emailVerified: true },
+      }),
+      this.prisma.emailVerificationToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    if (user?.email) {
+      await this.verification.record(userId, 'EMAIL', user.email);
+    }
+  }
+
+  /** Legacy token-based email verification (kept for backward compat with old links). */
   async verifyEmail(token: string): Promise<void> {
     const tokenHash = this.hashToken(token);
     const record = await this.prisma.emailVerificationToken.findUnique({
@@ -665,7 +704,6 @@ export class AuthService {
       }),
     ]);
 
-    // Register the EMAIL channel as verified.
     const verifiedUser = await this.prisma.user.findUnique({
       where: { id: record.userId },
       select: { email: true },
@@ -862,6 +900,10 @@ export class AuthService {
       shopId: user.shopId,
     };
   }
+  async getVerificationStatus(userId: string) {
+    return this.verification.getStatus(userId);
+  }
+
   async verifyPhone(phone: string, code: string): Promise<{ success: boolean }> {
     const user = await this.prisma.user.findFirst({
       where: { phone: { in: ethiopianPhoneVariants(phone) }, deletedAt: null },
@@ -935,7 +977,54 @@ export class AuthService {
     return { success: true, phone: normalized };
   }
 
-  
+  /**
+   * Step 1 of changing email: sends an OTP to the *new* email.
+   */
+  async requestEmailChange(userId: string, newEmail: string): Promise<void> {
+    const email = newEmail.trim().toLowerCase();
+
+    const taken = await this.prisma.user.findUnique({ where: { email } });
+    if (taken && taken.id !== userId && !taken.deletedAt) {
+      throw new ConflictException({
+        code: ErrorCode.EMAIL_TAKEN,
+        message: 'This email is already in use by another account.',
+      });
+    }
+
+    const code = await this.otp.generate(email, 'email_change');
+    await this.mail.sendOtp(email, {
+      name: email,
+      code,
+      appName: this.config.get<string>("app.appName") ?? "Lela Kasa",
+    });
+  }
+
+  /**
+   * Step 2 of changing email: validates the OTP, updates the email, records verification.
+   */
+  async confirmEmailChange(
+    userId: string,
+    newEmail: string,
+    code: string,
+  ): Promise<{ success: boolean; email: string }> {
+    const email = newEmail.trim().toLowerCase();
+    await this.otp.verify(email, code, 'email_change');
+
+    const taken = await this.prisma.user.findUnique({ where: { email } });
+    if (taken && taken.id !== userId && !taken.deletedAt) {
+      throw new ConflictException({
+        code: ErrorCode.EMAIL_TAKEN,
+        message: 'This email is already in use by another account.',
+      });
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { email, emailVerified: false },
+    });
+    await this.verification.revoke(userId, 'EMAIL');
+    return { success: true, email };
+  }
 
   async customerLogin(
     username: string,

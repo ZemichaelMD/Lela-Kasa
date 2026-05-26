@@ -11,7 +11,7 @@ import NotFoundPage from '@/pages/not-found';
 import CustomerLoginPage from '@/pages/customer-login';
 import CustomerPortalPage from '@/pages/customer-portal';
 const CustomerOrderPage = lazy(() => import('@/pages/customer-order'));
-import VerifyPhonePage from '@/pages/verify-phone';
+import VerifyPage from '@/pages/verify';
 
 const HomePage = lazy(() => import('@/pages/home'));
 const RegisterPage = lazy(() => import('@/pages/register'));
@@ -53,8 +53,8 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
   },
   {
-    path: '/verify-phone',
-    element: <VerifyPhonePage />,
+    path: '/verify',
+    element: <VerifyPage />,
   },
   {
     path: '/login',

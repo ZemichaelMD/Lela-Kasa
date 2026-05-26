@@ -21,12 +21,19 @@ export const StrongPasswordSchema = z
     return classes >= 3;
   }, 'Use at least 3 of: lowercase, uppercase, numbers, symbols');
 
+export const PasswordRequirement = {
+  minLength: 8,
+  maxLength: 128,
+  minClasses: 3,
+  classLabels: ['lowercase', 'uppercase', 'numbers', 'symbols'] as const,
+};
+
 export const RegisterInputSchema = z.object({
   email: z.string().email(),
   password: StrongPasswordSchema,
   name: z.string().trim().min(1).max(120),
   shopName: z.string().trim().min(1).max(120),
-  phone: z.string().trim().max(32).optional(),
+  phone: z.string().trim().max(32),
 });
 
 export const LoginInputSchema = z.object({

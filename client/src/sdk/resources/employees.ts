@@ -14,7 +14,8 @@ export interface Employee {
 export interface InviteEmployeeDto {
   email: string;
   name: string;
-  phone?: string;
+  phone: string;
+  password: string;
 }
 
 export interface EmployeeDetail extends Employee {
@@ -26,6 +27,7 @@ export interface EmployeeDetail extends Employee {
 
 export interface UpdateEmployeeDto {
   name?: string;
+  email?: string;
   phone?: string;
   isActive?: boolean;
 }
@@ -51,5 +53,9 @@ export class EmployeesResource {
 
   remove(id: string, options?: RequestOptions): Promise<void> {
     return this.client.delete<void>(`/api/v1/users/${id}`, options);
+  }
+
+  resetPassword(id: string, newPassword: string, options?: RequestOptions): Promise<{ success: boolean }> {
+    return this.client.post<{ success: boolean }>(`/api/v1/users/${id}/reset-password`, { newPassword }, options);
   }
 }
