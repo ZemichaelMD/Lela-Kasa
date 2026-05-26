@@ -36,7 +36,7 @@ jobs:
 
       - name: Build
         working-directory: client
-        run: npm build
+        run: npm run build
         env:
           VITE_API_URL: https://lela-kasa.vercel.app
           VITE_WS_URL: https://lela-kasa.vercel.app
