@@ -187,4 +187,8 @@ export class CustomersResource {
   sendSms(id: string, dto: SendSmsDto, options?: RequestOptions): Promise<{ sent: boolean }> {
     return this.client.post<{ sent: boolean }>(`/api/v1/customers/${id}/sms`, dto, options);
   }
+
+  ownerResetPin(id: string, options?: RequestOptions): Promise<{ pin: string }> {
+    return this.client.post<{ pin: string }>(`/api/v1/customers/${id}/owner-reset-pin`, undefined, options);
+  }
 }

@@ -175,6 +175,15 @@ export class CustomersController {
     return this.customersService.resetPin(shopId, id);
   }
 
+  @Post(':id/owner-reset-pin')
+  @ApiOperation({ summary: 'Owner resets customer PIN and receives the new PIN' })
+  async ownerResetPin(
+    @CurrentShopId() shopId: string,
+    @Param('id') id: string,
+  ) {
+    return this.customersService.ownerResetPin(shopId, id);
+  }
+
   @Post(':id/send-email-otp')
   @ApiOperation({ summary: 'Send an email OTP to the customer for verification' })
   async sendEmailOtp(

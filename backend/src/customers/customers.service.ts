@@ -724,6 +724,37 @@ export class CustomersService {
   }
 
   /**
+   * Owner-initiated: generates a new random PIN for the customer, sets it
+   * directly, marks mustChangePassword so the customer is forced to change
+   * it on next portal login, and returns the plaintext PIN to the owner.
+   */
+  async ownerResetPin(
+    shopId: string,
+    customerId: string,
+  ): Promise<{ pin: string }> {
+    const customer = await this.findOne(shopId, customerId);
+    if (!customer.username) {
+      throw new BadRequestException(
+        "Customer has no username. Set a username before resetting their PIN.",
+      );
+    }
+
+    const pin = String(Math.floor(1000 + Math.random() * 9000));
+    const pinHash = await argon2.hash(pin);
+
+    await this.prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        pinHash,
+        mustChangePassword: true,
+        passwordChangedAt: null,
+      },
+    });
+
+    return { pin };
+  }
+
+  /**
    * Owner-initiated: generates a random reset code for the customer's portal
    * and sends it to their email so they can set a new PIN.
    */

@@ -254,6 +254,11 @@ export class CustomersResource {
     return this.client.post<{ sent: boolean }>(`/api/v1/customers/${id}/reset-pin`, undefined, options);
   }
 
+  /** Owner resets customer PIN and receives the new PIN. */
+  ownerResetPin(id: string, options?: RequestOptions): Promise<{ pin: string }> {
+    return this.client.post<{ pin: string }>(`/api/v1/customers/${id}/owner-reset-pin`, undefined, options);
+  }
+
   /** Sends an email verification OTP to the customer. */
   sendEmailOtp(id: string, options?: RequestOptions): Promise<{ sent: boolean }> {
     return this.client.post<{ sent: boolean }>(`/api/v1/customers/${id}/send-email-otp`, undefined, options);

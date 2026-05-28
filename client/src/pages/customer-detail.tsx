@@ -19,7 +19,7 @@ import {
   XCircle,
   ShoppingCart,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
@@ -538,11 +538,13 @@ function ReturnModal({
   );
 }
 
-function EditCustomerModal({
+function EditCustomerDrawer({
+  open,
   customer,
   onClose,
   onSaved,
 }: {
+  open: boolean;
   customer: Customer;
   onClose: () => void;
   onSaved: (updated: Customer) => void;
@@ -564,9 +566,27 @@ function EditCustomerModal({
   const [emailVerifyCode, setEmailVerifyCode] = useState("");
   const [showEmailVerify, setShowEmailVerify] = useState(false);
   const [resettingPin, setResettingPin] = useState(false);
+  const [newPin, setNewPin] = useState<string | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   const pinReadOnly = (customer as any).passwordChangedAt != null;
   const emailVerified = (customer as any).emailVerified;
+
+  useEffect(() => {
+    if (open) {
+      setName(customer.name);
+      setPhone(customer.phone ?? "");
+      setEmail((customer as any).email ?? "");
+      setNotes(customer.notes ?? "");
+      setUsername((customer as any).username ?? "");
+      setPortalPin("");
+      setTierId(customer.priceTierId ?? "");
+      setTierLocked(customer.priceTierLocked ?? false);
+      setShowEmailVerify(false);
+      setNewPin(null);
+      setTimeout(() => nameRef.current?.focus(), 50);
+    }
+  }, [open, customer]);
 
   useEffect(() => {
     sdk.priceTiers
@@ -606,8 +626,9 @@ function EditCustomerModal({
   async function handleResetPin() {
     setResettingPin(true);
     try {
-      await sdk.customers.resetPin(customer.id);
-      toast.success("PIN reset code sent to customer email");
+      const result = await sdk.customers.ownerResetPin(customer.id);
+      setNewPin(result.pin);
+      toast.success("PIN reset successfully");
     } catch (err: any) {
       toast.error(err?.message || "Failed to reset PIN");
     } finally {
@@ -654,163 +675,177 @@ function EditCustomerModal({
     "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <form
-        onSubmit={handleSubmit}
-        className="relative w-full max-w-sm rounded-xl bg-card p-6 shadow-xl space-y-4"
+    <>
+      <div
+        className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        onClick={onClose}
+      />
+      <aside
+        className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-card shadow-xl transition-transform duration-200 ${open ? "translate-x-0" : "translate-x-full"}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("editCustomer")}
       >
-        <h3 className="text-base font-semibold">{t("editCustomer")}</h3>
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">{t("name")} *</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            autoFocus
-            className={ic}
-            placeholder={t("fullName") as string}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">{t("phoneOptional")}</label>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            type="tel"
-            className={ic}
-            placeholder={t("phonePlaceholder") as string}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Email</label>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            className={ic}
-            placeholder="customer@example.com"
-          />
-          {(customer as any).email && (
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`text-xs ${emailVerified ? 'text-success' : 'text-amber-500'}`}>
-                {emailVerified ? '✓ Verified' : 'Not verified'}
-              </span>
-              {!emailVerified && (
-                <button type="button" onClick={handleSendEmailOtp} disabled={emailVerifying} className="text-xs font-medium text-primary hover:underline">
-                  {emailVerifying ? 'Sending...' : 'Verify'}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">{t("customerNotes")}</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/40 resize-none"
-            placeholder={t("optionalNotes") as string}
-          />
-        </div>
-        <div className="border-t border-border pt-3 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t("priceTier")}
-          </p>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              {t("defaultPriceTier")}
-            </label>
-            <select
-              value={tierId}
-              onChange={(e) => setTierId(e.target.value)}
-              className={ic}
-            >
-              <option value="">· {t("none")} ·</option>
-              {tiers.map((tier) => (
-                <option key={tier.id} value={tier.id}>
-                  {tier.name} ({tier.kind.toLowerCase()})
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">
-              Auto-filled on new sales for this customer
-            </p>
-          </div>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={tierLocked}
-              onChange={(e) => setTierLocked(e.target.checked)}
-              className="rounded border-border h-4 w-4"
-            />
-            <span className="text-sm">
-              Lock price tier (employees can't change it on sale)
-            </span>
-          </label>
-        </div>
-
-        <div className="border-t border-border pt-3 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Customer Portal Access
-          </p>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Username</label>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className={ic}
-              placeholder="Auto-generated from name if empty"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Portal PIN</label>
-            <input
-              value={portalPin}
-              onChange={(e) => setPortalPin(e.target.value)}
-              type="password"
-              maxLength={10}
-              disabled={pinReadOnly}
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-50 disabled:cursor-not-allowed"
-              placeholder={
-                pinReadOnly
-                  ? "Customer has changed their PIN"
-                  : "Set a numeric PIN for customer login"
-              }
-            />
-            {pinReadOnly && (
-              <p className="text-xs text-muted-foreground">
-                Customer has changed their PIN · only they can change it from
-                the portal.
-              </p>
-            )}
-            {(customer as any).email && (
-              <button type="button" onClick={handleResetPin} disabled={resettingPin} className="text-xs font-medium text-primary hover:underline">
-                {resettingPin ? 'Sending reset code...' : 'Send PIN reset code to email'}
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="text-lg font-semibold">{t("editCustomer")}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent"
+            className="rounded p-1 text-muted-foreground hover:bg-accent"
           >
-            {t("cancel")}
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-          >
-            {saving ? t("saving") : t("saveChanges")}
+            ✕
           </button>
         </div>
-      </form>
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5"
+        >
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">{t("nameWithAsterisk")}</label>
+            <input
+              ref={nameRef}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className={ic}
+              placeholder={t("fullName") as string}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">{t("phone")}</label>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              type="tel"
+              className={ic}
+              placeholder={t("phonePlaceholder") as string}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Email</label>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              className={ic}
+              placeholder="customer@example.com"
+            />
+            {(customer as any).email && (
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`text-xs ${emailVerified ? 'text-success' : 'text-amber-500'}`}>
+                  {emailVerified ? '✓ Verified' : 'Not verified'}
+                </span>
+                {!emailVerified && (
+                  <button type="button" onClick={handleSendEmailOtp} disabled={emailVerifying} className="text-xs font-medium text-primary hover:underline">
+                    {emailVerifying ? 'Sending...' : 'Verify'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">{t("note")}</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/40 resize-none"
+              placeholder={t("optionalNotes") as string}
+            />
+          </div>
 
-      {/* Email verify dialog */}
+          <div className="border-t border-border pt-3 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("priceTier")}</p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("defaultPriceTier")}</label>
+              <select
+                value={tierId}
+                onChange={(e) => setTierId(e.target.value)}
+                className={ic}
+              >
+                <option value="">· {t("none")} ·</option>
+                {tiers.map((tier) => (
+                  <option key={tier.id} value={tier.id}>
+                    {tier.name} ({tier.kind.toLowerCase()})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">{t("autoFilledOnNewSale")}</p>
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={tierLocked}
+                onChange={(e) => setTierLocked(e.target.checked)}
+                className="rounded border-border h-4 w-4"
+              />
+              <span className="text-sm">{t("lockPriceTier")}</span>
+            </label>
+          </div>
+
+          <div className="border-t border-border pt-3 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("customerPortalAccess")}</p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("username")}</label>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className={ic}
+                placeholder="Auto-generated from name if empty"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("portalPin")}</label>
+              <input
+                value={portalPin}
+                onChange={(e) => setPortalPin(e.target.value)}
+                type="password"
+                maxLength={10}
+                disabled={pinReadOnly}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder={
+                  pinReadOnly
+                    ? "Customer has changed their PIN"
+                    : "Set a numeric PIN for customer login"
+                }
+              />
+              {pinReadOnly && (
+                <p className="text-xs text-muted-foreground">{t("pinReadOnlyHint")}</p>
+              )}
+              {(customer as any).username && (
+                <button type="button" onClick={handleResetPin} disabled={resettingPin} className="text-xs font-medium text-primary hover:underline">
+                  {resettingPin ? 'Resetting...' : 'Reset PIN'}
+                </button>
+              )}
+              {newPin && (
+                <div className="rounded-lg bg-success/10 border border-success/30 p-3 space-y-1">
+                  <p className="text-xs font-medium text-success">New PIN generated</p>
+                  <p className="text-lg font-bold tabular-nums text-success">{newPin}</p>
+                  <p className="text-xs text-muted-foreground">Tell the customer this PIN. They will be required to change it on next login.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-auto flex justify-end gap-2 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent"
+            >
+              {t("cancel")}
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            >
+              {saving ? t("saving") : t("saveChanges")}
+            </button>
+          </div>
+        </form>
+      </aside>
+
       {showEmailVerify && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-xs rounded-xl bg-card p-6 shadow-xl space-y-4">
@@ -838,7 +873,7 @@ function EditCustomerModal({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -2220,16 +2255,15 @@ export default function CustomerDetailPage() {
           }}
         />
       )}
-      {editOpen && (
-        <EditCustomerModal
-          customer={customer}
-          onClose={() => setEditOpen(false)}
-          onSaved={(updated) => {
-            setCustomer(updated);
-            setEditOpen(false);
-          }}
-        />
-      )}
+      <EditCustomerDrawer
+        open={editOpen}
+        customer={customer}
+        onClose={() => setEditOpen(false)}
+        onSaved={(updated) => {
+          setCustomer(updated);
+          setEditOpen(false);
+        }}
+      />
       {selectedPayment && (
         <PaymentDetailModal
           payment={selectedPayment}
