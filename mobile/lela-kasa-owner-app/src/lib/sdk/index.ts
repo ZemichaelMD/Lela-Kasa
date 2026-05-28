@@ -57,6 +57,8 @@ export { SalesResource } from './resources/sales';
 export type {
   Sale,
   SaleLine,
+  SaleContainerKasa,
+  SaleReturnedContainer,
   Payment,
   CreateSaleDto,
   AddPaymentDto,

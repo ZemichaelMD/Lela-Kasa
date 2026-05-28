@@ -69,11 +69,16 @@ export default function CustomerDetailScreen() {
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editTierId, setEditTierId] = useState('');
   const [editTierLocked, setEditTierLocked] = useState(false);
   const [editUsername, setEditUsername] = useState('');
   const [editPin, setEditPin] = useState('');
+  const [emailVerifying, setEmailVerifying] = useState(false);
+  const [emailVerifyCode, setEmailVerifyCode] = useState('');
+  const [showEmailVerify, setShowEmailVerify] = useState(false);
+  const [resettingPin, setResettingPin] = useState(false);
 
   const { data: customer, isLoading: loadingCustomer } = useQuery({
     queryKey: QK.customer(customerId),
@@ -142,7 +147,7 @@ export default function CustomerDetailScreen() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (dto: { name?: string; phone?: string; notes?: string; priceTierId?: string; priceTierLocked?: boolean; username?: string; pin?: string }) =>
+    mutationFn: (dto: { name?: string; phone?: string; email?: string; notes?: string; priceTierId?: string; priceTierLocked?: boolean; username?: string; pin?: string }) =>
       getSdk().customers.update(customerId, dto),
     onSuccess: (updated) => {
       queryClient.setQueryData(QK.customer(customerId), (old: any) => ({ ...old, ...updated }));
@@ -169,12 +174,55 @@ export default function CustomerDetailScreen() {
     if (!customer) return;
     setEditName(customer.name);
     setEditPhone(customer.phone ?? '');
+    setEditEmail((customer as any).email ?? '');
     setEditNotes(customer.notes ?? '');
     setEditTierId(customer.priceTierId ?? '');
     setEditTierLocked(customer.priceTierLocked ?? false);
     setEditUsername((customer as any).username ?? '');
     setEditPin('');
     setShowEditSheet(true);
+  }
+
+  async function handleResetPin() {
+    if (!customer) return;
+    setResettingPin(true);
+    try {
+      await getSdk().customers.resetPin(customerId);
+      showToast('PIN reset code sent to customer email', 'success');
+    } catch (err: any) {
+      showToast(err?.message ?? 'Failed to reset PIN', 'error');
+    } finally {
+      setResettingPin(false);
+    }
+  }
+
+  async function handleSendEmailOtp() {
+    if (!customer) return;
+    setEmailVerifying(true);
+    try {
+      await getSdk().customers.sendEmailOtp(customerId);
+      setShowEmailVerify(true);
+      setEmailVerifyCode('');
+    } catch (err: any) {
+      showToast(err?.message ?? 'Failed to send code', 'error');
+    } finally {
+      setEmailVerifying(false);
+    }
+  }
+
+  async function handleVerifyEmail() {
+    if (!customer || !emailVerifyCode.trim()) return;
+    setEmailVerifying(true);
+    try {
+      await getSdk().customers.verifyEmail(customerId, emailVerifyCode.trim());
+      showToast('Email verified', 'success');
+      setShowEmailVerify(false);
+      queryClient.invalidateQueries({ queryKey: QK.customer(customerId) });
+    } catch (err: any) {
+      showToast(err?.message ?? 'Verification failed', 'error');
+    } finally {
+      setEmailVerifying(false);
+    }
   }
 
   const tierName = tiers.find(t => t.id === customer?.priceTierId)?.name;
@@ -257,6 +305,16 @@ export default function CustomerDetailScreen() {
           {customer.phone && (
             <Text style={[styles.phone, { color: colors.textSecondary }]}>{customer.phone}</Text>
           )}
+          {(customer as any).email && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1], marginTop: 2 }}>
+              <Text style={[styles.phone, { color: colors.textMuted, fontSize: 12 }]}>
+                {(customer as any).email}
+              </Text>
+              <Text style={[styles.phone, { color: (customer as any).emailVerified ? colors.success : colors.warning, fontSize: 11, fontWeight: '700' }]}>
+                {(customer as any).emailVerified ? '✓' : 'Unverified'}
+              </Text>
+            </View>
+          )}
           <View style={styles.tierRow}>
             <Text style={[styles.tierLabel, { color: colors.textMuted }]}>Price tier: {tierLabel}</Text>
             <TouchableOpacity onPress={openEditSheet} style={[styles.tierEditButton, { borderColor: colors.border }]}>
@@ -296,6 +354,18 @@ export default function CustomerDetailScreen() {
                 <Ionicons name="notifications-outline" size={16} color={colors.textPrimary} />
                 <Text style={[styles.payButtonText, { color: colors.textPrimary }]}>
                   {remindMutation.isPending ? t('reminding') : t('remindCustomer')}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {(customer as any).email && (
+              <TouchableOpacity
+                style={[styles.remindButton, { borderColor: colors.border }]}
+                onPress={handleResetPin}
+                disabled={resettingPin}
+              >
+                <Ionicons name="key-outline" size={16} color={colors.textPrimary} />
+                <Text style={[styles.payButtonText, { color: colors.textPrimary }]}>
+                  {resettingPin ? 'Sending...' : 'Reset PIN'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -617,6 +687,30 @@ export default function CustomerDetailScreen() {
                 placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
               />
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Email</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                value={editEmail}
+                onChangeText={setEditEmail}
+                placeholder="customer@example.com"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {(customer as any).email && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: spacing[1] }}>
+                  <Text style={[styles.fieldLabel, { color: (customer as any).emailVerified ? colors.success : colors.warning }]}>
+                    {(customer as any).emailVerified ? '✓ Verified' : 'Not verified'}
+                  </Text>
+                  {!(customer as any).emailVerified && (
+                    <TouchableOpacity onPress={handleSendEmailOtp} disabled={emailVerifying}>
+                      <Text style={[styles.fieldLabel, { color: colors.primary, fontWeight: '700' }]}>
+                        {emailVerifying ? 'Sending...' : 'Verify'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('customerNotes')}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
@@ -681,6 +775,7 @@ export default function CustomerDetailScreen() {
                 onPress={() => updateMutation.mutate({
                   name: editName.trim() || undefined,
                   phone: editPhone.trim() || undefined,
+                  email: editEmail.trim() || undefined,
                   notes: editNotes.trim() || undefined,
                   priceTierId: editTierId || undefined,
                   priceTierLocked: editTierLocked,
@@ -694,6 +789,37 @@ export default function CustomerDetailScreen() {
                 </Text>
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Email Verify Modal */}
+      <Modal visible={showEmailVerify} transparent animationType="fade" onRequestClose={() => setShowEmailVerify(false)}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.scrim }}>
+          <View style={{ borderRadius: 14, padding: spacing[5], width: '85%', maxWidth: 340, backgroundColor: colors.surface }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing[2] }}>Verify Email</Text>
+            <Text style={{ fontSize: 15, color: colors.textSecondary, marginBottom: spacing[4] }}>
+              Enter the 6-digit code sent to {(customer as any)?.email}
+            </Text>
+            <TextInput
+              style={{ fontSize: 15, borderRadius: 6, padding: spacing[3], marginBottom: spacing[4], backgroundColor: colors.background, color: colors.textPrimary }}
+              placeholder="000000"
+              placeholderTextColor={colors.textMuted}
+              value={emailVerifyCode}
+              onChangeText={(v) => setEmailVerifyCode(v.replace(/\D/g, '').slice(0, 6))}
+              keyboardType="number-pad"
+              maxLength={6}
+            />
+            <View style={{ flexDirection: 'row', gap: spacing[3] }}>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: spacing[3], alignItems: 'center', borderRadius: 6, backgroundColor: colors.surfaceMuted }} onPress={() => setShowEmailVerify(false)}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary }}>{t('cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: spacing[3], alignItems: 'center', borderRadius: 6, backgroundColor: colors.primary }} onPress={handleVerifyEmail} disabled={emailVerifying}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textInverse }}>
+                  {emailVerifying ? 'Verifying...' : 'Verify'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

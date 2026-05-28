@@ -177,6 +177,32 @@ export class AuthResource {
       { ...options, skipAuth: true },
     );
   }
+
+  /** Send PIN reset OTP to customer's email */
+  customerForgotPin(
+    email: string,
+    options?: RequestOptions,
+  ): Promise<void> {
+    return this.client.post<void>(
+      '/api/v1/auth/customer-forgot-pin',
+      { email },
+      { ...options, skipAuth: true },
+    );
+  }
+
+  /** Reset customer PIN using OTP from email */
+  customerResetPin(
+    email: string,
+    code: string,
+    newPin: string,
+    options?: RequestOptions,
+  ): Promise<{ success: boolean }> {
+    return this.client.post<{ success: boolean }>(
+      '/api/v1/auth/customer-reset-pin',
+      { email, code, newPin },
+      { ...options, skipAuth: true },
+    );
+  }
 }
 
 export interface CustomerLoginResponse {

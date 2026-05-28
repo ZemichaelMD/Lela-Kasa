@@ -48,6 +48,16 @@ export default function CustomerLoginScreen() {
   const [changing, setChanging] = useState(false);
   const [changeError, setChangeError] = useState<string | null>(null);
 
+  // Forgot PIN state
+  const [showForgotPin, setShowForgotPin] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotCode, setForgotCode] = useState("");
+  const [forgotNewPin, setForgotNewPin] = useState("");
+  const [forgotConfirmPin, setForgotConfirmPin] = useState("");
+  const [forgotStep, setForgotStep] = useState<"email" | "code" | "pin">("email");
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
+
   async function handleSubmit() {
     if (!username.trim() || !pin.trim()) return;
     setSubmitting(true);
@@ -122,6 +132,56 @@ export default function CustomerLoginScreen() {
     setNewPin("");
     setConfirmPin("");
     setChangeError(null);
+  }
+
+  async function handleForgotSendCode() {
+    if (!forgotEmail.trim()) return;
+    setForgotSubmitting(true);
+    setForgotError(null);
+    try {
+      await getSdk().auth.customerForgotPin(forgotEmail.trim());
+      setForgotStep("code");
+    } catch (err: any) {
+      setForgotError(err?.message || "Failed to send code");
+    } finally {
+      setForgotSubmitting(false);
+    }
+  }
+
+  async function handleForgotReset() {
+    if (forgotNewPin !== forgotConfirmPin) {
+      setForgotError("PINs do not match");
+      return;
+    }
+    if (forgotNewPin.length < 4) {
+      setForgotError("PIN must be at least 4 characters");
+      return;
+    }
+    setForgotSubmitting(true);
+    setForgotError(null);
+    try {
+      await getSdk().auth.customerResetPin(
+        forgotEmail.trim(),
+        forgotCode.trim(),
+        forgotNewPin.trim(),
+      );
+      showToast("PIN reset successfully", "success");
+      closeForgotPin();
+    } catch (err: any) {
+      setForgotError(err?.message || "Failed to reset PIN");
+    } finally {
+      setForgotSubmitting(false);
+    }
+  }
+
+  function closeForgotPin() {
+    setShowForgotPin(false);
+    setForgotEmail("");
+    setForgotCode("");
+    setForgotNewPin("");
+    setForgotConfirmPin("");
+    setForgotStep("email");
+    setForgotError(null);
   }
 
   return (
@@ -280,6 +340,17 @@ export default function CustomerLoginScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              style={styles.forgotPinLink}
+              onPress={() => setShowForgotPin(true)}
+            >
+              <Text
+                style={[styles.forgotPinText, { color: colors.primary }]}
+              >
+                Forgot PIN?
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={styles.loginLink}
               onPress={() => navigation.navigate("Login")}
             >
@@ -292,6 +363,190 @@ export default function CustomerLoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Forgot PIN Modal */}
+      <Modal
+        visible={showForgotPin}
+        transparent
+        animationType="slide"
+        onRequestClose={closeForgotPin}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: colors.scrim }]}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <View
+              style={[
+                styles.modalSheet,
+                {
+                  backgroundColor: colors.background,
+                  paddingBottom: Math.max(insets.bottom, spacing[6]),
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.modalHeader,
+                  {
+                    paddingTop: Math.max(insets.top, spacing[4]),
+                    borderBottomColor: colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.modalTitle, { color: colors.textPrimary }]}
+                >
+                  Reset PIN
+                </Text>
+                <TouchableOpacity onPress={closeForgotPin}>
+                  <Ionicons name="close" size={24} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalContent}>
+                {forgotStep === "email" && (
+                  <>
+                    <Text style={[styles.modalDesc, { color: colors.textMuted }]}>
+                      Enter your email address to receive a PIN reset code.
+                    </Text>
+                    <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                      Email
+                    </Text>
+                    <View
+                      style={[
+                        styles.inputWrapper,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TextInput
+                        style={[styles.input, { color: colors.textPrimary }]}
+                        value={forgotEmail}
+                        onChangeText={(v) => { setForgotEmail(v); setForgotError(null); }}
+                        placeholder="your@email.com"
+                        placeholderTextColor={colors.textMuted}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoFocus
+                      />
+                    </View>
+                  </>
+                )}
+                {forgotStep === "code" && (
+                  <>
+                    <Text style={[styles.modalDesc, { color: colors.textMuted }]}>
+                      Enter the 6-digit code sent to {forgotEmail}
+                    </Text>
+                    <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                      Code
+                    </Text>
+                    <View
+                      style={[
+                        styles.inputWrapper,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TextInput
+                        style={[styles.input, { color: colors.textPrimary }]}
+                        value={forgotCode}
+                        onChangeText={(v) => { setForgotCode(v.replace(/\D/g, "").slice(0, 6)); setForgotError(null); }}
+                        placeholder="000000"
+                        placeholderTextColor={colors.textMuted}
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        autoFocus
+                      />
+                    </View>
+                    <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[3] }]}>
+                      New PIN
+                    </Text>
+                    <View
+                      style={[
+                        styles.inputWrapper,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TextInput
+                        style={[styles.input, { color: colors.textPrimary }]}
+                        value={forgotNewPin}
+                        onChangeText={(v) => { setForgotNewPin(v.replace(/\D/g, "").slice(0, 10)); setForgotError(null); }}
+                        secureTextEntry
+                        keyboardType="number-pad"
+                        maxLength={10}
+                        placeholder="New PIN"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                    </View>
+                    <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[3] }]}>
+                      Confirm PIN
+                    </Text>
+                    <View
+                      style={[
+                        styles.inputWrapper,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TextInput
+                        style={[styles.input, { color: colors.textPrimary }]}
+                        value={forgotConfirmPin}
+                        onChangeText={(v) => { setForgotConfirmPin(v.replace(/\D/g, "").slice(0, 10)); setForgotError(null); }}
+                        secureTextEntry
+                        keyboardType="number-pad"
+                        maxLength={10}
+                        placeholder="Confirm PIN"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                    </View>
+                  </>
+                )}
+                {forgotError && (
+                  <View
+                    style={[
+                      styles.errorBox,
+                      {
+                        backgroundColor: colors.danger + "1A",
+                        borderColor: colors.danger + "40",
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.errorText, { color: colors.danger }]}>
+                      {forgotError}
+                    </Text>
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={[
+                    styles.button,
+                    { backgroundColor: colors.primary },
+                    forgotSubmitting && styles.buttonDisabled,
+                  ]}
+                  onPress={forgotStep === "email" ? handleForgotSendCode : handleForgotReset}
+                  disabled={forgotSubmitting}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.buttonText}>
+                    {forgotSubmitting
+                      ? "Please wait..."
+                      : forgotStep === "email"
+                        ? "Send Code"
+                        : "Reset PIN"}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       {/* Forced PIN Change Modal */}
       <Modal
@@ -552,6 +807,12 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { ...type.bodyBold, fontSize: 17, color: "#fff" },
+  forgotPinLink: {
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: spacing[4],
+  },
+  forgotPinText: { ...type.bodyBold },
   loginLink: {
     justifyContent: "center",
     alignItems: "center",

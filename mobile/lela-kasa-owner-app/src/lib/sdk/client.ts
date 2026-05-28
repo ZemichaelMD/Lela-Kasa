@@ -5,9 +5,9 @@ import type { TokenStore } from "./token-store";
 import { MemoryTokenStore } from "./token-store";
 
 const BASE_URL =
-  // You are fucking wrong!!
-  // Constants.expoConfig?.extra?.apiUrl ??
-  process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.0.186:3000";
+  Constants.expoConfig?.extra?.apiUrl ??
+  process.env.EXPO_PUBLIC_API_URL ??
+  "http://192.168.0.186:3000";
 
 export { BASE_URL };
 

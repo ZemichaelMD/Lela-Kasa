@@ -1,4 +1,4 @@
-import type { SdkClient, RequestOptions } from '../client';
+import type { SdkClient, RequestOptions } from "../client";
 
 export interface SaleContainerKasa {
   id: string;
@@ -80,7 +80,7 @@ export interface CreateSaleLineDto {
   bottles?: number;
 }
 
-export type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'MOBILE_MONEY' | 'OTHER';
+export type PaymentMethod = "CASH" | "BANK_TRANSFER" | "MOBILE_MONEY" | "OTHER";
 
 export interface CreateSalePaymentDto {
   paymentAccountId: string;
@@ -164,21 +164,30 @@ export interface PaginatedSales {
 export class SalesResource {
   constructor(private readonly client: SdkClient) {}
 
-  list(params?: ListSalesParams, options?: RequestOptions): Promise<PaginatedSales> {
+  list(
+    params?: ListSalesParams,
+    options?: RequestOptions,
+  ): Promise<PaginatedSales> {
     const query = new URLSearchParams();
-    if (params?.page !== undefined) query.set('page', String(params.page));
-    if (params?.pageSize !== undefined) query.set('pageSize', String(params.pageSize));
-    if (params?.search) query.set('search', params.search);
-    if (params?.dateFrom) query.set('dateFrom', params.dateFrom);
-    if (params?.dateTo) query.set('dateTo', params.dateTo);
-    if (params?.customerId) query.set('customerId', params.customerId);
-    if (params?.priceTierId) query.set('priceTierId', params.priceTierId);
-    if (params?.paymentAccountId) query.set('paymentAccountId', params.paymentAccountId);
-    if (params?.beverageId) query.set('beverageId', params.beverageId);
-    if (params?.status) query.set('status', params.status);
-    if (params?.hasCredit !== undefined) query.set('hasCredit', String(params.hasCredit));
+    if (params?.page !== undefined) query.set("page", String(params.page));
+    if (params?.pageSize !== undefined)
+      query.set("pageSize", String(params.pageSize));
+    if (params?.search) query.set("search", params.search);
+    if (params?.dateFrom) query.set("dateFrom", params.dateFrom);
+    if (params?.dateTo) query.set("dateTo", params.dateTo);
+    if (params?.customerId) query.set("customerId", params.customerId);
+    if (params?.priceTierId) query.set("priceTierId", params.priceTierId);
+    if (params?.paymentAccountId)
+      query.set("paymentAccountId", params.paymentAccountId);
+    if (params?.beverageId) query.set("beverageId", params.beverageId);
+    if (params?.status) query.set("status", params.status);
+    if (params?.hasCredit !== undefined)
+      query.set("hasCredit", String(params.hasCredit));
     const qs = query.toString();
-    return this.client.get<PaginatedSales>(`/api/v1/sales${qs ? `?${qs}` : ''}`, options);
+    return this.client.get<PaginatedSales>(
+      `/api/v1/sales${qs ? `?${qs}` : ""}`,
+      options,
+    );
   }
 
   findOne(id: string, options?: RequestOptions): Promise<Sale> {
@@ -186,18 +195,39 @@ export class SalesResource {
   }
 
   create(dto: CreateSaleDto, options?: RequestOptions): Promise<Sale> {
-    return this.client.post<Sale>('/api/v1/sales', dto, options);
+    return this.client.post<Sale>("/api/v1/sales", dto, options);
   }
 
-  void(saleId: string, reason: string, options?: RequestOptions): Promise<Sale> {
-    return this.client.post<Sale>(`/api/v1/sales/${saleId}/void`, { reason }, options);
+  void(
+    saleId: string,
+    reason: string,
+    options?: RequestOptions,
+  ): Promise<Sale> {
+    return this.client.post<Sale>(
+      `/api/v1/sales/${saleId}/void`,
+      { reason },
+      options,
+    );
   }
 
-  addPayment(saleId: string, dto: AddPaymentDto, options?: RequestOptions): Promise<Payment> {
-    return this.client.post<Payment>(`/api/v1/sales/${saleId}/payments`, dto, options);
+  addPayment(
+    saleId: string,
+    dto: AddPaymentDto,
+    options?: RequestOptions,
+  ): Promise<Payment> {
+    return this.client.post<Payment>(
+      `/api/v1/sales/${saleId}/payments`,
+      dto,
+      options,
+    );
   }
 
-  voidPayment(saleId: string, paymentId: string, reason?: string, options?: RequestOptions): Promise<void> {
+  voidPayment(
+    saleId: string,
+    paymentId: string,
+    reason?: string,
+    options?: RequestOptions,
+  ): Promise<void> {
     return this.client.post<void>(
       `/api/v1/sales/${saleId}/payments/${paymentId}/void`,
       reason ? { reason } : undefined,
@@ -205,7 +235,11 @@ export class SalesResource {
     );
   }
 
-  update(saleId: string, dto: UpdateSaleDto, options?: RequestOptions): Promise<Sale> {
+  update(
+    saleId: string,
+    dto: UpdateSaleDto,
+    options?: RequestOptions,
+  ): Promise<Sale> {
     return this.client.patch<Sale>(`/api/v1/sales/${saleId}`, dto, options);
   }
 }

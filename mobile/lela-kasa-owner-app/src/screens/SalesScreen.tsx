@@ -1,5 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -7,121 +8,226 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { useFormattedDate } from '../components/FormattedDate';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
-import { Ionicons } from '@expo/vector-icons';
+} from "react-native";
+import { useFormattedDate } from "../components/FormattedDate";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { Ionicons } from "@expo/vector-icons";
 
-import type { RootStackParamList } from '../navigation/types';
-import { getSdk } from '../lib/sdk';
-import { QK } from '../lib/query-keys';
-import { SaleRow } from '../components/SaleRow';
-import { NewSaleFAB } from '../components/NewSaleFAB';
-import { EmptyState } from '../components/EmptyState';
-import { DateFilter, type DatePreset as BaseDatePreset } from '../components/DateFilter';
-import { useTheme } from '../context/ThemeContext';
-import { t } from '../lib/i18n';
-import { radius, spacing, type } from '../theme';
+import type { RootStackParamList } from "../navigation/types";
+import { getSdk } from "../lib/sdk";
+import { QK } from "../lib/query-keys";
+import { SaleRow } from "../components/SaleRow";
+import { NewSaleFAB } from "../components/NewSaleFAB";
+import { EmptyState } from "../components/EmptyState";
+import { Skeleton } from "../components/Skeleton";
+import {
+  DateFilter,
+  type DatePreset as BaseDatePreset,
+} from "../components/DateFilter";
+import { useTheme } from "../context/ThemeContext";
+import { t } from "../lib/i18n";
+import { radius, spacing, type } from "../theme";
 
-type SalesDatePreset = BaseDatePreset | 'custom';
+type SalesDatePreset = BaseDatePreset | "custom";
 
-function getDateRange(preset: SalesDatePreset, customFrom?: string, customTo?: string): { from: string; to: string; label: string } {
+function getDateRange(
+  preset: SalesDatePreset,
+  customFrom?: string,
+  customTo?: string,
+): { from: string; to: string; label: string } {
   const now = new Date();
   let from: Date;
   let to = now;
-  let label = '';
+  let label = "";
 
   switch (preset) {
-    case 'today':
+    case "today":
       from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      label = t('today');
+      label = t("today");
       break;
-    case 'week':
+    case "week":
       from = new Date(now);
       from.setDate(now.getDate() - 7);
-      label = t('thisWeek');
+      label = t("thisWeek");
       break;
-    case 'month':
+    case "month":
       from = new Date(now.getFullYear(), now.getMonth(), 1);
-      label = t('thisMonth');
+      label = t("thisMonth");
       break;
-    case 'custom':
-      from = customFrom ? new Date(customFrom) : new Date(now.getFullYear(), now.getMonth(), 1);
+    case "custom":
+      from = customFrom
+        ? new Date(customFrom)
+        : new Date(now.getFullYear(), now.getMonth(), 1);
       to = customTo ? new Date(customTo) : now;
-      label = t('custom');
+      label = t("custom");
       break;
     default:
       from = new Date(now.getFullYear(), now.getMonth(), 1);
-      label = t('thisMonth');
+      label = t("thisMonth");
   }
 
   return {
-    from: from.toISOString().split('T')[0],
-    to: to.toISOString().split('T')[0],
+    from: from.toISOString().split("T")[0],
+    to: to.toISOString().split("T")[0],
     label,
   };
 }
 
 const STATUS_TABS = [
-  { value: 'ALL', label: 'All' },
-  { value: 'CONFIRMED', label: 'Confirmed' },
-  { value: 'VOIDED', label: 'Voided' },
+  { value: "ALL", label: "All" },
+  { value: "CONFIRMED", label: "Confirmed" },
+  { value: "VOIDED", label: "Voided" },
 ];
 
+const PAGE_SIZE = 20;
+
+function SkeletonRow() {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={[
+        styles.skeletonRow,
+        { backgroundColor: colors.surface, borderBottomColor: colors.border },
+      ]}
+    >
+      <View style={styles.skeletonBody}>
+        <View style={styles.skeletonTop}>
+          <Skeleton width={120} height={14} />
+          <Skeleton width={60} height={18} radius={radius.full} />
+        </View>
+        <View style={styles.skeletonAmounts}>
+          <Skeleton width={50} height={12} />
+          <Skeleton width={50} height={12} />
+          <Skeleton width={50} height={12} />
+        </View>
+        <Skeleton width="80%" height={10} style={{ marginTop: spacing[2] }} />
+      </View>
+    </View>
+  );
+}
+
 export default function SalesScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
   const fmtDate = useFormattedDate();
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [datePreset, setDatePreset] = useState<SalesDatePreset>('month');
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo, setCustomTo] = useState('');
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [datePreset, setDatePreset] = useState<SalesDatePreset>("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [showDateFilter, setShowDateFilter] = useState(false);
 
   const range = getDateRange(datePreset, customFrom, customTo);
 
-  const { data, isFetching, isRefetching, refetch } = useQuery({
-    queryKey: QK.sales({ search, status: statusFilter === 'ALL' ? undefined : statusFilter, dateFrom: range.from, dateTo: range.to }),
-    queryFn: () =>
+  const queryKey = QK.sales({
+    search,
+    status: statusFilter === "ALL" ? undefined : statusFilter,
+    dateFrom: range.from,
+    dateTo: range.to,
+  });
+
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isRefetching,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey,
+    queryFn: ({ pageParam }) =>
       getSdk().sales.list({
-        pageSize: 50,
+        page: pageParam,
+        pageSize: PAGE_SIZE,
         search: search || undefined,
-        status: statusFilter === 'ALL' ? undefined : statusFilter,
+        status: statusFilter === "ALL" ? undefined : statusFilter,
         dateFrom: range.from,
         dateTo: range.to,
       }),
+    getNextPageParam: (lastPage) => {
+      const totalPages = Math.ceil(lastPage.total / lastPage.pageSize);
+      return lastPage.page < totalPages ? lastPage.page + 1 : undefined;
+    },
+    initialPageParam: 1,
   });
 
-  const sales = data?.data ?? [];
+  const sales = data?.pages.flatMap((page) => page.data) ?? [];
+  const totalCount = data?.pages[0]?.total ?? 0;
 
   const renderEmpty = useCallback(() => {
-    if (isFetching) return null;
-    return <EmptyState icon="receipt-outline" title={t('noSales')} subtitle={search ? t('tryDifferentSearch') : t('recordFirstSale')} />;
-  }, [isFetching, search]);
+    if (isLoading) return null;
+    return (
+      <EmptyState
+        icon="receipt-outline"
+        title={t("noSales")}
+        subtitle={search ? t("tryDifferentSearch") : t("recordFirstSale")}
+      />
+    );
+  }, [isLoading, search]);
+
+  const renderFooter = useCallback(() => {
+    if (isFetchingNextPage) {
+      return (
+        <View style={styles.footerLoader}>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+      );
+    }
+    if (sales.length > 0 && !hasNextPage) {
+      return (
+        <View style={styles.footerText}>
+          <Text style={[styles.footerTextInner, { color: colors.textMuted }]}>
+            {totalCount} sale{totalCount !== 1 ? "s" : ""}
+          </Text>
+        </View>
+      );
+    }
+    return null;
+  }, [isFetchingNextPage, sales.length, hasNextPage, totalCount, colors]);
+
+  const handleEndReached = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const handleApplyCustomDate = () => {
     if (customFrom && customTo) {
-      setDatePreset('custom');
+      setDatePreset("custom");
       setShowDateFilter(false);
     }
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       {/* Header: title + date badge */}
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>{t('sales')}</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>
+          {t("sales")}
+        </Text>
         <TouchableOpacity
-          style={[styles.dateBadge, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+          style={[
+            styles.dateBadge,
+            {
+              backgroundColor: colors.surfaceMuted,
+              borderColor: colors.border,
+            },
+          ]}
           onPress={() => setShowDateFilter(true)}
           activeOpacity={0.7}
         >
           <Ionicons name="calendar-outline" size={13} color={colors.primary} />
-          <Text style={[styles.dateBadgeText, { color: colors.primary }]}>{range.label}</Text>
+          <Text style={[styles.dateBadgeText, { color: colors.primary }]}>
+            {range.label}
+          </Text>
           <Ionicons name="chevron-down" size={11} color={colors.primary} />
         </TouchableOpacity>
       </View>
@@ -129,10 +235,15 @@ export default function SalesScreen() {
       {/* Filter bar */}
       <View style={styles.filterBar}>
         {/* Search */}
-        <View style={[styles.searchRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.searchRow,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
-            placeholder={t('searchByCustomer')}
+            placeholder={t("searchByCustomer")}
             placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
@@ -141,17 +252,25 @@ export default function SalesScreen() {
             returnKeyType="search"
           />
           {search.length > 0 ? (
-            <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
-              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+            <TouchableOpacity onPress={() => setSearch("")} hitSlop={8}>
+              <Ionicons
+                name="close-circle"
+                size={16}
+                color={colors.textMuted}
+              />
             </TouchableOpacity>
           ) : (
-            <Ionicons name="search-outline" size={15} color={colors.textMuted} />
+            <Ionicons
+              name="search-outline"
+              size={15}
+              color={colors.textMuted}
+            />
           )}
         </View>
 
         {/* Status tabs */}
         <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
-          {STATUS_TABS.map(tab => {
+          {STATUS_TABS.map((tab) => {
             const active = statusFilter === tab.value;
             return (
               <TouchableOpacity
@@ -160,47 +279,90 @@ export default function SalesScreen() {
                 onPress={() => setStatusFilter(tab.value)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.tabText, { color: active ? colors.primary : colors.textMuted }]}>
+                <Text
+                  style={[
+                    styles.tabText,
+                    { color: active ? colors.primary : colors.textMuted },
+                  ]}
+                >
                   {tab.label}
                 </Text>
-                {active && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
+                {active && (
+                  <View
+                    style={[
+                      styles.tabIndicator,
+                      { backgroundColor: colors.primary },
+                    ]}
+                  />
+                )}
               </TouchableOpacity>
             );
           })}
         </View>
       </View>
 
-      <FlatList
-        data={sales}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <SaleRow
-            date={fmtDate(item.saleDate)}
-            totalCents={item.subtotalCents}
-            paidCents={item.paidCents}
-            creditDeltaCents={item.creditDeltaCents}
-            status={item.status}
-            customerName={item.customer?.name}
-            lineCount={item.lines?.length}
-            onPress={() => navigation.navigate('SaleDetail', { saleId: item.id })}
-          />
-        )}
-        ListEmptyComponent={renderEmpty}
-        contentContainerStyle={{ paddingBottom: spacing[8] }}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
-      />
+      {isLoading ? (
+        <View style={{ paddingHorizontal: spacing[4] }}>
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+        </View>
+      ) : (
+        <FlatList
+          data={sales}
+          keyExtractor={(item) => item.id}
+          style={{
+            flex: 1,
+            paddingHorizontal: spacing[4],
+          }}
+          renderItem={({ item }) => (
+            <SaleRow
+              date={fmtDate(item.saleDate)}
+              totalCents={item.subtotalCents}
+              paidCents={item.paidCents}
+              creditDeltaCents={item.creditDeltaCents}
+              status={item.status}
+              customerName={item.customer?.name}
+              lineCount={item.lines?.length}
+              line={item.lines}
+              containerKasas={item.containerKasas}
+              returnedContainers={item.returnedContainers}
+              onPress={() =>
+                navigation.navigate("SaleDetail", { saleId: item.id })
+              }
+            />
+          )}
+          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderFooter}
+          contentContainerStyle={{ paddingBottom: spacing[8] }}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.5}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={colors.primary}
+            />
+          }
+        />
+      )}
 
       <NewSaleFAB />
 
       <DateFilter
         visible={showDateFilter}
-        selected={datePreset === 'custom' ? 'month' : datePreset}
+        selected={datePreset === "custom" ? "month" : datePreset}
         onSelect={(p) => setDatePreset(p)}
         onClose={() => setShowDateFilter(false)}
         showCustom
         customFrom={customFrom}
         customTo={customTo}
-        onCustomChange={(from, to) => { setCustomFrom(from); setCustomTo(to); }}
+        onCustomChange={(from, to) => {
+          setCustomFrom(from);
+          setCustomTo(to);
+        }}
         onApplyCustom={handleApplyCustomDate}
       />
     </SafeAreaView>
@@ -210,17 +372,17 @@ export default function SalesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: spacing[5],
     paddingTop: spacing[4],
     paddingBottom: spacing[3],
   },
   title: { ...type.h2 },
   dateBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing[1],
     paddingHorizontal: spacing[3],
     paddingVertical: 6,
@@ -229,7 +391,7 @@ const styles = StyleSheet.create({
   },
   dateBadgeText: {
     ...type.micro,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   filterBar: {
     paddingHorizontal: spacing[5],
@@ -237,8 +399,8 @@ const styles = StyleSheet.create({
     gap: spacing[1],
   },
   searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderRadius: radius.lg,
     paddingHorizontal: spacing[4],
@@ -252,7 +414,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   tabs: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderBottomWidth: StyleSheet.hairlineWidth,
     marginTop: spacing[1],
   },
@@ -260,18 +422,49 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[4],
     paddingVertical: spacing[3],
     marginRight: spacing[1],
-    position: 'relative',
+    position: "relative",
   },
   tabText: {
     ...type.caption,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   tabIndicator: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: spacing[4],
     right: spacing[4],
     height: 2,
     borderRadius: 1,
+  },
+  skeletonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+    borderBottomWidth: 2,
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[3],
+  },
+  skeletonBody: {
+    flex: 1,
+  },
+  skeletonTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: spacing[2],
+  },
+  skeletonAmounts: {
+    flexDirection: "row",
+    gap: spacing[4],
+  },
+  footerLoader: {
+    paddingVertical: spacing[6],
+    alignItems: "center",
+  },
+  footerText: {
+    paddingVertical: spacing[4],
+    alignItems: "center",
+  },
+  footerTextInner: {
+    ...type.caption,
   },
 });

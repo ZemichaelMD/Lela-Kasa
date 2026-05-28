@@ -240,6 +240,42 @@ export default function SaleDetailScreen() {
           ))}
         </View>
 
+        {sale.containerKasas && sale.containerKasas.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: colors.primary }]}>{t('newSale.containerKasaSection')}</Text>
+            <View style={[styles.linesCard, { backgroundColor: colors.surface }]}>
+              {sale.containerKasas.map((ck, i) => (
+                <View key={ck.id} style={[styles.lineRow, i > 0 && { borderTopColor: colors.border, borderTopWidth: 1 }]}>
+                  <View style={styles.lineInfo}>
+                    <Text style={[styles.lineName, { color: colors.textPrimary }]}>{ck.beverage?.name ?? 'Beverage'}</Text>
+                  </View>
+                  <Text style={[styles.lineTotal, { color: colors.textPrimary }]}>× {ck.count}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        {sale.returnedContainers && sale.returnedContainers.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: colors.warning }]}>{t('newSale.returnedContainersSection')}</Text>
+            <View style={[styles.linesCard, { backgroundColor: colors.surface }]}>
+              {sale.returnedContainers.map((rc, i) => (
+                <View key={rc.id} style={[styles.lineRow, i > 0 && { borderTopColor: colors.border, borderTopWidth: 1 }]}>
+                  <View style={styles.lineInfo}>
+                    <Text style={[styles.lineName, { color: colors.textPrimary }]}>{rc.beverage?.name ?? 'Beverage'}</Text>
+                    <Text style={[styles.lineQty, { color: colors.textSecondary }]}>
+                      {rc.boxes > 0 && `${rc.boxes} box${rc.boxes > 1 ? 'es' : ''}`}
+                      {rc.boxes > 0 && rc.bottles > 0 && ' · '}
+                      {rc.bottles > 0 && `${rc.bottles} bottle${rc.bottles > 1 ? 's' : ''}`}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('payments')} ({sale.payments.length})</Text>
         {sale.payments.map(payment => (
           <PaymentRow
