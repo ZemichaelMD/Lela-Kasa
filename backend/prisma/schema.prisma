@@ -89,6 +89,7 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   salesCreated            Sale[]                   @relation("SaleCreatedBy")
+  salesUpdated            Sale[]                   @relation("SaleUpdatedBy")
   salesVoided             Sale[]                   @relation("SaleVoidedBy")
   paymentsRecorded        Payment[]                @relation("PaymentRecordedBy")
   ordersConfirmed         CustomerOrder[]          @relation("OrderConfirmedBy")
@@ -392,6 +393,8 @@ model Sale {
 
   createdById String
   createdBy   User      @relation("SaleCreatedBy", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?     @relation("SaleUpdatedBy", fields: [updatedById], references: [id])
   voidedAt    DateTime?
   voidedById  String?
   voidedBy    User?     @relation("SaleVoidedBy", fields: [voidedById], references: [id])

@@ -19,6 +19,7 @@ import type {
   Beverage,
   Customer,
   CurrentTierPrice,
+  Employee,
   PaymentAccount,
   PriceTier,
   Sale,
@@ -1304,6 +1305,8 @@ function SaleCard({
     : undefined;
   const { summary, full } = buildItemsSummary(sale, beveragesMap);
 
+  const createdByName = sale.createdBy?.name ?? null;
+
   return (
     <button
       type="button"
@@ -1318,6 +1321,11 @@ function SaleCard({
           <p className="text-[11px] text-muted-foreground">
             <FormattedDate iso={sale.createdAt} />
           </p>
+          {createdByName && (
+            <p className="text-[11px] text-muted-foreground/70">
+              {createdByName}
+            </p>
+          )}
         </div>
         <StatusChip label={sale.status} tone={statusTone(sale.status)} />
       </div>
@@ -1440,6 +1448,9 @@ export default function SalesPage() {
   const [filterPaymentAccountId, setFilterPaymentAccountId] = useState(
     searchParams.get("paymentAccountId") ?? "",
   );
+  const [filterCreatedById, setFilterCreatedById] = useState(
+    searchParams.get("createdById") ?? "",
+  );
   const [filterStatuses, setFilterStatuses] = useState<string[]>(
     searchParams.get("status") ? searchParams.get("status")!.split(",") : [],
   );
@@ -1458,11 +1469,13 @@ export default function SalesPage() {
   const [beverages, setBeverages] = useState<Beverage[]>([]);
   const [priceTiers, setPriceTiers] = useState<PriceTier[]>([]);
   const [paymentAccounts, setPaymentAccounts] = useState<PaymentAccount[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [refLoading, setRefLoading] = useState(true);
 
   // Maps for quick lookup
   const beveragesMap = new Map(beverages.map((b) => [b.id, b]));
   const customersMap = new Map(customers.map((c) => [c.id, c]));
+  const employeesMap = new Map(employees.map((e) => [e.id, e]));
 
   // Drawer
   const [drawerState, setDrawerState] = useState<DrawerState>({
@@ -1535,6 +1548,7 @@ export default function SalesPage() {
     setDateTo("");
     setFilterCustomerId("");
     setFilterPaymentAccountId("");
+    setFilterCreatedById("");
     setFilterStatuses([]);
     setHasCredit(false);
     setPage(1);
@@ -1558,6 +1572,12 @@ export default function SalesPage() {
         setPaymentAccounts(accsRes);
       } catch {
         toast.error(t("failedLoadReferenceData"));
+      }
+      try {
+        const emps = await sdk.employees.list();
+        setEmployees(emps);
+      } catch {
+        // non-owner users may not have access — silently skip
       } finally {
         setRefLoading(false);
       }
@@ -1578,6 +1598,7 @@ export default function SalesPage() {
         paymentAccountId: searchParams.get("paymentAccountId") ?? undefined,
         status: searchParams.get("status") ?? undefined,
         hasCredit: searchParams.get("hasCredit") === "true" ? true : undefined,
+        createdById: searchParams.get("createdById") ?? undefined,
       });
       setSales(result.data);
       setTotal(result.total);
@@ -1672,6 +1693,7 @@ export default function SalesPage() {
     (searchParams.get("customerId") ? 1 : 0) +
     (searchParams.get("paymentAccountId") ? 1 : 0) +
     (searchParams.get("status") ? 1 : 0) +
+    (searchParams.get("createdById") ? 1 : 0) +
     (hasCredit ? 1 : 0);
 
   // Desktop columns
@@ -1723,6 +1745,18 @@ export default function SalesPage() {
         return (
           <span className="text-xs text-muted-foreground" title={full}>
             {summary || "·"}
+          </span>
+        );
+      },
+    },
+    {
+      key: "employee",
+      header: t("employee"),
+      render: (s: Sale) => {
+        const emp = s.createdBy ? employeesMap.get(s.createdBy.id) ?? s.createdBy : null;
+        return (
+          <span className="whitespace-nowrap text-xs text-muted-foreground">
+            {emp?.name ?? "—"}
           </span>
         );
       },
@@ -1906,6 +1940,25 @@ export default function SalesPage() {
           ))}
         </select>
       </div>
+
+      {/* Employee filter */}
+      {employees.length > 0 && (
+        <select
+          value={filterCreatedById}
+          onChange={(e) => {
+            setFilterCreatedById(e.target.value);
+            setParam("createdById", e.target.value || undefined);
+          }}
+          className="h-8 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/40"
+        >
+          <option value="">{t("allEmployees")}</option>
+          {employees.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.name}
+            </option>
+          ))}
+        </select>
+      )}
 
       {/* Status pills */}
       <div className="flex flex-wrap items-center gap-2">

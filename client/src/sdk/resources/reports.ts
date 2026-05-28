@@ -3,6 +3,7 @@ import type { SdkClient, RequestOptions } from '../client';
 export interface ReportParams {
   dateFrom?: string;
   dateTo?: string;
+  createdById?: string;
   format?: 'json' | 'csv';
 }
 
@@ -11,6 +12,7 @@ function buildQuery(params?: ReportParams): string {
   const query = new URLSearchParams();
   if (params.dateFrom) query.set('from', params.dateFrom);
   if (params.dateTo) query.set('to', params.dateTo);
+  if (params.createdById) query.set('createdById', params.createdById);
   if (params.format) query.set('format', params.format);
   const qs = query.toString();
   return qs ? `?${qs}` : '';

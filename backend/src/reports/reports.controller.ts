@@ -30,10 +30,11 @@ export class ReportsController {
     @CurrentShopId() shopId: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('createdById') createdById?: string,
     @Query('format') format?: string,
     @Res({ passthrough: true }) res?: Response,
   ) {
-    const data = await this.reportsService.salesSummary(shopId, { from, to });
+    const data = await this.reportsService.salesSummary(shopId, { from, to, createdById });
 
     if (format === 'csv' && res) {
       const rows: (string | number)[][] = data.byDay.map((d) => [d.date, d.amountCents, d.count]);
@@ -275,7 +276,7 @@ export class ReportsController {
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Dashboard overview (cached 30s)' })
-  dashboard(@CurrentShopId() shopId: string) {
-    return this.reportsService.dashboard(shopId);
+  dashboard(@CurrentShopId() shopId: string, @Query('createdById') createdById?: string) {
+    return this.reportsService.dashboard(shopId, createdById);
   }
 }

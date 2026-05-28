@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { Logger, VersioningType } from "@nestjs/common";
+import { Logger, ValidationPipe, VersioningType } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
@@ -70,6 +70,15 @@ async function bootstrap(): Promise<void> {
       "X-RateLimit-Remaining",
     ],
   });
+
+  // Global validation pipe for class-validator DTOs
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: false,
+    }),
+  );
 
   // OpenAPI / Swagger
   const swaggerConfig = new DocumentBuilder()

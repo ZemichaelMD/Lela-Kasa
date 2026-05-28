@@ -106,7 +106,9 @@ export default function EmployeePermissionsPage() {
       });
       const json = await res.json().catch(() => ({}));
       const data = json?.data ?? json;
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        throw new Error(json?.error?.message ?? json?.message ?? res.statusText);
+      }
       setGroups(data);
       const allPerms: PermissionItem[] = [];
       for (const g of data) allPerms.push(...g.permissions);
@@ -115,8 +117,9 @@ export default function EmployeePermissionsPage() {
       setOriginal(map);
       setDirty(false);
       toast.success(t("permissionsSaved"));
-    } catch {
-      toast.error(t("failedSavePermissions"));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t("failedSavePermissions");
+      toast.error(msg);
     } finally {
       setSaving(false);
     }

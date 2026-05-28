@@ -43,7 +43,9 @@ export interface DashboardData {
 export class DashboardResource {
   constructor(private readonly client: SdkClient) {}
 
-  getDashboard(range: DashboardRange = 'today', options?: RequestOptions): Promise<DashboardData> {
-    return this.client.get<DashboardData>(`/api/v1/reports/dashboard?range=${range}`, options);
+  getDashboard(range: DashboardRange = 'today', createdById?: string, options?: RequestOptions): Promise<DashboardData> {
+    const query = new URLSearchParams({ range });
+    if (createdById) query.set('createdById', createdById);
+    return this.client.get<DashboardData>(`/api/v1/reports/dashboard?${query}`, options);
   }
 }

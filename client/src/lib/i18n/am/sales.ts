@@ -140,4 +140,8 @@ export const sales = {
   returnedContainersHint: "ደንበኛው ከዚህ ሽያጭ ጋር የመለሳቸው ዕቃዎች።",
   addReturnedContainer: "ዕቃ ጨምር",
   selectReturnType: "መጠጥ ምረጥ...",
+  employee: "ሰራተኛ",
+  allEmployees: "ሁሉም ሰራተኞች",
+  createdBy: "የፈጠረው",
+  updatedBy: "ያዘመነው",
 } as const;

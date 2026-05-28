@@ -71,6 +71,7 @@ export interface Sale {
   customer?: { id: string; name: string; phone?: string };
   priceTier?: { id: string; name: string };
   createdBy?: { id: string; name: string };
+  updatedBy?: { id: string; name: string };
 }
 
 export interface CreateSaleLineDto {

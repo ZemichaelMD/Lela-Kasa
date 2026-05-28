@@ -59,6 +59,7 @@ export class SalesController {
       status: status as SaleStatus | undefined,
       paymentAccountId,
       beverageId,
+      createdById,
       hasCredit:
         hasCredit === "true" ? true : hasCredit === "false" ? false : undefined,
       search,

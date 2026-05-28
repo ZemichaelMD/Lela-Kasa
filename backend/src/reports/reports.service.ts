@@ -6,6 +6,7 @@ import { PrismaService } from "../prisma/prisma.service";
 export interface DateRangeQuery {
   from?: string;
   to?: string;
+  createdById?: string;
 }
 
 // Simple in-memory cache for dashboard
@@ -33,6 +34,9 @@ export class ReportsService {
         );
       }
       where["saleDate"] = range;
+    }
+    if (query.createdById) {
+      where["createdById"] = query.createdById;
     }
     return where;
   }
@@ -387,8 +391,9 @@ export class ReportsService {
 
   // ── dashboard ─────────────────────────────────────────────────────────────────
 
-  async dashboard(shopId: string) {
-    const cached = dashboardCache.get(shopId);
+  async dashboard(shopId: string, createdById?: string) {
+    const cacheKey = createdById ? `${shopId}:${createdById}` : shopId;
+    const cached = dashboardCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.data;
     }
@@ -403,11 +408,15 @@ export class ReportsService {
     weekStart.setDate(weekStart.getDate() - 6);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const confirmedWhere = (from: Date) => ({
-      shopId,
-      status: SaleStatus.CONFIRMED,
-      saleDate: { gte: from },
-    });
+    const confirmedWhere = (from: Date) => {
+      const w: Record<string, unknown> = {
+        shopId,
+        status: SaleStatus.CONFIRMED,
+        saleDate: { gte: from },
+      };
+      if (createdById) w.createdById = createdById;
+      return w;
+    };
 
     const [
       todaySales,
@@ -537,7 +546,7 @@ export class ReportsService {
       })),
     };
 
-    dashboardCache.set(shopId, { data, expiresAt: Date.now() + 30_000 });
+    dashboardCache.set(cacheKey, { data, expiresAt: Date.now() + 30_000 });
     return data;
   }
 }

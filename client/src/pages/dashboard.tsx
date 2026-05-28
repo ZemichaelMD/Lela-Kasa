@@ -28,7 +28,7 @@ import { PageHeader } from "@/components/page-header";
 import { useI18n } from "@/lib/i18n";
 import { toEth, ethMonths } from "@/lib/ethiopian-date-utils";
 import { sdk } from "@/lib/sdk";
-import type { DashboardData } from "@/sdk";
+import type { DashboardData, Employee } from "@/sdk";
 import { formatMoneyCents } from "@/utils/money";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -686,10 +686,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [trendLoading, setTrendLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [filterCreatedById, setFilterCreatedById] = useState("");
 
   const didRecalcRef = useRef(false);
 
-  // Fetch main dashboard data once
+  // Fetch main dashboard data
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -705,7 +707,7 @@ export default function DashboardPage() {
         }
       }
       try {
-        const d = await sdk.dashboard.getDashboard("month");
+        const d = await sdk.dashboard.getDashboard("month", filterCreatedById || undefined);
         if (!cancelled) {
           setDashData(d);
           setLoading(false);
@@ -721,6 +723,11 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
+  }, [filterCreatedById]);
+
+  // Load employees for filter
+  useEffect(() => {
+    sdk.employees.list().then(setEmployees).catch(() => {});
   }, []);
 
   // Sync dates when preset mode changes
@@ -732,7 +739,7 @@ export default function DashboardPage() {
     }
   }, [mode]);
 
-  // Fetch trend (sales by day) whenever date range changes
+  // Fetch trend (sales by day) whenever date range or employee filter changes
   useEffect(() => {
     if (!dateFrom || !dateTo) return;
     let cancelled = false;
@@ -740,7 +747,11 @@ export default function DashboardPage() {
 
     void (async () => {
       try {
-        const d = (await sdk.reports.salesSummary({ dateFrom, dateTo })) as SalesSummary;
+        const d = (await sdk.reports.salesSummary({
+          dateFrom,
+          dateTo,
+          createdById: filterCreatedById || undefined,
+        })) as SalesSummary;
         if (!cancelled) {
           setSummaryData(d);
           setTrendLoading(false);
@@ -756,7 +767,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, filterCreatedById]);
 
   const salesValue =
     mode === "custom"
@@ -799,6 +810,27 @@ export default function DashboardPage() {
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
+        </div>
+      )}
+
+      {/* Employee filter */}
+      {employees.length > 0 && (
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-medium text-muted-foreground">
+            {t("employee")}
+          </label>
+          <select
+            value={filterCreatedById}
+            onChange={(e) => setFilterCreatedById(e.target.value)}
+            className="h-8 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/40"
+          >
+            <option value="">{t("allEmployees")}</option>
+            {employees.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 

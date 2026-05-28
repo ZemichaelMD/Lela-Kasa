@@ -52,6 +52,7 @@ const SALE_INCLUDE = {
     },
   },
   createdBy: { select: { id: true, name: true } },
+  updatedBy: { select: { id: true, name: true } },
 } as const;
 
 @Injectable()
@@ -656,6 +657,7 @@ export class SalesService {
           boxesReturnedOnSale,
           bottlesReturnedOnSale,
           notes: dto.notes ?? null,
+          updatedById: userId,
         },
       });
 

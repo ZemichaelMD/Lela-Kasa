@@ -140,4 +140,8 @@ export const sales = {
   returnedContainersHint: "Containers returned by the customer with this sale.",
   addReturnedContainer: "Add Returned Container",
   selectReturnType: "Select beverage...",
+  employee: "Employee",
+  allEmployees: "All employees",
+  createdBy: "Created by",
+  updatedBy: "Updated by",
 } as const;

@@ -235,6 +235,18 @@ export default function SaleDetailPage() {
                   {formatDateTime(sale.updatedAt, locale)}
                 </p>
               </div>
+              {sale.createdBy && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">{t("createdBy")}</p>
+                  <p className="text-sm font-medium">{sale.createdBy.name}</p>
+                </div>
+              )}
+              {sale.updatedBy && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">{t("updatedBy")}</p>
+                  <p className="text-sm font-medium">{sale.updatedBy.name}</p>
+                </div>
+              )}
             </div>
             {sale.voidReason && (
               <div className="mt-6 rounded-lg bg-destructive/5 p-4 text-sm text-destructive">
