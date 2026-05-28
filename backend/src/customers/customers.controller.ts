@@ -165,4 +165,34 @@ export class CustomersController {
   telegramLink(@CurrentShopId() shopId: string, @Param('id') id: string) {
     return this.customersService.generateTelegramLink(shopId, id);
   }
+
+  @Post(':id/reset-pin')
+  @ApiOperation({ summary: 'Send a PIN reset code to the customer email' })
+  async resetPin(
+    @CurrentShopId() shopId: string,
+    @Param('id') id: string,
+  ) {
+    return this.customersService.resetPin(shopId, id);
+  }
+
+  @Post(':id/send-email-otp')
+  @ApiOperation({ summary: 'Send an email OTP to the customer for verification' })
+  async sendEmailOtp(
+    @CurrentShopId() shopId: string,
+    @Param('id') id: string,
+  ) {
+    await this.customersService.sendCustomerEmailOtp(shopId, id);
+    return { sent: true };
+  }
+
+  @Post(':id/verify-email')
+  @ApiOperation({ summary: 'Verify customer email with OTP' })
+  async verifyEmail(
+    @CurrentShopId() shopId: string,
+    @Param('id') id: string,
+    @Body() dto: { code: string },
+  ) {
+    await this.customersService.verifyCustomerEmailOtp(shopId, id, dto.code);
+    return { success: true };
+  }
 }

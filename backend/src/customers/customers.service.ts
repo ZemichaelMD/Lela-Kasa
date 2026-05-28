@@ -10,8 +10,10 @@ import { SmsService } from "../sms/sms.service";
 import { SmsTemplatesService } from "../sms/sms-templates.service";
 import { TelegramService } from "../telegram/telegram.service";
 import { WhatsAppService } from "../whatsapp/whatsapp.service";
+import { MailService } from "../mail/mail.service";
 import { AppException } from "../common/errors/app.exception";
 import * as argon2 from "argon2";
+import * as crypto from "node:crypto";
 import { ErrorCode } from "../contract";
 import type { CreateCustomerDto } from "./dto/create-customer.dto";
 import type { UpdateCustomerDto } from "./dto/update-customer.dto";
@@ -38,7 +40,12 @@ export class CustomersService {
     private readonly smsTemplates: SmsTemplatesService,
     private readonly telegram: TelegramService,
     private readonly whatsapp: WhatsAppService,
+    private readonly mail: MailService,
   ) {}
+
+  private hashToken(token: string): string {
+    return crypto.createHash("sha256").update(token).digest("hex");
+  }
 
   async list(shopId: string, query: CustomerListQuery) {
     const page = Math.max(1, query.page ?? 1);
@@ -81,6 +88,42 @@ export class CustomersService {
     return customer;
   }
 
+  private async checkEmailUniqueness(
+    email: string | undefined,
+    excludeCustomerId?: string,
+  ): Promise<void> {
+    if (!email) return;
+    const normalized = email.toLowerCase().trim();
+
+    // Check against other customers
+    const existingCustomer = await this.prisma.customer.findFirst({
+      where: {
+        email: normalized,
+        deletedAt: null,
+        ...(excludeCustomerId ? { id: { not: excludeCustomerId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (existingCustomer) {
+      throw new ConflictException({
+        code: ErrorCode.EMAIL_TAKEN,
+        message: "This email is already used by another customer.",
+      });
+    }
+
+    // Check against User table (owners, employees, admins)
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: normalized },
+      select: { id: true },
+    });
+    if (existingUser) {
+      throw new ConflictException({
+        code: ErrorCode.EMAIL_TAKEN,
+        message: "This email is already in use by an account in the system.",
+      });
+    }
+  }
+
   async create(shopId: string, dto: CreateCustomerDto, actorUserId: string) {
     let pinHash: string | undefined;
     if (dto.username && dto.pin) {
@@ -91,11 +134,16 @@ export class CustomersService {
       pinHash = await argon2.hash(dto.pin);
     }
 
+    if (dto.email) {
+      await this.checkEmailUniqueness(dto.email);
+    }
+
     const customer = await this.prisma.customer.create({
       data: {
         shopId,
         name: dto.name,
         phone: dto.phone ?? null,
+        email: dto.email?.toLowerCase().trim() ?? null,
         notes: dto.notes ?? null,
         priceTierId: dto.priceTierId ?? null,
         priceTierLocked: dto.priceTierLocked ?? false,
@@ -125,7 +173,7 @@ export class CustomersService {
     dto: UpdateCustomerDto,
     actorUserId: string,
   ) {
-    await this.findOne(shopId, id);
+    const current = await this.findOne(shopId, id);
 
     const updateData: Record<string, unknown> = {};
 
@@ -136,6 +184,22 @@ export class CustomersService {
       updateData["priceTierId"] = dto.priceTierId || null;
     if (dto.priceTierLocked !== undefined)
       updateData["priceTierLocked"] = dto.priceTierLocked;
+
+    if (dto.email !== undefined) {
+      if (dto.email.trim()) {
+        const normalized = dto.email.toLowerCase().trim();
+        if (normalized !== current.email) {
+          await this.checkEmailUniqueness(normalized, id);
+        }
+        updateData["email"] = normalized;
+        if (normalized !== current.email) {
+          updateData["emailVerified"] = false;
+        }
+      } else {
+        updateData["email"] = null;
+        updateData["emailVerified"] = false;
+      }
+    }
 
     if (dto.username !== undefined) {
       if (dto.username.trim()) {
@@ -166,7 +230,7 @@ export class CustomersService {
       }
     }
 
-    const customer = await this.prisma.customer.update({
+    const updated = await this.prisma.customer.update({
       where: { id },
       data: updateData,
     });
@@ -177,12 +241,12 @@ export class CustomersService {
         actorUserId,
         action: "customer.update",
         entityType: "Customer",
-        entityId: customer.id,
-        afterJson: JSON.stringify(customer),
+        entityId: updated.id,
+        afterJson: JSON.stringify(updated),
       },
     });
 
-    return customer;
+    return updated;
   }
 
   async remove(shopId: string, id: string, actorUserId: string) {
@@ -593,6 +657,103 @@ export class CustomersService {
         passwordChangedAt: true,
       },
     });
+  }
+
+  /**
+   * Sends an email OTP to the customer's email for verification.
+   */
+  async sendCustomerEmailOtp(shopId: string, customerId: string): Promise<void> {
+    const customer = await this.findOne(shopId, customerId);
+    if (!customer.email) {
+      throw new BadRequestException("Customer has no email address on file");
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const codeHash = this.hashToken(code);
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1);
+
+    await this.prisma.customerEmailVerificationToken.deleteMany({
+      where: { customerId },
+    });
+    await this.prisma.customerEmailVerificationToken.create({
+      data: { customerId, codeHash, expiresAt },
+    });
+
+    await this.mail.sendOtp(customer.email, {
+      name: customer.name,
+      code,
+      appName: "LeLa Kasa",
+    });
+  }
+
+  /**
+   * Verifies the customer's email with an OTP code.
+   */
+  async verifyCustomerEmailOtp(
+    shopId: string,
+    customerId: string,
+    code: string,
+  ): Promise<void> {
+    await this.findOne(shopId, customerId);
+
+    const codeHash = this.hashToken(code);
+    const record = await this.prisma.customerEmailVerificationToken.findFirst({
+      where: {
+        customerId,
+        codeHash,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!record) {
+      throw new BadRequestException("Invalid or expired email verification code");
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.customer.update({
+        where: { id: customerId },
+        data: { emailVerified: true },
+      }),
+      this.prisma.customerEmailVerificationToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+  }
+
+  /**
+   * Owner-initiated: generates a random reset code for the customer's portal
+   * and sends it to their email so they can set a new PIN.
+   */
+  async resetPin(shopId: string, customerId: string): Promise<{ sent: boolean }> {
+    const customer = await this.findOne(shopId, customerId);
+    if (!customer.email) {
+      throw new BadRequestException(
+        "Customer has no email address. Set an email before resetting their PIN.",
+      );
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const codeHash = this.hashToken(code);
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1);
+
+    await this.prisma.customerPinResetToken.deleteMany({
+      where: { customerId },
+    });
+    await this.prisma.customerPinResetToken.create({
+      data: { customerId, codeHash, expiresAt },
+    });
+
+    await this.mail.sendOtp(customer.email, {
+      name: customer.name,
+      code,
+      appName: "LeLa Kasa",
+    });
+
+    return { sent: true };
   }
 
   async sendCustomerSms(

@@ -1,4 +1,4 @@
-import { AlertCircle, Crown, Eye, EyeOff, Lock } from "lucide-react";
+import { AlertCircle, Crown, Eye, EyeOff, Lock, Mail, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { API_URL, tokenStore } from "@/lib/sdk";
@@ -27,6 +27,16 @@ export default function CustomerLoginPage() {
   const [changing, setChanging] = useState(false);
   const [changeError, setChangeError] = useState<string | null>(null);
 
+  // Forgot PIN state
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'email' | 'code'>('email');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotCode, setForgotCode] = useState('');
+  const [forgotNewPin, setForgotNewPin] = useState('');
+  const [forgotConfirmPin, setForgotConfirmPin] = useState('');
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!username.trim() || !pin.trim()) return;
@@ -54,6 +64,52 @@ export default function CustomerLoginPage() {
       setError(err.message || t("invalidCredentials"));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleForgotSendCode() {
+    if (!forgotEmail.trim()) return;
+    setForgotBusy(true);
+    setForgotError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/auth/customer-forgot-pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
+      });
+      const envelope = await res.json();
+      if (!res.ok) throw new Error((envelope?.error?.message || envelope?.message) ?? "Failed to send code");
+      setForgotStep('code');
+    } catch (err: any) {
+      setForgotError(err.message || "Failed to send code");
+    } finally {
+      setForgotBusy(false);
+    }
+  }
+
+  async function handleForgotReset() {
+    if (forgotNewPin !== forgotConfirmPin) { setForgotError("PINs do not match"); return; }
+    if (forgotNewPin.length < 4) { setForgotError("PIN must be at least 4 characters"); return; }
+    setForgotBusy(true);
+    setForgotError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/auth/customer-reset-pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail.trim(), code: forgotCode.trim(), newPin: forgotNewPin.trim() }),
+      });
+      const envelope = await res.json();
+      if (!res.ok) throw new Error((envelope?.error?.message || envelope?.message) ?? "Failed to reset PIN");
+      setShowForgot(false);
+      setForgotStep('email');
+      setForgotEmail('');
+      setForgotCode('');
+      setForgotNewPin('');
+      setForgotConfirmPin('');
+    } catch (err: any) {
+      setForgotError(err.message || "Failed to reset PIN");
+    } finally {
+      setForgotBusy(false);
     }
   }
 
@@ -238,6 +294,11 @@ export default function CustomerLoginPage() {
             <button type="submit" disabled={submitting} className={amberBtn}>
               {submitting ? t("signingIn") : t("signInBtn")}
             </button>
+            <div className="text-center">
+              <button type="button" onClick={() => setShowForgot(true)} className="text-xs text-amber-600 hover:text-amber-500 hover:underline">
+                Forgot PIN?
+              </button>
+            </div>
           </form>
 
           <div className="mt-5 flex items-center gap-3">
@@ -257,4 +318,81 @@ export default function CustomerLoginPage() {
       </div>
     </div>
   );
+
+  {/* Forgot PIN modal */}
+  if (showForgot) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+        <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-card p-6 shadow-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Reset PIN</h3>
+            <button type="button" onClick={() => { setShowForgot(false); setForgotStep('email'); setForgotError(null); }} className="text-muted-foreground hover:text-foreground">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {forgotStep === 'email' ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Enter your email to receive a PIN reset code.</p>
+              <input
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                className={ic}
+                placeholder="your@email.com"
+                type="email"
+                autoFocus
+              />
+              {forgotError && (
+                <div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-3.5 py-3 text-xs text-destructive" role="alert">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>{forgotError}</span>
+                </div>
+              )}
+              <button type="button" onClick={handleForgotSendCode} disabled={forgotBusy} className={amberBtn}>
+                {forgotBusy ? "Sending..." : "Send Code"}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Enter the code sent to {forgotEmail} and set a new PIN.</p>
+              <input
+                value={forgotCode}
+                onChange={(e) => setForgotCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className={ic}
+                placeholder="000000"
+                inputMode="numeric"
+                maxLength={6}
+                autoFocus
+              />
+              <input
+                value={forgotNewPin}
+                onChange={(e) => setForgotNewPin(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                className={ic}
+                placeholder="New PIN"
+                type="password"
+                maxLength={10}
+              />
+              <input
+                value={forgotConfirmPin}
+                onChange={(e) => setForgotConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                className={ic}
+                placeholder="Confirm PIN"
+                type="password"
+                maxLength={10}
+              />
+              {forgotError && (
+                <div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-3.5 py-3 text-xs text-destructive" role="alert">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>{forgotError}</span>
+                </div>
+              )}
+              <button type="button" onClick={handleForgotReset} disabled={forgotBusy} className={amberBtn}>
+                {forgotBusy ? "Resetting..." : "Reset PIN"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 }

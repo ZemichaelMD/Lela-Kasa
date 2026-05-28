@@ -17,6 +17,7 @@ import {
   Length,
   Matches,
   MinLength,
+  MaxLength,
 } from "class-validator";
 
 import { AuthService } from "./auth.service";
@@ -89,6 +90,21 @@ export class VerifyEmailDto {
   @IsString()
   @IsNotEmpty()
   token!: string;
+}
+
+class ChangePasswordDto {
+  @IsString() @IsNotEmpty() declare currentPassword: string;
+  @IsString() @MinLength(8) declare newPassword: string;
+}
+
+class CustomerForgotPinDto {
+  @IsEmail() @IsNotEmpty() declare email: string;
+}
+
+class CustomerResetPinDto {
+  @IsEmail() @IsNotEmpty() declare email: string;
+  @IsString() @Length(6, 6) declare code: string;
+  @IsString() @MinLength(4) @MaxLength(10) declare newPin: string;
 }
 
 class RequestOtpDto {
@@ -373,5 +389,34 @@ export class AuthController {
   @ApiOperation({ summary: "Customer login with username and PIN" })
   customerLogin(@Body() dto: { username: string; pin: string }) {
     return this.authService.customerLogin(dto.username, dto.pin);
+  }
+
+  @Post("change-password")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Change password for authenticated user" })
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    await this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
+  }
+
+  @Post("customer-forgot-pin")
+  @Public()
+  @AuthThrottle()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Send a PIN reset OTP to the customer's email" })
+  async customerForgotPin(@Body() dto: CustomerForgotPinDto) {
+    await this.authService.customerForgotPin(dto.email);
+  }
+
+  @Post("customer-reset-pin")
+  @Public()
+  @AuthThrottle()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Reset customer PIN using OTP from email" })
+  async customerResetPin(@Body() dto: CustomerResetPinDto) {
+    return this.authService.customerResetPin(dto.email, dto.code, dto.newPin);
   }
 }

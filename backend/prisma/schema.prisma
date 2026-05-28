@@ -239,6 +239,8 @@ model Customer {
   shop   Shop    @relation(fields: [shopId], references: [id])
   name   String
   phone  String?
+  email  String? @unique
+  emailVerified Boolean @default(false)
   notes  String?
 
   telegramChatId String?
@@ -261,15 +263,18 @@ model Customer {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  sales    Sale[]
-  payments Payment[]
-  orders   CustomerOrder[]
+  sales                  Sale[]
+  payments               Payment[]
+  orders                 CustomerOrder[]
+  emailVerificationTokens CustomerEmailVerificationToken[]
+  pinResetTokens          CustomerPinResetToken[]
 
   @@index([shopId])
   @@index([shopId, name])
   @@index([shopId, creditBalanceCents])
   @@index([deletedAt])
   @@index([username])
+  @@index([email])
 }
 
 model Beverage {
@@ -740,6 +745,30 @@ model CustomerOrderLine {
 // Short-lived codes for the Telegram `t.me/<bot>?start=<code>` linking flow.
 // `kind` is "USER" (shop owner / employee) or "CUSTOMER"; `targetId` is the
 // User.id or Customer.id the resulting chat should be bound to.
+model CustomerEmailVerificationToken {
+  id         String    @id @default(cuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  codeHash   String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId])
+}
+
+model CustomerPinResetToken {
+  id         String    @id @default(cuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  codeHash   String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId])
+}
+
 model TelegramLinkCode {
   id        String    @id @default(cuid())
   code      String    @unique

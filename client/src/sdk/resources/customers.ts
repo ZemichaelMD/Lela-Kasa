@@ -5,6 +5,8 @@ export interface Customer {
   shopId: string;
   name: string;
   phone?: string;
+  email?: string;
+  emailVerified?: boolean;
   notes?: string;
   creditBalanceCents: number;
   outstandingBoxes: number;
@@ -22,6 +24,7 @@ export interface Customer {
 export interface CreateCustomerDto {
   name: string;
   phone?: string;
+  email?: string;
   notes?: string;
   priceTierId?: string;
   priceTierLocked?: boolean;
@@ -32,6 +35,7 @@ export interface CreateCustomerDto {
 export interface UpdateCustomerDto {
   name?: string;
   phone?: string;
+  email?: string;
   notes?: string;
   priceTierId?: string;
   priceTierLocked?: boolean;
@@ -243,5 +247,20 @@ export class CustomersResource {
       undefined,
       options,
     );
+  }
+
+  /** Sends a PIN reset code to the customer's email. */
+  resetPin(id: string, options?: RequestOptions): Promise<{ sent: boolean }> {
+    return this.client.post<{ sent: boolean }>(`/api/v1/customers/${id}/reset-pin`, undefined, options);
+  }
+
+  /** Sends an email verification OTP to the customer. */
+  sendEmailOtp(id: string, options?: RequestOptions): Promise<{ sent: boolean }> {
+    return this.client.post<{ sent: boolean }>(`/api/v1/customers/${id}/send-email-otp`, undefined, options);
+  }
+
+  /** Verifies the customer's email with an OTP code. */
+  verifyEmail(id: string, code: string, options?: RequestOptions): Promise<{ success: boolean }> {
+    return this.client.post<{ success: boolean }>(`/api/v1/customers/${id}/verify-email`, { code }, options);
   }
 }

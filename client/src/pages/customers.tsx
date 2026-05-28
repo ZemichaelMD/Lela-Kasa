@@ -24,6 +24,7 @@ function CustomerDrawer({ open, onClose, editing, onSaved }: DrawerProps) {
   const { t } = useI18n();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [username, setUsername] = useState("");
   const [portalPin, setPortalPin] = useState("");
@@ -39,6 +40,7 @@ function CustomerDrawer({ open, onClose, editing, onSaved }: DrawerProps) {
     if (open) {
       setName(editing?.name ?? "");
       setPhone(editing?.phone ?? "");
+      setEmail((editing as any)?.email ?? "");
       setNotes(editing?.notes ?? "");
       setUsername((editing as any)?.username ?? "");
       setPortalPin("");
@@ -60,6 +62,7 @@ function CustomerDrawer({ open, onClose, editing, onSaved }: DrawerProps) {
       const dto: any = {
         name: name.trim(),
         phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
         notes: notes.trim() || undefined,
         priceTierId: tierId || undefined,
         priceTierLocked: tierLocked,
@@ -130,6 +133,16 @@ function CustomerDrawer({ open, onClose, editing, onSaved }: DrawerProps) {
               onChange={(e) => setPhone(e.target.value)}
               className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
               placeholder={t("phonePlaceholder")}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Email</label>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+              placeholder="customer@example.com"
             />
           </div>
           <div className="space-y-1.5">

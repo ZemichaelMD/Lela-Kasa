@@ -8,6 +8,7 @@ import {
   Coins,
   Eye,
   EyeOff,
+  Key,
   MessageSquare,
   Package,
   Pencil,
@@ -549,6 +550,7 @@ function EditCustomerModal({
   const { t } = useI18n();
   const [name, setName] = useState(customer.name);
   const [phone, setPhone] = useState(customer.phone ?? "");
+  const [email, setEmail] = useState((customer as any).email ?? "");
   const [notes, setNotes] = useState(customer.notes ?? "");
   const [username, setUsername] = useState((customer as any).username ?? "");
   const [portalPin, setPortalPin] = useState("");
@@ -558,8 +560,13 @@ function EditCustomerModal({
   );
   const [tiers, setTiers] = useState<PriceTier[]>([]);
   const [saving, setSaving] = useState(false);
+  const [emailVerifying, setEmailVerifying] = useState(false);
+  const [emailVerifyCode, setEmailVerifyCode] = useState("");
+  const [showEmailVerify, setShowEmailVerify] = useState(false);
+  const [resettingPin, setResettingPin] = useState(false);
 
   const pinReadOnly = (customer as any).passwordChangedAt != null;
+  const emailVerified = (customer as any).emailVerified;
 
   useEffect(() => {
     sdk.priceTiers
@@ -568,6 +575,46 @@ function EditCustomerModal({
       .catch(() => {});
   }, []);
 
+  async function handleSendEmailOtp() {
+    setEmailVerifying(true);
+    try {
+      await sdk.customers.sendEmailOtp(customer.id);
+      setShowEmailVerify(true);
+      setEmailVerifyCode("");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send code");
+    } finally {
+      setEmailVerifying(false);
+    }
+  }
+
+  async function handleVerifyEmail() {
+    if (!emailVerifyCode.trim()) return;
+    setEmailVerifying(true);
+    try {
+      await sdk.customers.verifyEmail(customer.id, emailVerifyCode.trim());
+      toast.success("Email verified");
+      setShowEmailVerify(false);
+      onSaved(await sdk.customers.findOne(customer.id));
+    } catch (err: any) {
+      toast.error(err?.message || "Verification failed");
+    } finally {
+      setEmailVerifying(false);
+    }
+  }
+
+  async function handleResetPin() {
+    setResettingPin(true);
+    try {
+      await sdk.customers.resetPin(customer.id);
+      toast.success("PIN reset code sent to customer email");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to reset PIN");
+    } finally {
+      setResettingPin(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -575,6 +622,7 @@ function EditCustomerModal({
       const dto: any = {
         name: name.trim() || undefined,
         phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
         notes: notes.trim() || undefined,
         priceTierId: tierId || undefined,
         priceTierLocked: tierLocked,
@@ -633,6 +681,28 @@ function EditCustomerModal({
             className={ic}
             placeholder={t("phonePlaceholder") as string}
           />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Email</label>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            className={ic}
+            placeholder="customer@example.com"
+          />
+          {(customer as any).email && (
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-xs ${emailVerified ? 'text-success' : 'text-amber-500'}`}>
+                {emailVerified ? '✓ Verified' : 'Not verified'}
+              </span>
+              {!emailVerified && (
+                <button type="button" onClick={handleSendEmailOtp} disabled={emailVerifying} className="text-xs font-medium text-primary hover:underline">
+                  {emailVerifying ? 'Sending...' : 'Verify'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div className="space-y-1.5">
           <label className="text-sm font-medium">{t("customerNotes")}</label>
@@ -715,6 +785,11 @@ function EditCustomerModal({
                 the portal.
               </p>
             )}
+            {(customer as any).email && (
+              <button type="button" onClick={handleResetPin} disabled={resettingPin} className="text-xs font-medium text-primary hover:underline">
+                {resettingPin ? 'Sending reset code...' : 'Send PIN reset code to email'}
+              </button>
+            )}
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
@@ -734,6 +809,35 @@ function EditCustomerModal({
           </button>
         </div>
       </form>
+
+      {/* Email verify dialog */}
+      {showEmailVerify && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-xs rounded-xl bg-card p-6 shadow-xl space-y-4">
+            <h4 className="text-sm font-semibold">Verify Email</h4>
+            <p className="text-xs text-muted-foreground">
+              Enter the 6-digit code sent to {email || (customer as any).email}
+            </p>
+            <input
+              value={emailVerifyCode}
+              onChange={(e) => setEmailVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+              placeholder="000000"
+              inputMode="numeric"
+              maxLength={6}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setShowEmailVerify(false)} className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent">
+                Cancel
+              </button>
+              <button type="button" onClick={handleVerifyEmail} disabled={emailVerifying} className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+                {emailVerifying ? 'Verifying...' : 'Verify'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1785,7 +1889,19 @@ export default function CustomerDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={customer.name}
+        title={
+          <span>
+            {customer.name}
+            {(customer as any).email && (
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                {(customer as any).email}
+                <span className={`ml-1 ${(customer as any).emailVerified ? 'text-success' : 'text-amber-500'}`}>
+                  {(customer as any).emailVerified ? '✓' : 'Unverified'}
+                </span>
+              </span>
+            )}
+          </span>
+        }
         description={`${customer.phone ?? ""} · ${customer.notes ?? ""}`}
         breadcrumb={[t("shop"), t("manageCustomers"), customer.name]}
         actions={
@@ -1812,6 +1928,24 @@ export default function CustomerDetailPage() {
                 <span className="sm:hidden">{t("edit")}</span>
               </button>
             </PermissionGate>
+            {(customer as any).email && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await sdk.customers.resetPin(customer.id);
+                    toast.success("PIN reset code sent to customer email");
+                  } catch (err: any) {
+                    toast.error(err?.message || "Failed to reset PIN");
+                  }
+                }}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent sm:justify-start"
+              >
+                <Key className="h-4 w-4" />
+                <span className="hidden sm:inline">Reset PIN</span>
+                <span className="sm:hidden">Reset PIN</span>
+              </button>
+            )}
             <PermissionGate permission="customers:edit">
               <button
                 type="button"

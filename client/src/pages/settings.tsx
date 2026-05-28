@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { BadgeCheck, Bot, LifeBuoy, Mail, Phone, Send, ShieldAlert } from 'lucide-react';
+import { BadgeCheck, Bot, Key, LifeBuoy, Lock, Mail, Phone, Send, ShieldAlert } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { PermissionGate, usePermission } from '@/components/permission-gate';
 import { sdk, API_URL } from '@/lib/sdk';
@@ -162,6 +162,102 @@ function PhoneChangeModal({
   );
 }
 
+/** Password change modal. */
+function PasswordChangeModal({
+  open,
+  onClose,
+  t,
+}: {
+  open: boolean;
+  onClose: () => void;
+  t: (k: any) => string;
+}) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  if (!open) return null;
+
+  async function handleSubmit() {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error(t('fillRequiredFields'));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error(t('passwordsDoNotMatch'));
+      return;
+    }
+    setBusy(true);
+    try {
+      await sdk.auth.changePassword({ currentPassword, newPassword });
+      toast.success(t('passwordChanged'));
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('failedSaveSettings'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-lg">
+        <h3 className="text-base font-semibold">{t('changePassword')}</h3>
+        <div className="mt-4 space-y-3">
+          <input
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className={inputClass}
+            placeholder={t('enterCurrentPassword')}
+            type="password"
+            autoComplete="current-password"
+            autoFocus
+          />
+          <input
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className={inputClass}
+            placeholder={t('enterNewPassword')}
+            type="password"
+            autoComplete="new-password"
+          />
+          <input
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className={inputClass}
+            placeholder={t('confirmNewPasswordPlaceholder')}
+            type="password"
+            autoComplete="new-password"
+            onKeyDown={(e) => { if (e.key === 'Enter') void handleSubmit(); }}
+          />
+          <p className="text-xs text-muted-foreground">{t('passwordRequirement')}</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent"
+            >
+              {t('cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={busy}
+              className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            >
+              {busy ? t('loading') : t('save')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -197,6 +293,7 @@ export default function SettingsPage() {
     verifications?: VerificationStatus;
   } | null>(null);
   const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
 
   async function reloadAccount() {
     try {
@@ -401,6 +498,25 @@ export default function SettingsPage() {
                   {t('changePhone')}
                 </button>
               </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-muted p-2">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {t('changePassword')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPasswordChange(true)}
+                className="rounded-lg border border-border px-2.5 py-1 text-xs hover:bg-accent"
+              >
+                {t('changePassword')}
+              </button>
             </div>
           </div>
         </Card>
@@ -685,6 +801,11 @@ export default function SettingsPage() {
         open={phoneModalOpen}
         onClose={() => setPhoneModalOpen(false)}
         onChanged={() => void reloadAccount()}
+        t={t}
+      />
+      <PasswordChangeModal
+        open={showPasswordChange}
+        onClose={() => setShowPasswordChange(false)}
         t={t}
       />
     </div>

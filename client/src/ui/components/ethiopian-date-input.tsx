@@ -22,7 +22,7 @@ export function EthiopianDateInput({
   const { lang } = useI18n();
   const [open, setOpen] = React.useState(false);
   const [calMode, setCalMode] = React.useState<"ethiopian" | "gregorian">(
-    lang === "am" ? "ethiopian" : "gregorian"
+    lang === "am" ? "ethiopian" : "gregorian",
   );
 
   React.useEffect(() => {
@@ -50,9 +50,9 @@ export function EthiopianDateInput({
           size="sm"
           type="button"
           className={cn(
-            "h-8 min-w-[160px] justify-start text-left font-normal pr-1.5",
+            "h-8 min-w-40 justify-start text-left font-normal pr-1.5",
             !date && "text-muted-foreground",
-            className
+            className,
           )}
         >
           <CalendarIcon className="mr-1.5 h-3.5 w-3.5 shrink-0" />
@@ -69,14 +69,14 @@ export function EthiopianDateInput({
             onClick={(e) => {
               e.stopPropagation();
               setCalMode((prev) =>
-                prev === "ethiopian" ? "gregorian" : "ethiopian"
+                prev === "ethiopian" ? "gregorian" : "ethiopian",
               );
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.stopPropagation();
                 setCalMode((prev) =>
-                  prev === "ethiopian" ? "gregorian" : "ethiopian"
+                  prev === "ethiopian" ? "gregorian" : "ethiopian",
                 );
               }
             }}

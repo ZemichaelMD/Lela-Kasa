@@ -1057,6 +1057,7 @@ export class AuthService {
         id: true,
         name: true,
         phone: true,
+        email: true,
         pinHash: true,
         shopId: true,
         creditBalanceCents: true,
@@ -1089,6 +1090,7 @@ export class AuthService {
         id: customer.id,
         name: customer.name,
         phone: customer.phone,
+        email: customer.email,
         shopId: customer.shopId,
         shopName: customer.shop?.name,
         creditBalanceCents: customer.creditBalanceCents,
@@ -1098,5 +1100,107 @@ export class AuthService {
         passwordChangedAt: customer.passwordChangedAt,
       },
     };
+  }
+
+  // ── Change password (authenticated user) ────────────────────────────────
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, passwordHash: true },
+    });
+    if (!user) throw new NotFoundException("User not found");
+
+    const valid = await this.verifyPassword(user.passwordHash, currentPassword);
+    if (!valid) {
+      throw new BadRequestException({
+        code: ErrorCode.INVALID_CREDENTIALS,
+        message: "Current password is incorrect",
+      });
+    }
+
+    const pwSettings = await this.prisma.systemSetting.findMany();
+    assertStrongPassword(newPassword, loadPasswordPolicy(pwSettings));
+
+    const passwordHash = await this.hashPassword(newPassword);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+  }
+
+  // ── Customer PIN reset via email OTP ────────────────────────────────────
+
+  async customerForgotPin(email: string): Promise<void> {
+    const customer = await this.prisma.customer.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      select: { id: true, name: true, email: true },
+    });
+    if (!customer || !customer.email) return; // silent — no email enumeration
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const codeHash = this.hashToken(code);
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1);
+
+    // Delete any existing unused codes
+    await this.prisma.customerPinResetToken.deleteMany({
+      where: { customerId: customer.id },
+    });
+    await this.prisma.customerPinResetToken.create({
+      data: { customerId: customer.id, codeHash, expiresAt },
+    });
+
+    await this.mail.sendOtp(customer.email, {
+      name: customer.name ?? customer.email,
+      code,
+      appName: this.config.get<string>("app.appName") ?? "LeLa Kasa",
+    });
+  }
+
+  async customerResetPin(
+    email: string,
+    code: string,
+    newPin: string,
+  ): Promise<{ success: boolean }> {
+    const customer = await this.prisma.customer.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      select: { id: true },
+    });
+    if (!customer) {
+      throw new BadRequestException("Customer not found with this email");
+    }
+
+    const codeHash = this.hashToken(code);
+    const record = await this.prisma.customerPinResetToken.findFirst({
+      where: {
+        customerId: customer.id,
+        codeHash,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!record) {
+      throw new BadRequestException("Invalid or expired code");
+    }
+
+    const pinHash = await argon2.hash(newPin);
+    await this.prisma.$transaction([
+      this.prisma.customer.update({
+        where: { id: customer.id },
+        data: { pinHash, mustChangePassword: false, passwordChangedAt: new Date() },
+      }),
+      this.prisma.customerPinResetToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    return { success: true };
   }
 }
