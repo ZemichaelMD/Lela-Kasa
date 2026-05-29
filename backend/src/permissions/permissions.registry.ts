@@ -1,5 +1,5 @@
 export type PermissionSlug =
-  | 'sales:view' | 'sales:create' | 'sales:void'
+  | 'sales:view' | 'sales:create' | 'sales:edit' | 'sales:void'
   | 'customers:view' | 'customers:create' | 'customers:edit' | 'customers:delete'
   | 'beverages:view' | 'beverages:create' | 'beverages:edit' | 'beverages:delete' | 'beverages:stock'
   | 'price-tiers:view' | 'price-tiers:create' | 'price-tiers:edit' | 'price-tiers:delete'
@@ -35,6 +35,7 @@ export const PERMISSION_GROUPS: LocalizedString[] = [
 export const PERMISSION_REGISTRY: PermissionDef[] = [
   { slug: 'sales:view',              label: { en: 'View Sales', am: 'ሽያጮችን ተመልከት' },              group: { en: 'Sales', am: 'ሽያጮች' },            description: { en: 'See the sales list and sale details', am: 'የሽያጭ ዝርዝር እና የሽያጭ ዝርዝሮችን ይመልከቱ' },               defaultGranted: true  },
   { slug: 'sales:create',            label: { en: 'Create Sale', am: 'ሽያጭ ፍጠር' },                     group: { en: 'Sales', am: 'ሽያጮች' },            description: { en: 'Record new sales transactions', am: 'አዳዲስ የሽያጭ ግብይቶችን ይመዝግቡ' },                     defaultGranted: true  },
+  { slug: 'sales:edit',              label: { en: 'Edit Sale', am: 'ሽያጭ አርትዕ' },                       group: { en: 'Sales', am: 'ሽያጮች' },            description: { en: 'Edit existing sales (change date, items, etc.)', am: 'ያሉ ሽያጮችን ያስተካክሉ (ቀን፣ ዕቃዎች፣ ወዘተ ይቀይሩ)' }, defaultGranted: false },
   { slug: 'sales:void',              label: { en: 'Void Sale', am: 'ሽያጭ ሰርዝ' },                       group: { en: 'Sales', am: 'ሽያጮች' },            description: { en: 'Cancel and reverse a completed sale', am: 'የተጠናቀቀ ሽያጭ ይቀልብሱ እና ይሰርዙ' },               defaultGranted: false },
   { slug: 'customers:view',          label: { en: 'View Customers', am: 'ደንበኞችን ተመልከት' },           group: { en: 'Customers', am: 'ደንበኞች' },        description: { en: 'Browse the customer list and profiles', am: 'የደንበኞችን ዝርዝር እና መገለጫ ይመልከቱ' },             defaultGranted: true  },
   { slug: 'customers:create',        label: { en: 'Add Customer', am: 'ደንበኛ ጨምር' },                    group: { en: 'Customers', am: 'ደንበኞች' },        description: { en: 'Create new customer records', am: 'አዲስ የደንበኛ መረጃ ይፍጠሩ' },                       defaultGranted: true  },

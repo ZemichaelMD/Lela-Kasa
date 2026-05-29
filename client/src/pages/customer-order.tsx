@@ -188,31 +188,6 @@ export default function CustomerOrderPage() {
           </div>
         ) : (
           <>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                {t("selectBeverage")}
-              </label>
-              <select
-                onChange={(e) => {
-                  if (e.target.value) addLine(e.target.value);
-                  e.target.value = "";
-                }}
-                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
-              >
-                <option value="">· {t("selectBeverage")} ·</option>
-                {beverages.map((b: any) => (
-                  <option
-                    key={b.id}
-                    value={b.id}
-                    disabled={lines.some((l) => l.beverageId === b.id)}
-                  >
-                    {b.name}
-                    {b.brand ? ` (${b.brand})` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             {lines.length > 0 && (
               <div className="space-y-3">
                 {lines.map((l) => {
@@ -295,6 +270,31 @@ export default function CustomerOrderPage() {
                     </div>
                   );
                 })}
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    {t("selectBeverage")}
+                  </label>
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) addLine(e.target.value);
+                      e.target.value = "";
+                    }}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
+                  >
+                    <option value="">· {t("selectBeverage")} ·</option>
+                    {beverages.map((b: any) => (
+                      <option
+                        key={b.id}
+                        value={b.id}
+                        disabled={lines.some((l) => l.beverageId === b.id)}
+                      >
+                        {b.name}
+                        {b.brand ? ` (${b.brand})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">

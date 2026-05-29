@@ -137,6 +137,7 @@ export class SalesController {
   }
 
   @Patch(":id")
+  @RequirePermission("sales:edit")
   @ApiOperation({ summary: "Full-replace update a sale" })
   update(
     @CurrentShopId() shopId: string,

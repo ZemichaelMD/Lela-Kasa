@@ -35,7 +35,7 @@ import { formatMoneyCents } from "@/utils/money";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatSaleTime(iso: string, locale = 'en-US'): string {
+function formatSaleTime(iso: string, locale = "en-US"): string {
   try {
     return new Date(iso).toLocaleTimeString(locale, {
       hour: "numeric",
@@ -155,18 +155,22 @@ function VoidDialog({ sale, onConfirm, onCancel, voiding }: VoidDialogProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
       <div className="relative w-full max-w-sm rounded-xl bg-card p-6 shadow-xl">
-        <h3 className="text-base font-semibold">{t('voidQuestion')}</h3>
+        <h3 className="text-base font-semibold">{t("voidQuestion")}</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t('saleFrom')} <strong><FormattedDate iso={sale.createdAt} /></strong> {t('voidWarning')}
+          {t("saleFrom")}{" "}
+          <strong>
+            <FormattedDate iso={sale.createdAt} />
+          </strong>{" "}
+          {t("voidWarning")}
         </p>
         <div className="mt-3 space-y-1.5">
-          <label className="text-sm font-medium">{t('voidReason')}</label>
+          <label className="text-sm font-medium">{t("voidReason")}</label>
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-            placeholder={t('enterReason') as string}
+            placeholder={t("enterReason") as string}
           />
         </div>
         <div className="mt-4 flex justify-end gap-2">
@@ -175,7 +179,7 @@ function VoidDialog({ sale, onConfirm, onCancel, voiding }: VoidDialogProps) {
             onClick={onCancel}
             className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent"
           >
-            {t('cancel')}
+            {t("cancel")}
           </button>
           <button
             type="button"
@@ -183,7 +187,7 @@ function VoidDialog({ sale, onConfirm, onCancel, voiding }: VoidDialogProps) {
             disabled={voiding}
             className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white disabled:opacity-60 hover:bg-destructive/90"
           >
-            {voiding ? t('voiding') : t('confirmVoid')}
+            {voiding ? t("voiding") : t("confirmVoid")}
           </button>
         </div>
       </div>
@@ -230,7 +234,9 @@ function SaleDrawer({
     { beverageId: "", boxes: 0, bottles: 0 },
   ]);
   const [paymentRows, setPaymentRows] = useState<SalePaymentRow[]>([]);
-  const [returnedContainers, setReturnedContainers] = useState<ReturnedContainerRow[]>([]);
+  const [returnedContainers, setReturnedContainers] = useState<
+    ReturnedContainerRow[]
+  >([]);
   const [containerKasas, setContainerKasas] = useState<ContainerKasaRow[]>([]);
   const [note, setNote] = useState("");
   const [applyCredit, setApplyCredit] = useState(false);
@@ -255,7 +261,7 @@ function SaleDrawer({
     if (!open) return;
     const src = sale && (isEdit || isDuplicate) ? sale : null;
     setSaleDate(
-      isDuplicate ? todayIso() : src ? src.createdAt.slice(0, 10) : todayIso(),
+      isDuplicate ? todayIso() : src ? src.saleDate.slice(0, 10) : todayIso(),
     );
     setCustomerId(src?.customerId ?? "");
     setPriceTierId(src?.priceTierId ?? defaultPriceTierId);
@@ -421,10 +427,19 @@ function SaleDrawer({
   function addReturnedContainer() {
     setReturnedContainers((prev) => [
       ...prev,
-      { beverageId: "", boxes: 0, bottles: 0, searchInput: "", dropdownOpen: false },
+      {
+        beverageId: "",
+        boxes: 0,
+        bottles: 0,
+        searchInput: "",
+        dropdownOpen: false,
+      },
     ]);
   }
-  function updateReturnedContainer(idx: number, patch: Partial<ReturnedContainerRow>) {
+  function updateReturnedContainer(
+    idx: number,
+    patch: Partial<ReturnedContainerRow>,
+  ) {
     setReturnedContainers((prev) =>
       prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
     );
@@ -443,14 +458,14 @@ function SaleDrawer({
         name: newCustName.trim(),
         phone: newCustPhone.trim() || undefined,
       });
-      toast.success(t('customerCreated'));
+      toast.success(t("customerCreated"));
       onCustomerCreated(created);
       setCustomerId(created.id);
       setShowAddCustomer(false);
       setNewCustName("");
       setNewCustPhone("");
     } catch {
-      toast.error(t('failedCreateCustomer'));
+      toast.error(t("failedCreateCustomer"));
     } finally {
       setAddingCustomer(false);
     }
@@ -458,18 +473,18 @@ function SaleDrawer({
 
   async function handleSubmit(status: "OPEN" | "CONFIRMED") {
     if (!customerId) {
-      toast.error(t('selectCustomerRequired'));
+      toast.error(t("selectCustomerRequired"));
       return;
     }
     const validLines = lines.filter(
       (l) => l.beverageId && (l.boxes > 0 || l.bottles > 0),
     );
     if (validLines.length === 0) {
-      toast.error(t('addAtLeastOneBeverage'));
+      toast.error(t("addAtLeastOneBeverage"));
       return;
     }
     if (!priceTierId) {
-      toast.error(t('selectPriceTierRequired'));
+      toast.error(t("selectPriceTierRequired"));
       return;
     }
     // Flag any selected lines missing a price in this tier — block submit.
@@ -478,7 +493,7 @@ function SaleDrawer({
       const names = missingPrice
         .map((l) => beverages.find((b) => b.id === l.beverageId)?.name ?? "?")
         .join(", ");
-      toast.error(`${t('noPriceSetForBeverages')}: ${names}`);
+      toast.error(`${t("noPriceSetForBeverages")}: ${names}`);
       return;
     }
     setSubmitting(true);
@@ -513,7 +528,11 @@ function SaleDrawer({
         })),
         returnedContainers: returnedContainers
           .filter((r) => r.beverageId && (r.boxes > 0 || r.bottles > 0))
-          .map((r) => ({ beverageId: r.beverageId, boxes: r.boxes, bottles: r.bottles })),
+          .map((r) => ({
+            beverageId: r.beverageId,
+            boxes: r.boxes,
+            bottles: r.bottles,
+          })),
       };
 
       if (isEdit && sale?.id) {
@@ -524,15 +543,15 @@ function SaleDrawer({
 
       if (isEdit) {
         if (status === "CONFIRMED") {
-          toast.success(t('saleUpdatedAndConfirmed'));
+          toast.success(t("saleUpdatedAndConfirmed"));
         } else {
-          toast.success(t('saleDraftUpdated'));
+          toast.success(t("saleDraftUpdated"));
         }
       } else {
         if (status === "CONFIRMED") {
-          toast.success(t('saleConfirmed'));
+          toast.success(t("saleConfirmed"));
         } else {
-          toast.success(t('draftSaved'));
+          toast.success(t("draftSaved"));
         }
       }
 
@@ -541,7 +560,7 @@ function SaleDrawer({
       if (err instanceof ApiError && err.status < 500) {
         toast.error(err.message);
       } else {
-        toast.error(t('failedSaveSale'));
+        toast.error(t("failedSaveSale"));
       }
     } finally {
       setSubmitting(false);
@@ -599,7 +618,11 @@ function SaleDrawer({
           {/* Sale date */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">{t("saleDate")} *</label>
-            <EthiopianDateInput value={saleDate} onChange={setSaleDate} className="w-full h-10" />
+            <EthiopianDateInput
+              value={saleDate}
+              onChange={setSaleDate}
+              className="w-full h-10"
+            />
           </div>
 
           {/* Customer */}
@@ -615,7 +638,7 @@ function SaleDrawer({
                   className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  {t('newCustomer')}
+                  {t("newCustomer")}
                 </button>
               )}
             </div>
@@ -643,7 +666,7 @@ function SaleDrawer({
                   // Delay so click on a list option can register first.
                   window.setTimeout(() => setCustomerOpen(false), 120);
                 }}
-                placeholder={t('searchPickCustomer') as string}
+                placeholder={t("searchPickCustomer") as string}
                 className="h-10 w-full rounded-lg border border-border bg-background px-3 pr-8 text-sm outline-none focus:ring-2 focus:ring-ring/40"
               />
               {customerId && (
@@ -653,7 +676,7 @@ function SaleDrawer({
                     e.preventDefault();
                     pickCustomer(null);
                   }}
-                  aria-label={t('cancel') as string}
+                  aria-label={t("cancel") as string}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   ✕
@@ -663,7 +686,7 @@ function SaleDrawer({
                 <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
                   {filteredCustomers.length === 0 ? (
                     <p className="px-3 py-2 text-xs text-muted-foreground">
-                      {t('noMatches')} {customerInput && t('useAddNewCustomer')}
+                      {t("noMatches")} {customerInput && t("useAddNewCustomer")}
                     </p>
                   ) : (
                     <ul className="py-1 text-sm">
@@ -699,19 +722,19 @@ function SaleDrawer({
                 className="mt-2 space-y-2 rounded-lg border border-border bg-muted/30 p-3"
               >
                 <p className="text-xs font-medium text-muted-foreground">
-                  {t('newCustomer')}
+                  {t("newCustomer")}
                 </p>
                 <input
                   value={newCustName}
                   onChange={(e) => setNewCustName(e.target.value)}
-                  placeholder={t('nameWithAsterisk') as string}
+                  placeholder={t("nameWithAsterisk") as string}
                   required
                   className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
                 />
                 <input
                   value={newCustPhone}
                   onChange={(e) => setNewCustPhone(e.target.value)}
-                  placeholder={t('phone') as string}
+                  placeholder={t("phone") as string}
                   className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
                 />
                 <div className="flex gap-2">
@@ -720,14 +743,14 @@ function SaleDrawer({
                     disabled={addingCustomer}
                     className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
                   >
-                    {addingCustomer ? t('adding') : t('add')}
+                    {addingCustomer ? t("adding") : t("add")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowAddCustomer(false)}
                     className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent"
                   >
-                    {t('cancel')}
+                    {t("cancel")}
                   </button>
                 </div>
               </form>
@@ -742,11 +765,11 @@ function SaleDrawer({
               onChange={(e) => setPriceTierId(e.target.value)}
               className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
             >
-              <option value="">{t('selectTier')}</option>
+              <option value="">{t("selectTier")}</option>
               {priceTiers.map((tier) => (
                 <option key={tier.id} value={tier.id}>
                   {tier.name}
-                  {tier.isDefault ? ` (${t('default')})` : ""}
+                  {tier.isDefault ? ` (${t("default")})` : ""}
                 </option>
               ))}
             </select>
@@ -780,7 +803,7 @@ function SaleDrawer({
                       }
                       className="h-9 flex-1 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
                     >
-                      <option value="">{t('selectBeveragePlaceholder')}</option>
+                      <option value="">{t("selectBeveragePlaceholder")}</option>
                       {beverages.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.name}
@@ -832,7 +855,7 @@ function SaleDrawer({
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-muted-foreground">
-                        {t('lineTotal')}
+                        {t("lineTotal")}
                       </label>
                       <div className="flex h-9 items-center px-2 text-sm font-medium">
                         {formatMoneyCents(lineTotal)}
@@ -841,14 +864,13 @@ function SaleDrawer({
                   </div>
                   {price && (
                     <p className="text-xs text-muted-foreground">
-                      {formatMoneyCents(price.pricePerBoxCents)}/{t('box')} ·{" "}
-                      {formatMoneyCents(price.pricePerBottleCents)}/{t('bottle')}
+                      {formatMoneyCents(price.pricePerBoxCents)}/{t("box")} ·{" "}
+                      {formatMoneyCents(price.pricePerBottleCents)}/
+                      {t("bottle")}
                     </p>
                   )}
                   {line.beverageId && !price && (
-                    <p className="text-xs text-warning">
-                      {t('noPriceSet')}
-                    </p>
+                    <p className="text-xs text-warning">{t("noPriceSet")}</p>
                   )}
                 </div>
               );
@@ -858,20 +880,20 @@ function SaleDrawer({
           {/* Live totals card */}
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2 text-sm">
             <p className="font-medium text-xs uppercase tracking-wide text-muted-foreground">
-              {t('total')}
+              {t("total")}
             </p>
             <div className="flex justify-between">
-              <span>{t('subtotal')}</span>
+              <span>{t("subtotal")}</span>
               <span className="font-medium">
                 {formatMoneyCents(subtotalCents)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span>{t('paid')}</span>
+              <span>{t("paid")}</span>
               <span className="font-medium">{formatMoneyCents(paidCents)}</span>
             </div>
             <div className="flex justify-between border-t border-border pt-2">
-              <span>{t('credit')}</span>
+              <span>{t("credit")}</span>
               <span
                 className={
                   creditDelta > 0
@@ -891,13 +913,13 @@ function SaleDrawer({
           {/* Payments section */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">{t('payments')}</label>
+              <label className="text-sm font-medium">{t("payments")}</label>
               <button
                 type="button"
                 onClick={addPaymentRow}
                 className="text-xs text-primary hover:underline"
               >
-                + {t('addPayment')}
+                + {t("addPayment")}
               </button>
             </div>
             {paymentRows.map((row, idx) => (
@@ -910,7 +932,7 @@ function SaleDrawer({
                   inputMode="numeric"
                   min={0}
                   step={0.01}
-                  placeholder={t('amount') as string}
+                  placeholder={t("amount") as string}
                   value={row.amountInput}
                   onChange={(e) => {
                     const raw = e.target.value;
@@ -929,7 +951,7 @@ function SaleDrawer({
                   }
                   className="h-9 flex-1 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
                 >
-                  <option value="">{t('accountPlaceholder')}</option>
+                  <option value="">{t("accountPlaceholder")}</option>
                   {paymentAccounts.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name}
@@ -968,32 +990,70 @@ function SaleDrawer({
 
           {/* Returned Containers */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">{t('returnedContainersSection')}</label>
-            <p className="text-xs text-muted-foreground">{t('returnedContainersHint')}</p>
+            <label className="text-sm font-medium">
+              {t("returnedContainersSection")}
+            </label>
+            <p className="text-xs text-muted-foreground">
+              {t("returnedContainersHint")}
+            </p>
             {returnedContainers.map((ret, idx) => {
               const filteredBevs = ret.searchInput.trim()
                 ? beverages.filter((b) =>
-                    `${b.name} ${b.brand ?? ""}`.toLowerCase().includes(ret.searchInput.toLowerCase()),
+                    `${b.name} ${b.brand ?? ""}`
+                      .toLowerCase()
+                      .includes(ret.searchInput.toLowerCase()),
                   )
                 : beverages;
-              const selectedBev = beverages.find((b) => b.id === ret.beverageId);
+              const selectedBev = beverages.find(
+                (b) => b.id === ret.beverageId,
+              );
               return (
-                <div key={idx} className="rounded-lg border border-border p-3 space-y-2">
+                <div
+                  key={idx}
+                  className="rounded-lg border border-border p-3 space-y-2"
+                >
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
                       <input
                         type="text"
-                        value={ret.dropdownOpen ? ret.searchInput : (selectedBev ? `${selectedBev.name}${selectedBev.brand ? ` (${selectedBev.brand})` : ""}` : ret.searchInput)}
-                        onChange={(e) => updateReturnedContainer(idx, { searchInput: e.target.value, dropdownOpen: true, beverageId: "" })}
-                        onFocus={() => updateReturnedContainer(idx, { dropdownOpen: true, searchInput: "" })}
-                        onBlur={() => window.setTimeout(() => updateReturnedContainer(idx, { dropdownOpen: false }), 120)}
-                        placeholder={t('selectReturnType') as string}
+                        value={
+                          ret.dropdownOpen
+                            ? ret.searchInput
+                            : selectedBev
+                              ? `${selectedBev.name}${selectedBev.brand ? ` (${selectedBev.brand})` : ""}`
+                              : ret.searchInput
+                        }
+                        onChange={(e) =>
+                          updateReturnedContainer(idx, {
+                            searchInput: e.target.value,
+                            dropdownOpen: true,
+                            beverageId: "",
+                          })
+                        }
+                        onFocus={() =>
+                          updateReturnedContainer(idx, {
+                            dropdownOpen: true,
+                            searchInput: "",
+                          })
+                        }
+                        onBlur={() =>
+                          window.setTimeout(
+                            () =>
+                              updateReturnedContainer(idx, {
+                                dropdownOpen: false,
+                              }),
+                            120,
+                          )
+                        }
+                        placeholder={t("selectReturnType") as string}
                         className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
                       />
                       {ret.dropdownOpen && (
                         <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
                           {filteredBevs.length === 0 ? (
-                            <p className="px-3 py-2 text-xs text-muted-foreground">{t('noMatches')}</p>
+                            <p className="px-3 py-2 text-xs text-muted-foreground">
+                              {t("noMatches")}
+                            </p>
                           ) : (
                             <ul className="py-1 text-sm">
                               {filteredBevs.slice(0, 30).map((b) => (
@@ -1002,12 +1062,20 @@ function SaleDrawer({
                                     type="button"
                                     onMouseDown={(e) => {
                                       e.preventDefault();
-                                      updateReturnedContainer(idx, { beverageId: b.id, searchInput: "", dropdownOpen: false });
+                                      updateReturnedContainer(idx, {
+                                        beverageId: b.id,
+                                        searchInput: "",
+                                        dropdownOpen: false,
+                                      });
                                     }}
                                     className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent ${b.id === ret.beverageId ? "bg-accent/60" : ""}`}
                                   >
                                     <span className="truncate">{b.name}</span>
-                                    {b.brand && <span className="shrink-0 text-xs text-muted-foreground">{b.brand}</span>}
+                                    {b.brand && (
+                                      <span className="shrink-0 text-xs text-muted-foreground">
+                                        {b.brand}
+                                      </span>
+                                    )}
                                   </button>
                                 </li>
                               ))}
@@ -1026,24 +1094,36 @@ function SaleDrawer({
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">{t('returnBoxes')}</label>
+                      <label className="text-xs text-muted-foreground">
+                        {t("returnBoxes")}
+                      </label>
                       <input
                         type="number"
                         inputMode="numeric"
                         min={0}
                         value={ret.boxes}
-                        onChange={(e) => updateReturnedContainer(idx, { boxes: Math.max(0, Number(e.target.value)) })}
+                        onChange={(e) =>
+                          updateReturnedContainer(idx, {
+                            boxes: Math.max(0, Number(e.target.value)),
+                          })
+                        }
                         className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">{t('returnBottles')}</label>
+                      <label className="text-xs text-muted-foreground">
+                        {t("returnBottles")}
+                      </label>
                       <input
                         type="number"
                         inputMode="numeric"
                         min={0}
                         value={ret.bottles}
-                        onChange={(e) => updateReturnedContainer(idx, { bottles: Math.max(0, Number(e.target.value)) })}
+                        onChange={(e) =>
+                          updateReturnedContainer(idx, {
+                            bottles: Math.max(0, Number(e.target.value)),
+                          })
+                        }
                         className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
                       />
                     </div>
@@ -1056,7 +1136,7 @@ function SaleDrawer({
               onClick={addReturnedContainer}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
             >
-              + {t('addReturnedContainer')}
+              + {t("addReturnedContainer")}
             </button>
           </div>
 
@@ -1067,39 +1147,73 @@ function SaleDrawer({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">
-                  {t('containerKasaSection')}
+                  {t("containerKasaSection")}
                 </label>
               </div>
               {totalBottles >= 24 && (
                 <p className="text-xs text-muted-foreground">
-                  {totalBottles} {t('containerKasaHint')}
+                  {totalBottles} {t("containerKasaHint")}
                 </p>
               )}
               {containerKasas.map((kasa, idx) => {
                 const filtered = kasa.searchInput.trim()
                   ? beverages.filter((b) =>
-                      `${b.name} ${b.brand ?? ""}`.toLowerCase().includes(kasa.searchInput.toLowerCase()),
+                      `${b.name} ${b.brand ?? ""}`
+                        .toLowerCase()
+                        .includes(kasa.searchInput.toLowerCase()),
                     )
                   : beverages;
-                const selected = beverages.find((b) => b.id === kasa.beverageId);
+                const selected = beverages.find(
+                  (b) => b.id === kasa.beverageId,
+                );
                 return (
-                  <div key={idx} className="rounded-lg border border-border p-3 space-y-2">
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-border p-3 space-y-2"
+                  >
                     <div className="flex items-center gap-2">
                       {/* Searchable beverage dropdown */}
                       <div className="relative flex-1">
                         <input
                           type="text"
-                          value={kasa.dropdownOpen ? kasa.searchInput : (selected ? `${selected.name}${selected.brand ? ` (${selected.brand})` : ""}` : kasa.searchInput)}
-                          onChange={(e) => updateContainerKasa(idx, { searchInput: e.target.value, dropdownOpen: true, beverageId: "" })}
-                          onFocus={() => updateContainerKasa(idx, { dropdownOpen: true, searchInput: "" })}
-                          onBlur={() => window.setTimeout(() => updateContainerKasa(idx, { dropdownOpen: false }), 120)}
-                          placeholder={t('selectKasaType') as string}
+                          value={
+                            kasa.dropdownOpen
+                              ? kasa.searchInput
+                              : selected
+                                ? `${selected.name}${selected.brand ? ` (${selected.brand})` : ""}`
+                                : kasa.searchInput
+                          }
+                          onChange={(e) =>
+                            updateContainerKasa(idx, {
+                              searchInput: e.target.value,
+                              dropdownOpen: true,
+                              beverageId: "",
+                            })
+                          }
+                          onFocus={() =>
+                            updateContainerKasa(idx, {
+                              dropdownOpen: true,
+                              searchInput: "",
+                            })
+                          }
+                          onBlur={() =>
+                            window.setTimeout(
+                              () =>
+                                updateContainerKasa(idx, {
+                                  dropdownOpen: false,
+                                }),
+                              120,
+                            )
+                          }
+                          placeholder={t("selectKasaType") as string}
                           className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
                         />
                         {kasa.dropdownOpen && (
                           <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
                             {filtered.length === 0 ? (
-                              <p className="px-3 py-2 text-xs text-muted-foreground">{t('noMatches')}</p>
+                              <p className="px-3 py-2 text-xs text-muted-foreground">
+                                {t("noMatches")}
+                              </p>
                             ) : (
                               <ul className="py-1 text-sm">
                                 {filtered.slice(0, 30).map((b) => (
@@ -1108,12 +1222,20 @@ function SaleDrawer({
                                       type="button"
                                       onMouseDown={(e) => {
                                         e.preventDefault();
-                                        updateContainerKasa(idx, { beverageId: b.id, searchInput: "", dropdownOpen: false });
+                                        updateContainerKasa(idx, {
+                                          beverageId: b.id,
+                                          searchInput: "",
+                                          dropdownOpen: false,
+                                        });
                                       }}
                                       className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent ${b.id === kasa.beverageId ? "bg-accent/60" : ""}`}
                                     >
                                       <span className="truncate">{b.name}</span>
-                                      {b.brand && <span className="shrink-0 text-xs text-muted-foreground">{b.brand}</span>}
+                                      {b.brand && (
+                                        <span className="shrink-0 text-xs text-muted-foreground">
+                                          {b.brand}
+                                        </span>
+                                      )}
                                     </button>
                                   </li>
                                 ))}
@@ -1124,13 +1246,19 @@ function SaleDrawer({
                       </div>
                       {/* Count input */}
                       <div className="flex items-center gap-1">
-                        <label className="text-xs text-muted-foreground shrink-0">{t('containerKasaCount')}</label>
+                        <label className="text-xs text-muted-foreground shrink-0">
+                          {t("containerKasaCount")}
+                        </label>
                         <input
                           type="number"
                           inputMode="numeric"
                           min={1}
                           value={kasa.count}
-                          onChange={(e) => updateContainerKasa(idx, { count: Math.max(1, Number(e.target.value)) })}
+                          onChange={(e) =>
+                            updateContainerKasa(idx, {
+                              count: Math.max(1, Number(e.target.value)),
+                            })
+                          }
                           className="h-9 w-16 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
                         />
                       </div>
@@ -1150,7 +1278,7 @@ function SaleDrawer({
                 onClick={addContainerKasa}
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
               >
-                + {t('addContainerKasa')}
+                + {t("addContainerKasa")}
               </button>
             </div>
           )}
@@ -1159,13 +1287,13 @@ function SaleDrawer({
 
           {/* Note */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t('note')}</label>
+            <label className="text-sm font-medium">{t("note")}</label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-              placeholder={t('optionalNote') as string}
+              placeholder={t("optionalNote") as string}
             />
           </div>
 
@@ -1178,7 +1306,7 @@ function SaleDrawer({
                 onChange={(e) => setApplyCredit(e.target.checked)}
                 className="rounded border-border"
               />
-              {t('applyExistingCredit')} (
+              {t("applyExistingCredit")} (
               {formatMoneyCents(selectedCustomer.creditBalanceCents)})
             </label>
           )}
@@ -1187,16 +1315,16 @@ function SaleDrawer({
           {selectedCustomer && (
             <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-2 text-sm">
               <p className="font-medium text-xs uppercase tracking-wide text-muted-foreground">
-                {t('projectedBalancesFor')} {selectedCustomer.name}
+                {t("projectedBalancesFor")} {selectedCustomer.name}
               </p>
               <div className="flex justify-between">
-                <span>{t('currentCredit')}</span>
+                <span>{t("currentCredit")}</span>
                 <span>
                   {formatMoneyCents(selectedCustomer.creditBalanceCents)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>{t('afterThisSale')}</span>
+                <span>{t("afterThisSale")}</span>
                 <span
                   className={
                     selectedCustomer.creditBalanceCents + creditDelta > 0
@@ -1210,27 +1338,48 @@ function SaleDrawer({
                 </span>
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{t('boxesOutstanding')}</span>
+                <span>{t("boxesOutstanding")}</span>
                 <span>
                   {(() => {
-                    const kasaBoxes = containerKasas.reduce((s, k) => s + (k.count || 0), 0);
-                    const lineBoxes = lines.reduce((s, l) => s + (l.boxes || 0), 0);
-                    const retBoxes = returnedContainers.reduce((s, r) => s + (r.boxes || 0), 0);
-                    const projected = selectedCustomer.outstandingBoxes + lineBoxes + kasaBoxes - retBoxes;
+                    const kasaBoxes = containerKasas.reduce(
+                      (s, k) => s + (k.count || 0),
+                      0,
+                    );
+                    const lineBoxes = lines.reduce(
+                      (s, l) => s + (l.boxes || 0),
+                      0,
+                    );
+                    const retBoxes = returnedContainers.reduce(
+                      (s, r) => s + (r.boxes || 0),
+                      0,
+                    );
+                    const projected =
+                      selectedCustomer.outstandingBoxes +
+                      lineBoxes +
+                      kasaBoxes -
+                      retBoxes;
                     const delta = lineBoxes + kasaBoxes - retBoxes;
                     return delta !== 0 ? (
                       <span>
                         {selectedCustomer.outstandingBoxes}{" "}
-                        <span className={projected > selectedCustomer.outstandingBoxes ? "text-destructive font-medium" : "text-success font-medium"}>
+                        <span
+                          className={
+                            projected > selectedCustomer.outstandingBoxes
+                              ? "text-destructive font-medium"
+                              : "text-success font-medium"
+                          }
+                        >
                           → {projected}
                         </span>
                       </span>
-                    ) : selectedCustomer.outstandingBoxes;
+                    ) : (
+                      selectedCustomer.outstandingBoxes
+                    );
                   })()}
                 </span>
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{t('bottlesOutstanding')}</span>
+                <span>{t("bottlesOutstanding")}</span>
                 <span>{selectedCustomer.outstandingBottles}</span>
               </div>
             </div>
@@ -1244,7 +1393,7 @@ function SaleDrawer({
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent"
           >
-            {t('cancel')}
+            {t("cancel")}
           </button>
           <button
             type="button"
@@ -1252,7 +1401,7 @@ function SaleDrawer({
             onClick={() => handleSubmit("OPEN")}
             className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium disabled:opacity-60 hover:bg-accent"
           >
-            {submitting ? t('saving') : t('saveAsDraft')}
+            {submitting ? t("saving") : t("saveAsDraft")}
           </button>
           <button
             type="button"
@@ -1260,7 +1409,7 @@ function SaleDrawer({
             onClick={() => handleSubmit("CONFIRMED")}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60 hover:bg-primary/90"
           >
-            {submitting ? t('saving') : t('confirmSale')}
+            {submitting ? t("saving") : t("confirmSale")}
           </button>
         </div>
       </aside>
@@ -1306,7 +1455,7 @@ function SaleCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">
-            {customer?.name ?? t('walkIn')}
+            {customer?.name ?? t("walkIn")}
           </p>
           <p className="text-[11px] text-muted-foreground">
             <FormattedDate iso={sale.createdAt} />
@@ -1318,14 +1467,14 @@ function SaleCard({
         className="mt-1 line-clamp-1 text-[11px] text-muted-foreground"
         title={full}
       >
-        {summary || t('noItems')}
+        {summary || t("noItems")}
       </p>
       <div className="mt-1.5 flex items-baseline justify-between gap-2 text-xs">
         <span className="font-semibold tabular-nums">
           {formatMoneyCents(sale.subtotalCents)}
         </span>
         <span className="text-muted-foreground tabular-nums">
-          {t('paid')} {formatMoneyCents(sale.paidCents)}
+          {t("paid")} {formatMoneyCents(sale.paidCents)}
         </span>
         <span
           className={
@@ -1360,7 +1509,7 @@ function SaleCard({
                 }}
                 className="rounded border border-border px-2 py-0.5 text-[11px] hover:bg-accent"
               >
-                {t('edit')}
+                {t("edit")}
               </span>
               <span
                 role="button"
@@ -1378,7 +1527,7 @@ function SaleCard({
                 }}
                 className="rounded border border-destructive/30 px-2 py-0.5 text-[11px] text-destructive hover:bg-destructive/10"
               >
-                {t('void')}
+                {t("void")}
               </span>
             </>
           )}
@@ -1398,7 +1547,7 @@ function SaleCard({
             }}
             className="rounded border border-border px-2 py-0.5 text-[11px] hover:bg-accent"
           >
-            {t('duplicateSale')}
+            {t("duplicateSale")}
           </span>
         </div>
       )}
@@ -1415,7 +1564,7 @@ const PAGE_SIZE = 20;
 function AdminSalesView() {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const [sales, setSales] = useState<import('@/sdk').AdminSale[]>([]);
+  const [sales, setSales] = useState<import("@/sdk").AdminSale[]>([]);
   const [loading, setLoading] = useState(true);
   const [shops, setShops] = useState<{ id: string; name: string }[]>([]);
 
@@ -1423,9 +1572,15 @@ function AdminSalesView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [dateFrom, setDateFrom] = useState(searchParams.get("dateFrom") ?? "");
   const [dateTo, setDateTo] = useState(searchParams.get("dateTo") ?? "");
-  const [filterShopId, setFilterShopId] = useState(searchParams.get("shopId") ?? "");
-  const [filterCustomerId, setFilterCustomerId] = useState(searchParams.get("customerId") ?? "");
-  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [filterShopId, setFilterShopId] = useState(
+    searchParams.get("shopId") ?? "",
+  );
+  const [filterCustomerId, setFilterCustomerId] = useState(
+    searchParams.get("customerId") ?? "",
+  );
+  const [customers, setCustomers] = useState<{ id: string; name: string }[]>(
+    [],
+  );
 
   function setParam(key: string, value: string | undefined) {
     setSearchParams((prev) => {
@@ -1461,14 +1616,15 @@ function AdminSalesView() {
 
   useEffect(() => {
     setLoading(true);
-    sdk.admin.listSales({
-      shopId: searchParams.get("shopId") ?? undefined,
-      customerId: searchParams.get("customerId") ?? undefined,
-      dateFrom: searchParams.get("dateFrom") ?? undefined,
-      dateTo: searchParams.get("dateTo") ?? undefined,
-    })
+    sdk.admin
+      .listSales({
+        shopId: searchParams.get("shopId") ?? undefined,
+        customerId: searchParams.get("customerId") ?? undefined,
+        dateFrom: searchParams.get("dateFrom") ?? undefined,
+        dateTo: searchParams.get("dateTo") ?? undefined,
+      })
       .then(setSales)
-      .catch(() => toast.error(t('failedLoadSales')))
+      .catch(() => toast.error(t("failedLoadSales")))
       .finally(() => setLoading(false));
   }, [t, searchParams]);
 
@@ -1479,34 +1635,52 @@ function AdminSalesView() {
 
   const filterBar = (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-medium text-muted-foreground">{t('dateLabel')}</span>
+      <span className="text-xs font-medium text-muted-foreground">
+        {t("dateLabel")}
+      </span>
       <EthiopianDateInput
         value={dateFrom}
-        onChange={(v) => { setDateFrom(v); setParam("dateFrom", v || undefined); }}
+        onChange={(v) => {
+          setDateFrom(v);
+          setParam("dateFrom", v || undefined);
+        }}
       />
       <span className="text-xs text-muted-foreground">—</span>
       <EthiopianDateInput
         value={dateTo}
-        onChange={(v) => { setDateTo(v); setParam("dateTo", v || undefined); }}
+        onChange={(v) => {
+          setDateTo(v);
+          setParam("dateTo", v || undefined);
+        }}
       />
       <select
         value={filterShopId}
-        onChange={(e) => { setFilterShopId(e.target.value); setParam("shopId", e.target.value || undefined); }}
+        onChange={(e) => {
+          setFilterShopId(e.target.value);
+          setParam("shopId", e.target.value || undefined);
+        }}
         className="h-8 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/40"
       >
         <option value="">All Shops</option>
         {shops.map((s) => (
-          <option key={s.id} value={s.id}>{s.name}</option>
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
         ))}
       </select>
       <select
         value={filterCustomerId}
-        onChange={(e) => { setFilterCustomerId(e.target.value); setParam("customerId", e.target.value || undefined); }}
+        onChange={(e) => {
+          setFilterCustomerId(e.target.value);
+          setParam("customerId", e.target.value || undefined);
+        }}
         className="h-8 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/40"
       >
         <option value="">All Customers</option>
         {customers.map((c) => (
-          <option key={c.id} value={c.id}>{c.name}</option>
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
         ))}
       </select>
     </div>
@@ -1514,53 +1688,59 @@ function AdminSalesView() {
 
   const columns = [
     {
-      key: 'date',
-      header: t('date'),
-      render: (s: import('@/sdk').AdminSale) => (
-        <span className="whitespace-nowrap"><FormattedDate iso={s.saleDate} /></span>
+      key: "date",
+      header: t("date"),
+      render: (s: import("@/sdk").AdminSale) => (
+        <span className="whitespace-nowrap">
+          <FormattedDate iso={s.saleDate} />
+        </span>
       ),
     },
     {
-      key: 'shop',
-      header: 'Shop',
-      render: (s: import('@/sdk').AdminSale) => (
-        <span className="font-medium">{s.shop?.name ?? '—'}</span>
+      key: "shop",
+      header: "Shop",
+      render: (s: import("@/sdk").AdminSale) => (
+        <span className="font-medium">{s.shop?.name ?? "—"}</span>
       ),
     },
     {
-      key: 'customer',
-      header: t('customer'),
-      render: (s: import('@/sdk').AdminSale) => (
-        <span>{s.customer?.name ?? t('walkIn')}</span>
+      key: "customer",
+      header: t("customer"),
+      render: (s: import("@/sdk").AdminSale) => (
+        <span>{s.customer?.name ?? t("walkIn")}</span>
       ),
     },
     {
-      key: 'total',
-      header: t('total'),
-      render: (s: import('@/sdk').AdminSale) => (
-        <span className="font-medium tabular-nums">{formatMoneyCents(s.subtotalCents)}</span>
+      key: "total",
+      header: t("total"),
+      render: (s: import("@/sdk").AdminSale) => (
+        <span className="font-medium tabular-nums">
+          {formatMoneyCents(s.subtotalCents)}
+        </span>
       ),
     },
     {
-      key: 'paid',
-      header: t('paid'),
-      render: (s: import('@/sdk').AdminSale) => (
+      key: "paid",
+      header: t("paid"),
+      render: (s: import("@/sdk").AdminSale) => (
         <span className="tabular-nums">{formatMoneyCents(s.paidCents)}</span>
       ),
     },
     {
-      key: 'balance',
-      header: t('credit'),
-      render: (s: import('@/sdk').AdminSale) => (
-        <span className={`tabular-nums ${s.creditDeltaCents > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+      key: "balance",
+      header: t("credit"),
+      render: (s: import("@/sdk").AdminSale) => (
+        <span
+          className={`tabular-nums ${s.creditDeltaCents > 0 ? "text-destructive font-medium" : "text-muted-foreground"}`}
+        >
           {formatMoneyCents(s.creditDeltaCents)}
         </span>
       ),
     },
     {
-      key: 'status',
-      header: t('status'),
-      render: (s: import('@/sdk').AdminSale) => (
+      key: "status",
+      header: t("status"),
+      render: (s: import("@/sdk").AdminSale) => (
         <StatusChip label={s.status} tone={statusTone(s.status)} />
       ),
     },
@@ -1571,17 +1751,17 @@ function AdminSalesView() {
       <PageHeader
         title="Sales"
         description="Platform-wide sales across all shops"
-        breadcrumb={['Platform', 'Sales']}
+        breadcrumb={["Platform", "Sales"]}
       />
       <DataTable
         columns={columns}
         rows={sales}
-        searchPlaceholder={t('searchSales') as string}
+        searchPlaceholder={t("searchSales") as string}
         filterBar={filterBar}
         activeFilterCount={activeFilterCount}
         onClearFilters={clearFilters}
         onRowClick={(s) => navigate(`/sales/${s.id}`)}
-        empty={loading ? t('loading') : 'No transactions found'}
+        empty={loading ? t("loading") : "No transactions found"}
       />
     </div>
   );
@@ -1589,7 +1769,7 @@ function AdminSalesView() {
 
 export default function SalesPage() {
   const { user } = useAuthContext();
-  if (user?.role === 'SUPER_ADMIN') {
+  if (user?.role === "SUPER_ADMIN") {
     return <AdminSalesView />;
   }
   const navigate = useNavigate();
@@ -1725,7 +1905,7 @@ export default function SalesPage() {
         setPriceTiers(tiersRes);
         setPaymentAccounts(accsRes);
       } catch {
-        toast.error(t('failedLoadReferenceData'));
+        toast.error(t("failedLoadReferenceData"));
       } finally {
         setRefLoading(false);
       }
@@ -1750,7 +1930,7 @@ export default function SalesPage() {
       setSales(result.data);
       setTotal(result.total);
     } catch {
-      toast.error(t('failedLoadSales'));
+      toast.error(t("failedLoadSales"));
     } finally {
       setLoading(false);
     }
@@ -1795,11 +1975,11 @@ export default function SalesPage() {
     setVoiding(true);
     try {
       await sdk.sales.void(voidTarget.id, reason);
-      toast.success(t('saleVoided'));
+      toast.success(t("saleVoided"));
       setVoidTarget(null);
       void fetchSales();
     } catch {
-      toast.error(t('failedVoidSale'));
+      toast.error(t("failedVoidSale"));
     } finally {
       setVoiding(false);
     }
@@ -1821,7 +2001,7 @@ export default function SalesPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.error(t('failedExportCsv'));
+      toast.error(t("failedExportCsv"));
     }
   }
 
@@ -1840,10 +2020,12 @@ export default function SalesPage() {
   const columns = [
     {
       key: "date",
-      header: t('date'),
+      header: t("date"),
       render: (s: Sale) => (
         <div className="whitespace-nowrap">
-          <p><FormattedDate iso={s.createdAt} /></p>
+          <p>
+            <FormattedDate iso={s.createdAt} />
+          </p>
           <p className="text-xs text-muted-foreground">
             {formatSaleTime(s.createdAt, locale)}
           </p>
@@ -1852,11 +2034,11 @@ export default function SalesPage() {
     },
     {
       key: "customer",
-      header: t('customer'),
+      header: t("customer"),
       render: (s: Sale) => {
         const c = s.customerId ? customersMap.get(s.customerId) : undefined;
         if (!c) {
-          return <p className="font-medium">{t('walkIn')}</p>;
+          return <p className="font-medium">{t("walkIn")}</p>;
         }
         return (
           <div>
@@ -1879,7 +2061,7 @@ export default function SalesPage() {
     },
     {
       key: "items",
-      header: t('items'),
+      header: t("items"),
       render: (s: Sale) => {
         const { summary, full } = buildItemsSummary(s, beveragesMap);
         return (
@@ -1891,7 +2073,7 @@ export default function SalesPage() {
     },
     {
       key: "total",
-      header: t('total'),
+      header: t("total"),
       render: (s: Sale) => (
         <span className="whitespace-nowrap font-medium">
           {formatMoneyCents(s.subtotalCents)}
@@ -1900,7 +2082,7 @@ export default function SalesPage() {
     },
     {
       key: "paid",
-      header: t('paid'),
+      header: t("paid"),
       render: (s: Sale) => (
         <span className="whitespace-nowrap">
           {formatMoneyCents(s.paidCents)}
@@ -1909,7 +2091,7 @@ export default function SalesPage() {
     },
     {
       key: "credit",
-      header: t('credit'),
+      header: t("credit"),
       render: (s: Sale) => (
         <span
           className={
@@ -1926,7 +2108,7 @@ export default function SalesPage() {
     },
     {
       key: "containers",
-      header: t('containers'),
+      header: t("containers"),
       render: (s: Sale) => {
         const boxes = s.lines.reduce((acc, l) => acc + l.boxes, 0);
         const bottles = s.lines.reduce((acc, l) => acc + l.bottles, 0);
@@ -1939,7 +2121,7 @@ export default function SalesPage() {
     },
     {
       key: "status",
-      header: t('status'),
+      header: t("status"),
       render: (s: Sale) => (
         <StatusChip label={s.status} tone={statusTone(s.status)} />
       ),
@@ -1960,28 +2142,28 @@ export default function SalesPage() {
           | { divider: true }
         > = [
           {
-            label: t('viewSale'),
+            label: t("viewSale"),
             icon: Eye,
             onSelect: () => navigate(`/sales/${s.id}`),
           },
         ];
         if (isOwner) {
           items.push({
-            label: t('edit'),
+            label: t("edit"),
             icon: Copy,
             onSelect: () => openEdit(s),
             disabled: s.status === "VOIDED",
           });
         }
         items.push({
-          label: t('duplicateSale'),
+          label: t("duplicateSale"),
           icon: Copy,
           onSelect: () => openDuplicate(s),
         });
         if (isOwner) {
           items.push({ divider: true as const });
           items.push({
-            label: t('void'),
+            label: t("void"),
             icon: Trash2,
             danger: true,
             onSelect: () => setVoidTarget(s),
@@ -1997,36 +2179,44 @@ export default function SalesPage() {
     <div className="flex flex-col gap-3">
       {/* Date quick picks */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-muted-foreground">{t('dateLabel')}</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          {t("dateLabel")}
+        </span>
         <button
           type="button"
           onClick={() => handleDateQuick(todayIso(), todayIso())}
           className={`rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${dateFrom === todayIso() && dateTo === todayIso() ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
         >
-          {t('today')}
+          {t("today")}
         </button>
         <button
           type="button"
           onClick={() => handleDateQuick(weekStartIso(), todayIso())}
           className={`rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${dateFrom === weekStartIso() ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
         >
-          {t('thisWeek')}
+          {t("thisWeek")}
         </button>
         <button
           type="button"
           onClick={() => handleDateQuick(monthStartIso(), todayIso())}
           className={`rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${dateFrom === monthStartIso() ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
         >
-          {t('thisMonth')}
+          {t("thisMonth")}
         </button>
         <EthiopianDateInput
           value={dateFrom}
-          onChange={(v) => { setDateFrom(v); setParam("dateFrom", v || undefined); }}
+          onChange={(v) => {
+            setDateFrom(v);
+            setParam("dateFrom", v || undefined);
+          }}
         />
         <span className="text-xs text-muted-foreground">—</span>
         <EthiopianDateInput
           value={dateTo}
-          onChange={(v) => { setDateTo(v); setParam("dateTo", v || undefined); }}
+          onChange={(v) => {
+            setDateTo(v);
+            setParam("dateTo", v || undefined);
+          }}
         />
       </div>
 
@@ -2040,7 +2230,7 @@ export default function SalesPage() {
           }}
           className="h-8 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/40"
         >
-          <option value="">{t('allCustomers')}</option>
+          <option value="">{t("allCustomers")}</option>
           {customers.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -2056,7 +2246,7 @@ export default function SalesPage() {
           }}
           className="h-8 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/40"
         >
-          <option value="">{t('allAccounts')}</option>
+          <option value="">{t("allAccounts")}</option>
           {paymentAccounts.map((a) => (
             <option key={a.id} value={a.id}>
               {a.name}
@@ -2068,7 +2258,7 @@ export default function SalesPage() {
       {/* Status pills */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-muted-foreground">
-          {t('statusLabel')}
+          {t("statusLabel")}
         </span>
         {(["CONFIRMED", "OPEN", "VOIDED"] as const).map((s) => (
           <button
@@ -2101,7 +2291,7 @@ export default function SalesPage() {
           }}
           className="rounded border-border"
         />
-        {t('hasOutstandingCredit')}
+        {t("hasOutstandingCredit")}
       </label>
     </div>
   );
@@ -2109,28 +2299,28 @@ export default function SalesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={t('recordManageSales')}
-        description={t('recordManageSales')}
-        breadcrumb={[t('shop'), t('sales')]}
+        title={t("recordManageSales")}
+        description={t("recordManageSales")}
+        breadcrumb={[t("shop"), t("sales")]}
         actions={
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleExportCsv}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-accent"
-              title={t('exportCsv') as string}
+              title={t("exportCsv") as string}
             >
               <Download className="h-4 w-4" />
-              {t('exportCsv')}
+              {t("exportCsv")}
             </button>
             <button
               type="button"
               onClick={openCreate}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              title={t('newSaleShortcut') as string}
+              title={t("newSaleShortcut") as string}
             >
               <Plus className="h-4 w-4" />
-              {t('newSale')}
+              {t("newSale")}
             </button>
           </div>
         }
@@ -2148,7 +2338,7 @@ export default function SalesPage() {
           <DataTable
             columns={columns}
             rows={sales}
-            searchPlaceholder={t('searchSales') as string}
+            searchPlaceholder={t("searchSales") as string}
             search={search}
             onSearchChange={handleSearchChange}
             filterBar={filterBar}
@@ -2161,22 +2351,22 @@ export default function SalesPage() {
             onRowClick={(s) => navigate(`/sales/${s.id}`)}
             empty={
               loading ? (
-                t('loading')
+                t("loading")
               ) : total === 0 && activeFilterCount === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-8">
                   <ShoppingBag className="h-10 w-10 text-muted-foreground/40" />
-                  <p className="text-muted-foreground">{t('noSalesYet')}</p>
+                  <p className="text-muted-foreground">{t("noSalesYet")}</p>
                   <button
                     type="button"
                     onClick={openCreate}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                   >
                     <Plus className="h-4 w-4" />
-                    {t('recordFirstSale')}
+                    {t("recordFirstSale")}
                   </button>
                 </div>
               ) : (
-                t('noSalesMatchFilters')
+                t("noSalesMatchFilters")
               )
             }
           />
@@ -2194,7 +2384,7 @@ export default function SalesPage() {
               className="inline-flex items-center gap-1.5 text-sm font-medium"
               aria-expanded={mobileFiltersOpen}
             >
-              {t('filter')}
+              {t("filter")}
               {activeFilterCount > 0 && (
                 <span className="rounded-full bg-primary/10 px-1.5 text-xs font-semibold text-primary">
                   {activeFilterCount}
@@ -2210,7 +2400,7 @@ export default function SalesPage() {
                 onClick={clearFilters}
                 className="text-xs text-primary hover:underline"
               >
-                {t('clearAll')}
+                {t("clearAll")}
               </button>
             )}
           </div>
@@ -2230,8 +2420,8 @@ export default function SalesPage() {
             <ShoppingBag className="h-10 w-10 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">
               {activeFilterCount > 0
-                ? t('noSalesMatchFilters')
-                : t('noSalesYet')}
+                ? t("noSalesMatchFilters")
+                : t("noSalesYet")}
             </p>
             {activeFilterCount === 0 && (
               <button
@@ -2240,7 +2430,7 @@ export default function SalesPage() {
                 className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
                 <Plus className="h-4 w-4" />
-                {t('recordFirstSale')}
+                {t("recordFirstSale")}
               </button>
             )}
           </div>
@@ -2263,8 +2453,8 @@ export default function SalesPage() {
             <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
               <span>
                 {total === 0
-                  ? t('noResults')
-                  : `${t('showing')} ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} ${t('of')} ${total}`}
+                  ? t("noResults")
+                  : `${t("showing")} ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} ${t("of")} ${total}`}
               </span>
               <div className="flex gap-2">
                 <button
@@ -2273,7 +2463,7 @@ export default function SalesPage() {
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   className="rounded border border-border px-2 py-1 disabled:opacity-50"
                 >
-                  {t('prev')}
+                  {t("prev")}
                 </button>
                 <button
                   type="button"
@@ -2281,7 +2471,7 @@ export default function SalesPage() {
                   onClick={() => setPage((p) => p + 1)}
                   className="rounded border border-border px-2 py-1 disabled:opacity-50"
                 >
-                  {t('next')}
+                  {t("next")}
                 </button>
               </div>
             </div>

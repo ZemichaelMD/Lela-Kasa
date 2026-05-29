@@ -252,7 +252,7 @@ function SaleDrawer({
     if (!open) return;
     const src = sale && (isEdit || isDuplicate) ? sale : null;
     setSaleDate(
-      isDuplicate ? todayIso() : src ? src.createdAt.slice(0, 10) : todayIso(),
+      isDuplicate ? todayIso() : src ? src.saleDate.slice(0, 10) : todayIso(),
     );
     setCustomerId(src?.customerId ?? "");
     setPriceTierId(src?.priceTierId ?? defaultPriceTierId);
@@ -1435,6 +1435,7 @@ export default function SalesPage() {
   const { user } = useAuthContext();
   const isOwner = user?.role === "OWNER";
   const canCreateSale = usePermission("sales:create");
+  const canEditSale = usePermission("sales:edit");
   const canVoidSale = usePermission("sales:void");
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -1837,7 +1838,7 @@ export default function SalesPage() {
             onSelect: () => navigate(`/sales/${s.id}`),
           },
         ];
-        if (isOwner) {
+        if (canEditSale) {
           items.push({
             label: t("edit"),
             icon: Copy,
@@ -2148,7 +2149,7 @@ export default function SalesPage() {
                 onEdit={openEdit}
                 onVoid={setVoidTarget}
                 onDuplicate={openDuplicate}
-                canModify={isOwner}
+                canModify={canEditSale}
               />
             ))}
             {/* Mobile pagination */}
