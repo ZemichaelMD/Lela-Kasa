@@ -25,6 +25,7 @@ import { PaymentRow } from '../components/PaymentRow';
 import { Skeleton } from '../components/Skeleton';
 import { showToast } from '../components/Toast';
 import { t } from '../lib/i18n';
+import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useFormattedDate } from '../components/FormattedDate';
 import { radius, spacing, type } from '../theme';
@@ -41,6 +42,8 @@ export default function SaleDetailScreen() {
   const { saleId } = route.params;
   const insets = useSafeAreaInsets();
   const fmtDate = useFormattedDate();
+  const { hasPermission } = useAuth();
+  const canEditSale = hasPermission('sales:edit');
 
   const [showVoidDialog, setShowVoidDialog] = useState(false);
   const [voidReason, setVoidReason] = useState('');
@@ -311,15 +314,17 @@ export default function SaleDetailScreen() {
           </View>
         </View>
 
-        {!isVoided && (
+          {!isVoided && (
           <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: colors.primary }]}
-              onPress={handleOpenEdit}
-            >
-              <Ionicons name="pencil-outline" size={20} color={colors.textInverse} />
-              <Text style={[styles.actionButtonText, { color: colors.textInverse }]}>{t('edit')}</Text>
-            </TouchableOpacity>
+            {canEditSale && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: colors.primary }]}
+                onPress={handleOpenEdit}
+              >
+                <Ionicons name="pencil-outline" size={20} color={colors.textInverse} />
+                <Text style={[styles.actionButtonText, { color: colors.textInverse }]}>{t('edit')}</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: colors.primary }]}
               onPress={() => setShowAddPayment(true)}

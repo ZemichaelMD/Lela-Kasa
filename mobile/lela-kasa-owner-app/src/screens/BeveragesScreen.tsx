@@ -23,6 +23,7 @@ import { t } from '../lib/i18n';
 import { showToast } from '../components/Toast';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ModalSheet } from '../components/ModalSheet';
+import { withCache } from '../lib/api-cache';
 import { radius, spacing, type } from '../theme';
 
 type BevItem = {
@@ -43,10 +44,9 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 
 export default function BeveragesScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const queryClient = useQueryClient();
-
   const [showInactive, setShowInactive] = useState(false);
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -64,7 +64,7 @@ export default function BeveragesScreen() {
 
   const { data, isRefetching, refetch } = useQuery({
     queryKey: QK.beverages(),
-    queryFn: () => getSdk().beverages.list({ pageSize: 100, isActive: showInactive ? undefined : true }),
+    queryFn: () => withCache('beverages', () => getSdk().beverages.list({ pageSize: 100, isActive: showInactive ? undefined : true })),
   });
   const beverages = data?.data ?? [];
 

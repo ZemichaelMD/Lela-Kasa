@@ -1,14 +1,20 @@
-import React from 'react';
-import { StatusBar } from 'react-native';
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from "react";
+import { StatusBar } from "react-native";
+import {
+  NavigationContainer,
+  DefaultTheme,
+  DarkTheme,
+} from "@react-navigation/native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 
-import RootNavigator from './src/navigation/RootNavigator';
-import { AuthProvider } from './src/providers/AuthProvider';
-import { LanguageProvider } from './src/context/LanguageContext';
-import { ThemeProvider, useTheme } from './src/context/ThemeContext';
-import { ToastContainer } from './src/components/Toast';
+import RootNavigator from "./src/navigation/RootNavigator";
+import { AuthProvider } from "./src/providers/AuthProvider";
+import { OfflineProvider } from "./src/offline/context/OfflineProvider";
+import { LanguageProvider } from "./src/context/LanguageContext";
+import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
+import { ToastContainer } from "./src/components/Toast";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,15 +30,40 @@ function ThemedApp() {
   const { colors, isDark } = useTheme();
 
   const navTheme = isDark
-    ? { ...DarkTheme, colors: { ...DarkTheme.colors, primary: colors.primary, background: colors.background, card: colors.surface, text: colors.textPrimary, border: colors.border } }
-    : { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: colors.primary, background: colors.background, card: colors.surface, text: colors.textPrimary, border: colors.border } };
+    ? {
+        ...DarkTheme,
+        colors: {
+          ...DarkTheme.colors,
+          primary: colors.primary,
+          background: colors.background,
+          card: colors.surface,
+          text: colors.textPrimary,
+          border: colors.border,
+        },
+      }
+    : {
+        ...DefaultTheme,
+        colors: {
+          ...DefaultTheme.colors,
+          primary: colors.primary,
+          background: colors.background,
+          card: colors.surface,
+          text: colors.textPrimary,
+          border: colors.border,
+        },
+      };
 
   return (
     <>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
-      <NavigationContainer theme={navTheme}>
-        <RootNavigator />
-      </NavigationContainer>
+      <StatusBar
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor={colors.background}
+      />
+      <KeyboardProvider>
+        <NavigationContainer theme={navTheme}>
+          <RootNavigator />
+        </NavigationContainer>
+      </KeyboardProvider>
     </>
   );
 }
@@ -44,7 +75,9 @@ export default function App() {
         <ThemeProvider>
           <LanguageProvider>
             <AuthProvider>
-              <ThemedApp />
+              <OfflineProvider>
+                <ThemedApp />
+              </OfflineProvider>
             </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>

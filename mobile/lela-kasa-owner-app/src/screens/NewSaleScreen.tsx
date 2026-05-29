@@ -22,6 +22,10 @@ import { AmountInput } from '../components/AmountInput';
 import { showToast } from '../components/Toast';
 import { t } from '../lib/i18n';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { useOffline } from '../offline/context';
+import { createSaleOffline } from '../offline/writes';
+import { withCache, cacheResponse, getCachedResponse } from '../lib/api-cache';
 import { radius, spacing, type } from '../theme';
 
 interface SaleLineItem {
@@ -67,6 +71,8 @@ export default function NewSaleScreen() {
   const queryClient = useQueryClient();
   const preSelectedCustomerId = route.params?.customerId;
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const { isOnline } = useOffline();
 
   const [saleDate] = useState(todayStr());
   const [selectedCustomer, setSelectedCustomer] = useState<{ id: string; name: string } | null>(null);
@@ -84,33 +90,35 @@ export default function NewSaleScreen() {
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; name: string } | null>(null);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
 
+  const shopId = user?.shopId;
+
   const { data: customersData } = useQuery({
     queryKey: QK.customers({}),
-    queryFn: () => getSdk().customers.list({ pageSize: 100 }),
+    queryFn: () => withCache('customers', () => getSdk().customers.list({ pageSize: 100 })),
   });
 
   const { data: beveragesData } = useQuery({
     queryKey: QK.beverages(),
-    queryFn: () => getSdk().beverages.list({ pageSize: 100, isActive: true }),
+    queryFn: () => withCache('beverages', () => getSdk().beverages.list({ pageSize: 100, isActive: true })),
   });
 
   const { data: tiers } = useQuery({
     queryKey: QK.priceTiers(),
-    queryFn: () => getSdk().priceTiers.list(),
+    queryFn: () => withCache('price-tiers', () => getSdk().priceTiers.list()),
   });
 
   const { data: tierPrices, isLoading: loadingPrices } = useQuery({
     queryKey: ['tier-prices', selectedTier?.id],
     queryFn: () => {
       if (!selectedTier) return Promise.resolve([]);
-      return getSdk().priceTiers.getPrices(selectedTier.id);
+      return withCache(`tier-prices:${selectedTier.id}`, () => getSdk().priceTiers.getPrices(selectedTier.id));
     },
     enabled: !!selectedTier,
   });
 
   const { data: accounts } = useQuery({
     queryKey: QK.paymentAccounts(),
-    queryFn: () => getSdk().paymentAccounts.list(),
+    queryFn: () => withCache('payment-accounts', () => getSdk().paymentAccounts.list()),
   });
 
   React.useEffect(() => {
@@ -192,8 +200,67 @@ export default function NewSaleScreen() {
   const creditDelta = subtotalCents - paidCents;
 
   const createSaleMutation = useMutation({
-    mutationFn: (dto: CreateSaleDto) => getSdk().sales.create(dto),
+    mutationFn: async (dto: CreateSaleDto) => {
+      if (isOnline) {
+        return getSdk().sales.create(dto);
+      }
+      if (!shopId || !user) throw new Error(t('newSale.failedToCreateSale'));
+      const saleId = await createSaleOffline({
+        shopId,
+        actorUserId: user.id,
+        saleDate: dto.saleDate,
+        customerId: dto.customerId,
+        priceTierId: dto.priceTierId,
+        notes: dto.notes,
+        lines: dto.lines.map(l => {
+          const p = priceMap[l.beverageId];
+          return {
+            id: '',
+            beverageId: l.beverageId,
+            boxes: l.boxes ?? 0,
+            bottles: l.bottles ?? 0,
+            pricePerBoxCents: p?.pricePerBoxCents ?? 0,
+            pricePerBottleCents: p?.pricePerBottleCents ?? 0,
+          };
+        }),
+        payments: dto.payments?.map(p => ({
+          id: '',
+          paymentAccountId: p.paymentAccountId,
+          amountCents: p.amountCents,
+          method: p.method,
+        })),
+        containerKasas: dto.containerKasas?.map(k => ({
+          id: '',
+          beverageId: k.beverageId,
+          count: k.count,
+        })),
+        returnedContainers: dto.returnedContainers?.map(r => ({
+          id: '',
+          beverageId: r.beverageId,
+          boxes: r.boxes,
+          bottles: r.bottles,
+        })),
+      });
+      return { id: saleId, customerId: dto.customerId, subtotalCents: subtotalCents, paidCents: paidCents, creditDeltaCents: creditDelta, saleDate: dto.saleDate } as any;
+    },
     onSuccess: (sale) => {
+      if (!isOnline) {
+        getCachedResponse<any>('sales').then(existing => {
+          if (existing?.data) {
+            cacheResponse('sales', { ...existing, data: [sale, ...existing.data], total: existing.total + 1 });
+          }
+        });
+        if (sale.customerId) {
+          getCachedResponse<any>(`customer:${sale.customerId}`).then(existing => {
+            if (existing) {
+              cacheResponse(`customer:${sale.customerId}`, {
+                ...existing,
+                creditBalanceCents: (existing.creditBalanceCents ?? 0) + (sale.creditDeltaCents ?? 0),
+              });
+            }
+          });
+        }
+      }
       queryClient.invalidateQueries({ queryKey: QK.sales() });
       queryClient.invalidateQueries({ queryKey: QK.dashboard });
       if (sale.customerId) {

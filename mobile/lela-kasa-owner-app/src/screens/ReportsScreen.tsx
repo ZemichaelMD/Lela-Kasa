@@ -632,15 +632,21 @@ export default function ReportsScreen() {
         <Text style={[styles.title, { color: colors.textPrimary }]}>
           {t("reports")}
         </Text>
-        <TouchableOpacity
-          style={[styles.dateBadge, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
-          onPress={() => setShowDateFilter(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="calendar-outline" size={13} color={colors.primary} />
-          <Text style={[styles.dateBadgeText, { color: colors.primary }]}>{range.label}</Text>
-          <Ionicons name="chevron-down" size={11} color={colors.primary} />
-        </TouchableOpacity>
+        <DateFilter
+          visible={showDateFilter}
+          selected={preset === "lastMonth" || preset === "custom" ? "month" : preset}
+          onSelect={(p) => setPreset(p)}
+          onClose={() => setShowDateFilter(false)}
+          label={range.label}
+          showCustom
+          customFrom={customFrom}
+          customTo={customTo}
+          onCustomChange={(from, to) => {
+            setCustomFrom(from);
+            setCustomTo(to);
+          }}
+          onApplyCustom={handleApplyCustomDate}
+        />
       </View>
 
       <View style={styles.tabBarContainer}>
@@ -700,23 +706,6 @@ export default function ReportsScreen() {
       >
         {renderTabContent()}
       </ScrollView>
-
-      <DateFilter
-        visible={showDateFilter}
-        selected={
-          preset === "lastMonth" || preset === "custom" ? "month" : preset
-        }
-        onSelect={(p) => setPreset(p)}
-        onClose={() => setShowDateFilter(false)}
-        showCustom
-        customFrom={customFrom}
-        customTo={customTo}
-        onCustomChange={(from, to) => {
-          setCustomFrom(from);
-          setCustomTo(to);
-        }}
-        onApplyCustom={handleApplyCustomDate}
-      />
     </SafeAreaView>
   );
 }

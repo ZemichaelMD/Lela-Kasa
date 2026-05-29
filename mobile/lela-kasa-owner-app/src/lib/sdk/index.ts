@@ -120,6 +120,23 @@ export function getSdk(): KasaSdk {
   if (!_sdk) {
     const client = new SdkClient({
       tokenStore,
+      onRefresh: async (refreshToken: string) => {
+        const res = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (!res.ok) {
+          throw new Error('Refresh failed');
+        }
+        const body = await res.json();
+        const data = body.data ?? body;
+        return {
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          expiresIn: 3600,
+        };
+      },
       onUnauthenticated: () => {
         tokenStore.clearTokens();
         emitAuthLogout();

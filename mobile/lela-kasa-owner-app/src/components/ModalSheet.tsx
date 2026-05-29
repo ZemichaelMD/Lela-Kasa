@@ -1,8 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -11,14 +10,17 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+} from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { Ionicons } from "@expo/vector-icons";
 
-import { useTheme } from '../context/ThemeContext';
-import { palette, radius, spacing, type } from '../theme';
+import { useTheme } from "../context/ThemeContext";
+import { radius, spacing, type } from "../theme";
 
-const { height: SCREEN_H } = Dimensions.get('window');
+const { height: SCREEN_H } = Dimensions.get("window");
+
+const HANDLE_HEIGHT = 12;
+const HEADER_HEIGHT = 40;
 
 export interface ModalSheetProps {
   visible: boolean;
@@ -35,11 +37,12 @@ export function ModalSheet({
   title,
   children,
   footer,
-  maxHeightFraction = 0.9,
+  maxHeightFraction = 0.85,
 }: ModalSheetProps) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = useState(false);
+  const [bodyHeight, setBodyHeight] = useState(0);
+  const [needsScroll, setNeedsScroll] = useState(false);
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -56,7 +59,7 @@ export function ModalSheet({
     } else {
       Animated.timing(anim, {
         toValue: 0,
-        duration: 220,
+        duration: 200,
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (finished) setModalVisible(false);
@@ -64,16 +67,56 @@ export function ModalSheet({
     }
   }, [visible]);
 
+  useEffect(() => {
+    if (!visible) {
+      setBodyHeight(0);
+      setNeedsScroll(false);
+    }
+  }, [visible]);
+
+  const maxSheetHeight = SCREEN_H * maxHeightFraction;
+  const footerHeight = footer ? 54 : 0;
+  const availableBodyHeight =
+    maxSheetHeight - HANDLE_HEIGHT - HEADER_HEIGHT - footerHeight;
+
+  const handleBodyLayout = useCallback(
+    (e: { nativeEvent: { layout: { height: number } } }) => {
+      const h = e.nativeEvent.layout.height;
+      setBodyHeight(h);
+      setNeedsScroll(h > availableBodyHeight);
+    },
+    [availableBodyHeight],
+  );
+
+  const sheetHeight = Math.min(
+    HANDLE_HEIGHT + HEADER_HEIGHT + bodyHeight + footerHeight,
+    maxSheetHeight,
+  );
+
   const translateY = anim.interpolate({
     inputRange: [0, 1],
     outputRange: [SCREEN_H, 0],
-    extrapolate: 'clamp',
+    extrapolate: "clamp",
   });
   const backdropOpacity = anim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 1],
-    extrapolate: 'clamp',
+    extrapolate: "clamp",
   });
+
+  const bodyContent = needsScroll ? (
+    <ScrollView
+      style={{ maxHeight: availableBodyHeight }}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      {children}
+    </ScrollView>
+  ) : (
+    <View>{children}</View>
+  );
 
   return (
     <Modal
@@ -85,12 +128,15 @@ export function ModalSheet({
     >
       <KeyboardAvoidingView
         style={styles.root}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        automaticOffset
       >
         <TouchableWithoutFeedback onPress={onClose}>
           <Animated.View
-            style={[styles.backdrop, { backgroundColor: colors.scrim, opacity: backdropOpacity }]}
+            style={[
+              styles.backdrop,
+              { backgroundColor: colors.scrim, opacity: backdropOpacity },
+            ]}
           />
         </TouchableWithoutFeedback>
 
@@ -99,60 +145,50 @@ export function ModalSheet({
             styles.sheet,
             {
               backgroundColor: colors.surface,
-              height: SCREEN_H * maxHeightFraction,
+              height: sheetHeight,
               transform: [{ translateY }],
-              shadowColor: palette.forest[950],
-              shadowOffset: { width: 0, height: -8 },
-              shadowOpacity: 0.2,
-              shadowRadius: 32,
-              elevation: 24,
             },
           ]}
         >
-          {/* Drag handle */}
           <View style={styles.handleBar}>
-            <View style={[styles.handle, { backgroundColor: colors.borderStrong }]} />
+            <View
+              style={[styles.handle, { backgroundColor: colors.borderStrong }]}
+            />
           </View>
 
-          {/* Sticky header */}
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>
+              {title}
+            </Text>
             <TouchableOpacity onPress={onClose} hitSlop={8} activeOpacity={0.7}>
-              <View style={[styles.closeBtn, { backgroundColor: colors.surfaceMuted }]}>
+              <View
+                style={[
+                  styles.closeBtn,
+                  { backgroundColor: colors.surfaceMuted },
+                ]}
+              >
                 <Ionicons name="close" size={16} color={colors.textSecondary} />
               </View>
             </TouchableOpacity>
           </View>
 
-          {/* Scrollable body */}
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={[
-              styles.scrollContent,
-              { paddingBottom: footer ? spacing[4] : Math.max(insets.bottom, spacing[5]) + spacing[2] },
-            ]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-          >
-            {children}
-          </ScrollView>
+          <View style={styles.body} onLayout={handleBodyLayout}>
+            {bodyContent}
+          </View>
 
-          {/* Sticky footer */}
-          {footer && (
+          {footer ? (
             <View
               style={[
                 styles.footer,
                 {
                   borderTopColor: colors.border,
                   backgroundColor: colors.surface,
-                  paddingBottom: Math.max(insets.bottom, spacing[4]) + spacing[2],
                 },
               ]}
             >
               {footer}
             </View>
-          )}
+          ) : null}
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -162,20 +198,20 @@ export function ModalSheet({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
   },
   sheet: {
-    borderTopLeftRadius: radius['2xl'],
-    borderTopRightRadius: radius['2xl'],
-    overflow: 'hidden',
+    borderTopLeftRadius: radius["2xl"],
+    borderTopRightRadius: radius["2xl"],
+    overflow: "hidden",
   },
   handleBar: {
-    alignItems: 'center',
-    paddingTop: spacing[3],
-    paddingBottom: spacing[1],
+    alignItems: "center",
+    paddingTop: spacing[2],
+    paddingBottom: spacing[0],
   },
   handle: {
     width: 36,
@@ -183,12 +219,12 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: spacing[5],
-    paddingTop: spacing[2],
-    paddingBottom: spacing[4],
+    paddingTop: spacing[0],
+    paddingBottom: spacing[2],
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   title: {
@@ -198,19 +234,21 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  scroll: {
-    flex: 1,
+  body: {
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[2],
+    paddingBottom: spacing[0],
   },
   scrollContent: {
-    paddingHorizontal: spacing[5],
-    paddingTop: spacing[5],
+    paddingBottom: spacing[1],
   },
   footer: {
     paddingHorizontal: spacing[5],
-    paddingTop: spacing[4],
+    paddingTop: spacing[2],
+    paddingBottom: spacing[1],
     borderTopWidth: StyleSheet.hairlineWidth,
   },
 });

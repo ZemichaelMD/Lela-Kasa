@@ -1,14 +1,25 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Presets } from "react-native-pulsar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { EthiopianDatePicker } from './EthiopianDatePicker';
-import { ModalSheet } from './ModalSheet';
-import { useTheme } from '../context/ThemeContext';
-import { t } from '../lib/i18n';
-import { radius, spacing, type } from '../theme';
+import { CalendarSheet } from "./CalendarSheet";
+import { useTheme } from "../context/ThemeContext";
+import { t } from "../lib/i18n";
+import { radius, spacing } from "../theme";
 
-export type DatePreset = 'today' | 'week' | 'month';
+export type DatePreset = "today" | "week" | "month";
 
 interface DateFilterProps {
   visible: boolean;
@@ -20,16 +31,25 @@ interface DateFilterProps {
   customTo?: string;
   onCustomChange?: (from: string, to: string) => void;
   onApplyCustom?: () => void;
+  label: string;
+  extraPills?: {
+    key: string;
+    labelKey: string;
+    icon: keyof typeof Ionicons.glyphMap;
+  }[];
 }
 
-const presets: { key: DatePreset; labelKey: string; descKey: string }[] = [
-  { key: 'today', labelKey: 'today', descKey: 'todayDesc' },
-  { key: 'week', labelKey: 'thisWeek', descKey: 'thisWeekDesc' },
-  { key: 'month', labelKey: 'thisMonth', descKey: 'thisMonthDesc' },
+const presets: {
+  key: DatePreset;
+  labelKey: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { key: "today", labelKey: "today", icon: "today-outline" },
+  { key: "week", labelKey: "thisWeek", icon: "calendar-outline" },
+  { key: "month", labelKey: "thisMonth", icon: "calendar-number-outline" },
 ];
 
 export function DateFilter({
-  visible,
   selected,
   onSelect,
   onClose,
@@ -38,173 +58,298 @@ export function DateFilter({
   customTo,
   onCustomChange,
   onApplyCustom,
+  label,
+  extraPills,
 }: DateFilterProps) {
   const { colors } = useTheme();
-  const [showCustomRange, setShowCustomRange] = useState(false);
+  const insets = useSafeAreaInsets();
+  const [expanded, setExpanded] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(-60)).current;
 
-  const handleSelect = (key: DatePreset) => {
-    setShowCustomRange(false);
-    onSelect(key);
+  useEffect(() => {
+    if (expanded) {
+      fadeAnim.setValue(0);
+      slideAnim.setValue(-60);
+      setModalVisible(true);
+      Animated.parallel([
+        Animated.spring(fadeAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          damping: 20,
+          stiffness: 240,
+          mass: 0.75,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 20,
+          stiffness: 240,
+          mass: 0.75,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: -60,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setModalVisible(false);
+      });
+    }
+  }, [expanded, fadeAnim, slideAnim]);
+
+  function handleToggle() {
+    if (Platform.OS !== "web") {
+      try {
+        Presets.flick();
+      } catch {}
+    }
+    setExpanded((prev) => !prev);
+  }
+
+  function handleSelect(key: DatePreset | string) {
+    if (Platform.OS !== "web") {
+      try {
+        Presets.System.selection();
+      } catch {}
+    }
+    setExpanded(false);
+    onSelect(key as DatePreset);
     onClose();
-  };
+  }
 
-  const canApply = !!customFrom && !!customTo;
+  function handleCustomTap() {
+    if (Platform.OS !== "web") {
+      try {
+        Presets.System.selection();
+      } catch {}
+    }
+    setExpanded(false);
+    setShowCalendar(true);
+  }
+
+  function handleApplyCustom(from: string, to: string) {
+    onCustomChange?.(from, to);
+    onApplyCustom?.();
+    setShowCalendar(false);
+  }
+
+  const allPills = [
+    ...presets.map((p) => ({ ...p, onPress: () => handleSelect(p.key) })),
+    ...(extraPills ?? []).map((p) => ({
+      ...p,
+      onPress: () => handleSelect(p.key),
+    })),
+    ...(showCustom
+      ? [
+          {
+            key: "custom",
+            labelKey: "custom" as string,
+            icon: "options-outline" as keyof typeof Ionicons.glyphMap,
+            onPress: handleCustomTap,
+          },
+        ]
+      : []),
+  ];
 
   return (
-    <ModalSheet
-      visible={visible}
-      onClose={onClose}
-      title={t('filterByDate')}
-      maxHeightFraction={0.65}
-      footer={
-        showCustom && showCustomRange ? (
-          <TouchableOpacity
+    <View style={st.wrapper}>
+      <TouchableOpacity
+        style={[
+          st.trigger,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+        onPress={handleToggle}
+        activeOpacity={0.75}
+      >
+        <Ionicons
+          name="calendar-number-outline"
+          size={15}
+          color={colors.primary}
+        />
+        <Text style={[st.triggerText, { color: colors.textPrimary }]}>
+          {label}
+        </Text>
+        <Ionicons name="chevron-down" size={12} color={colors.textMuted} />
+      </TouchableOpacity>
+
+      {modalVisible && (
+        <Modal
+          visible={modalVisible}
+          transparent
+          animationType="none"
+          onRequestClose={handleToggle}
+          statusBarTranslucent
+        >
+          <TouchableWithoutFeedback onPress={handleToggle}>
+            <Animated.View style={[st.modalBackdrop, { opacity: fadeAnim }]} />
+          </TouchableWithoutFeedback>
+
+          <Animated.View
             style={[
-              styles.applyBtn,
-              { backgroundColor: canApply ? colors.primary : colors.surfaceMuted },
+              st.pillBar,
+              {
+                backgroundColor: colors.surface,
+                borderBottomColor: colors.border,
+                paddingTop: insets.top + spacing[2],
+                transform: [{ translateY: slideAnim }],
+              },
             ]}
-            onPress={() => { onApplyCustom?.(); onClose(); }}
-            disabled={!canApply}
-            activeOpacity={0.85}
           >
-            <Text style={[styles.applyBtnText, { color: canApply ? colors.textInverse : colors.textMuted }]}>
-              {t('apply')}
-            </Text>
-          </TouchableOpacity>
-        ) : undefined
-      }
-    >
-      <View style={[styles.listCard, { backgroundColor: colors.surfaceMuted, borderRadius: radius.lg }]}>
-        {presets.map(({ key, labelKey, descKey }, index) => {
-          const isActive = selected === key && !showCustomRange;
-          const isLast = index === presets.length - 1 && !showCustom;
-          return (
-            <TouchableOpacity
-              key={key}
-              style={[
-                styles.optionRow,
-                !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-              ]}
-              onPress={() => handleSelect(key)}
-              activeOpacity={0.6}
-            >
-              <View style={[styles.radio, { borderColor: isActive ? colors.primary : colors.borderStrong }]}>
-                {isActive && <View style={[styles.radioDot, { backgroundColor: colors.primary }]} />}
-              </View>
-              <View style={styles.optionText}>
-                <Text style={[styles.optionLabel, { color: isActive ? colors.primary : colors.textPrimary }]}>
-                  {t(labelKey as any)}
-                </Text>
-                <Text style={[styles.optionDesc, { color: colors.textMuted }]}>
-                  {t(descKey as any)}
-                </Text>
-              </View>
-              {isActive && (
-                <Ionicons name="checkmark" size={16} color={colors.primary} />
-              )}
-            </TouchableOpacity>
-          );
-        })}
+            <View style={st.pillBarContent}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={st.scrollContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                {allPills.map(({ key, labelKey, onPress, icon }) => {
+                  const isActive = selected === key;
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      style={[
+                        st.pill,
+                        isActive && { backgroundColor: colors.primary },
+                        !isActive && {
+                          backgroundColor: colors.surfaceMuted,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                      onPress={onPress}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons
+                        name={icon as any}
+                        size={14}
+                        color={
+                          isActive ? colors.textInverse : colors.textSecondary
+                        }
+                      />
+                      <Text
+                        style={[
+                          st.pillText,
+                          {
+                            color: isActive
+                              ? colors.textInverse
+                              : colors.textSecondary,
+                          },
+                          isActive && { fontWeight: "700" },
+                        ]}
+                      >
+                        {t((labelKey || key) as any)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
 
-        {showCustom && (
-          <TouchableOpacity
-            style={styles.optionRow}
-            onPress={() => setShowCustomRange(v => !v)}
-            activeOpacity={0.6}
-          >
-            <View style={[styles.radio, { borderColor: showCustomRange ? colors.primary : colors.borderStrong }]}>
-              {showCustomRange && <View style={[styles.radioDot, { backgroundColor: colors.primary }]} />}
+              <TouchableOpacity
+                style={[st.closeIcon, { backgroundColor: colors.surfaceMuted }]}
+                onPress={handleToggle}
+                hitSlop={8}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
-            <View style={styles.optionText}>
-              <Text style={[styles.optionLabel, { color: showCustomRange ? colors.primary : colors.textPrimary }]}>
-                {t('customRange')}
-              </Text>
-              <Text style={[styles.optionDesc, { color: colors.textMuted }]}>
-                {t('customRangeDesc')}
-              </Text>
-            </View>
-            <Ionicons
-              name={showCustomRange ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.textMuted}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {showCustom && showCustomRange && (
-        <View style={[styles.customSection, { borderColor: colors.border }]}>
-          <View style={styles.dateRow}>
-            <View style={styles.dateCol}>
-              <Text style={[styles.dateColLabel, { color: colors.textMuted }]}>From</Text>
-              <EthiopianDatePicker
-                value={customFrom ?? ''}
-                onChange={(v) => onCustomChange?.(v, customTo ?? '')}
-                placeholder="Start date"
-              />
-            </View>
-            <Ionicons name="arrow-forward" size={14} color={colors.textMuted} style={styles.dateArrow} />
-            <View style={styles.dateCol}>
-              <Text style={[styles.dateColLabel, { color: colors.textMuted }]}>To</Text>
-              <EthiopianDatePicker
-                value={customTo ?? ''}
-                onChange={(v) => onCustomChange?.(customFrom ?? '', v)}
-                placeholder="End date"
-              />
-            </View>
-          </View>
-        </View>
+          </Animated.View>
+        </Modal>
       )}
-    </ModalSheet>
+
+      {showCalendar && (
+        <CalendarSheet
+          visible={showCalendar}
+          onClose={() => setShowCalendar(false)}
+          rangeFrom={customFrom ?? ""}
+          rangeTo={customTo ?? ""}
+          onApply={handleApplyCustom}
+        />
+      )}
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  listCard: {
-    overflow: 'hidden',
+const st = StyleSheet.create({
+  wrapper: {
+    zIndex: 10,
   },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  trigger: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[1],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  triggerText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "transparent",
+  },
+  pillBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: spacing[2],
     paddingHorizontal: spacing[4],
-    paddingVertical: spacing[4],
-    gap: spacing[3],
+    borderBottomLeftRadius: radius.xl,
+    borderBottomRightRadius: radius.xl,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+      },
+      android: { elevation: 8 },
+    }),
   },
-  radio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
+  pillBarContent: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  radioDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  optionText: { flex: 1 },
-  optionLabel: { ...type.bodyMedium, fontSize: 14 },
-  optionDesc: { ...type.micro, marginTop: 1 },
-  customSection: {
-    marginTop: spacing[4],
-    paddingTop: spacing[4],
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  scrollContent: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing[2],
+    paddingRight: spacing[2],
   },
-  dateCol: { flex: 1 },
-  dateColLabel: { ...type.micro, marginBottom: spacing[1] },
-  dateArrow: { marginTop: spacing[5] },
-  applyBtn: {
-    height: 52,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[1],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: radius.full,
   },
-  applyBtnText: { ...type.bodyBold, fontSize: 16 },
+  pillText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  closeIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: spacing[1],
+  },
 });

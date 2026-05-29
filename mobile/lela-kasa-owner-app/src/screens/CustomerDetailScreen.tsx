@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Modal,
   ScrollView,
@@ -7,179 +7,275 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { EthiopianDatePicker } from '../components/EthiopianDatePicker';
-import { useFormattedDate } from '../components/FormattedDate';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Ionicons } from '@expo/vector-icons';
+} from "react-native";
+import { EthiopianDatePicker } from "../components/EthiopianDatePicker";
+import { useFormattedDate } from "../components/FormattedDate";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Ionicons } from "@expo/vector-icons";
 
-import type { RootStackParamList } from '../navigation/types';
-import { getSdk } from '../lib/sdk';
-import { QK } from '../lib/query-keys';
-import type { RecordPaymentDto, RecordReturnDto, LedgerEntry } from '../lib/sdk/resources/customers';
-import { SegmentControl } from '../components/SegmentControl';
-import { LedgerEntryRow } from '../components/LedgerEntryRow';
-import { SaleRow } from '../components/SaleRow';
-import { PaymentRow } from '../components/PaymentRow';
-import { AmountInput } from '../components/AmountInput';
-import { PickerSheet, type PickerItem } from '../components/PickerSheet';
-import { showToast } from '../components/Toast';
-import { Skeleton } from '../components/Skeleton';
-import { t } from '../lib/i18n';
-import { useTheme } from '../context/ThemeContext';
-import { radius, spacing, type } from '../theme';
+import type { RootStackParamList } from "../navigation/types";
+import { getSdk } from "../lib/sdk";
+import { QK } from "../lib/query-keys";
+import type {
+  RecordPaymentDto,
+  RecordReturnDto,
+  LedgerEntry,
+} from "../lib/sdk/resources/customers";
+import { SegmentControl } from "../components/SegmentControl";
+import { LedgerEntryRow } from "../components/LedgerEntryRow";
+import { SaleRow } from "../components/SaleRow";
+import { PaymentRow } from "../components/PaymentRow";
+import { AmountInput } from "../components/AmountInput";
+import { PickerSheet, type PickerItem } from "../components/PickerSheet";
+import { showToast } from "../components/Toast";
+import { Skeleton } from "../components/Skeleton";
+import { t } from "../lib/i18n";
+import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
+import { useOffline } from "../offline/context";
+import { recordCustomerPaymentOffline, recordReturnOffline } from "../offline/writes";
+import { withCache, cacheResponse, getCachedResponse } from "../lib/api-cache";
+import { radius, spacing, type } from "../theme";
 
 function formatCurrency(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 });
+  return (cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 });
 }
 
 function getTodayStr() {
-  return new Date().toISOString().split('T')[0];
+  return new Date().toISOString().split("T")[0];
 }
 function getFirstOfMonthStr() {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
 }
 
 export default function CustomerDetailScreen() {
   const { colors } = useTheme();
-  const route = useRoute<RouteProp<RootStackParamList, 'CustomerDetail'>>();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, "CustomerDetail">>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const queryClient = useQueryClient();
   const { customerId, customerName } = route.params;
   const insets = useSafeAreaInsets();
   const fmtDate = useFormattedDate();
+  const { user } = useAuth();
+  const { isOnline } = useOffline();
 
   const [activeTab, setActiveTab] = useState(0);
   const [showVoided, setShowVoided] = useState(false);
   const [showPaymentSheet, setShowPaymentSheet] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<RecordPaymentDto['method']>('CASH');
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] =
+    useState<RecordPaymentDto["method"]>("CASH");
   const [showAccountPicker, setShowAccountPicker] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState<{ id: string; name: string } | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [dateFrom, setDateFrom] = useState(getFirstOfMonthStr);
   const [dateTo, setDateTo] = useState(getTodayStr);
   const [showReturnSheet, setShowReturnSheet] = useState(false);
-  const [returnBoxes, setReturnBoxes] = useState('');
-  const [returnBottles, setReturnBottles] = useState('');
-  const [returnNotes, setReturnNotes] = useState('');
+  const [returnBoxes, setReturnBoxes] = useState("");
+  const [returnBottles, setReturnBottles] = useState("");
+  const [returnNotes, setReturnNotes] = useState("");
   const [showEditSheet, setShowEditSheet] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editPhone, setEditPhone] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editNotes, setEditNotes] = useState('');
-  const [editTierId, setEditTierId] = useState('');
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editTierId, setEditTierId] = useState("");
   const [editTierLocked, setEditTierLocked] = useState(false);
-  const [editUsername, setEditUsername] = useState('');
-  const [editPin, setEditPin] = useState('');
+  const [editUsername, setEditUsername] = useState("");
+  const [editPin, setEditPin] = useState("");
   const [emailVerifying, setEmailVerifying] = useState(false);
-  const [emailVerifyCode, setEmailVerifyCode] = useState('');
+  const [emailVerifyCode, setEmailVerifyCode] = useState("");
   const [showEmailVerify, setShowEmailVerify] = useState(false);
   const [resettingPin, setResettingPin] = useState(false);
 
   const { data: customer, isLoading: loadingCustomer } = useQuery({
     queryKey: QK.customer(customerId),
-    queryFn: () => getSdk().customers.findOne(customerId),
+    queryFn: () => withCache(`customer:${customerId}`, () => getSdk().customers.findOne(customerId)),
   });
 
   const { data: ledger = [], isLoading: loadingLedger } = useQuery({
     queryKey: QK.customerLedger(customerId),
-    queryFn: () => getSdk().customers.getLedger(customerId),
+    queryFn: () => withCache(`customer-ledger:${customerId}`, () => getSdk().customers.getLedger(customerId)),
   });
 
   const { data: accounts = [] } = useQuery({
     queryKey: QK.paymentAccounts(),
-    queryFn: () => getSdk().paymentAccounts.list(),
+    queryFn: () => withCache('payment-accounts', () => getSdk().paymentAccounts.list()),
   });
 
   const { data: tiers = [] } = useQuery({
     queryKey: QK.priceTiers(),
-    queryFn: () => getSdk().priceTiers.list(),
+    queryFn: () => withCache('price-tiers', () => getSdk().priceTiers.list()),
   });
 
   const recordPaymentMutation = useMutation({
-    mutationFn: (dto: RecordPaymentDto) =>
-      getSdk().customers.recordPayment(customerId, dto),
+    mutationFn: async (dto: RecordPaymentDto) => {
+      if (isOnline) {
+        return getSdk().customers.recordPayment(customerId, dto);
+      }
+      await recordCustomerPaymentOffline({
+        shopId: user?.shopId ?? '',
+        actorUserId: user?.id ?? '',
+        customerId,
+        amountCents: dto.amountCents,
+        method: dto.method,
+        paymentAccountId: dto.paymentAccountId,
+        reference: dto.reference,
+        notes: dto.notes,
+      });
+      return { id: customerId } as any;
+    },
     onSuccess: (updatedCustomer) => {
+      if (!isOnline) {
+        getCachedResponse<any>('customers').then(existing => {
+          if (existing?.data) {
+            const idx = existing.data.findIndex((c: any) => c.id === customerId);
+            if (idx >= 0) {
+              const paidCents = Math.round(parseFloat(paymentAmount) * 100);
+              const updated = { ...existing.data[idx], creditBalanceCents: Math.max(0, existing.data[idx].creditBalanceCents - paidCents) };
+              const data = [...existing.data];
+              data[idx] = updated;
+              cacheResponse('customers', { ...existing, data });
+            }
+          }
+        });
+      }
       queryClient.setQueryData(QK.customer(customerId), updatedCustomer);
-      queryClient.invalidateQueries({ queryKey: QK.customerLedger(customerId) });
+      queryClient.invalidateQueries({
+        queryKey: QK.customerLedger(customerId),
+      });
       queryClient.invalidateQueries({ queryKey: QK.dashboard });
       setShowPaymentSheet(false);
-      setPaymentAmount('');
+      setPaymentAmount("");
       setSelectedAccount(null);
-      showToast(t('paymentRecorded'), 'success');
+      showToast(t("paymentRecorded"), "success");
     },
     onError: () => {
-      showToast(t('failedToRecord'), 'error');
+      showToast(t("failedToRecord"), "error");
     },
   });
 
   const recordReturnMutation = useMutation({
-    mutationFn: (dto: RecordReturnDto) =>
-      getSdk().customers.recordReturn(customerId, dto),
+    mutationFn: async (dto: RecordReturnDto) => {
+      if (isOnline) {
+        return getSdk().customers.recordReturn(customerId, dto);
+      }
+      await recordReturnOffline({
+        shopId: user?.shopId ?? '',
+        actorUserId: user?.id ?? '',
+        customerId,
+        boxes: dto.boxes,
+        bottles: dto.bottles,
+        notes: dto.notes,
+      });
+      return { id: customerId } as any;
+    },
     onSuccess: (updatedCustomer) => {
+      if (!isOnline) {
+        getCachedResponse<any>('customers').then(existing => {
+          if (existing?.data) {
+            const idx = existing.data.findIndex((c: any) => c.id === customerId);
+            if (idx >= 0) {
+              const data = [...existing.data];
+              const retBoxes = parseInt(returnBoxes, 10) || 0;
+              const retBottles = parseInt(returnBottles, 10) || 0;
+              data[idx] = {
+                ...data[idx],
+                outstandingBoxes: Math.max(0, (data[idx].outstandingBoxes ?? 0) - retBoxes),
+                outstandingBottles: Math.max(0, (data[idx].outstandingBottles ?? 0) - retBottles),
+              };
+              cacheResponse('customers', { ...existing, data });
+            }
+          }
+        });
+      }
       queryClient.setQueryData(QK.customer(customerId), updatedCustomer);
-      queryClient.invalidateQueries({ queryKey: QK.customerLedger(customerId) });
+      queryClient.invalidateQueries({
+        queryKey: QK.customerLedger(customerId),
+      });
       setShowReturnSheet(false);
-      setReturnBoxes('');
-      setReturnBottles('');
-      setReturnNotes('');
-      showToast(t('returnRecorded'), 'success');
+      setReturnBoxes("");
+      setReturnBottles("");
+      setReturnNotes("");
+      showToast(t("returnRecorded"), "success");
     },
     onError: () => {
-      showToast(t('failedToRecord'), 'error');
+      showToast(t("failedToRecord"), "error");
     },
   });
 
   const remindMutation = useMutation({
     mutationFn: () => getSdk().customers.remind(customerId),
     onSuccess: (res) => {
-      if (res.throttled) showToast(res.message, 'info');
-      else if (res.success) showToast(res.message, 'success');
-      else showToast(res.message, 'error');
+      if (res.throttled) showToast(res.message, "info");
+      else if (res.success) showToast(res.message, "success");
+      else showToast(res.message, "error");
     },
     onError: (err: any) => {
-      showToast(err?.message ?? t('reminderFailed'), 'error');
+      showToast(err?.message ?? t("reminderFailed"), "error");
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: (dto: { name?: string; phone?: string; email?: string; notes?: string; priceTierId?: string; priceTierLocked?: boolean; username?: string; pin?: string }) =>
-      getSdk().customers.update(customerId, dto),
+    mutationFn: (dto: {
+      name?: string;
+      phone?: string;
+      email?: string;
+      notes?: string;
+      priceTierId?: string;
+      priceTierLocked?: boolean;
+      username?: string;
+      pin?: string;
+    }) => getSdk().customers.update(customerId, dto),
     onSuccess: (updated) => {
-      queryClient.setQueryData(QK.customer(customerId), (old: any) => ({ ...old, ...updated }));
+      queryClient.setQueryData(QK.customer(customerId), (old: any) => ({
+        ...old,
+        ...updated,
+      }));
       // If a PIN was provided, call setCredentials separately
       if (editPin.trim() && !customer?.passwordChangedAt) {
-        getSdk().customers.setCredentials(customerId, {
-          username: editUsername.trim() || editName.trim().toLowerCase().replace(/\s+/g, '_'),
-          pin: editPin.trim(),
-        }).then(() => {
-          showToast(t('customerUpdated') as any, 'success');
-        }).catch((err: any) => {
-          showToast(err?.message ?? 'Failed', 'error');
-        });
+        getSdk()
+          .customers.setCredentials(customerId, {
+            username:
+              editUsername.trim() ||
+              editName.trim().toLowerCase().replace(/\s+/g, "_"),
+            pin: editPin.trim(),
+          })
+          .then(() => {
+            showToast(t("customerUpdated") as any, "success");
+          })
+          .catch((err: any) => {
+            showToast(err?.message ?? "Failed", "error");
+          });
       } else {
-        showToast(t('customerUpdated') as any, 'success');
+        showToast(t("customerUpdated") as any, "success");
       }
       setShowEditSheet(false);
-      setEditPin('');
+      setEditPin("");
     },
-    onError: (err: any) => showToast(err?.message ?? 'Failed', 'error'),
+    onError: (err: any) => showToast(err?.message ?? "Failed", "error"),
   });
 
   function openEditSheet() {
     if (!customer) return;
     setEditName(customer.name);
-    setEditPhone(customer.phone ?? '');
-    setEditEmail((customer as any).email ?? '');
-    setEditNotes(customer.notes ?? '');
-    setEditTierId(customer.priceTierId ?? '');
+    setEditPhone(customer.phone ?? "");
+    setEditEmail((customer as any).email ?? "");
+    setEditNotes(customer.notes ?? "");
+    setEditTierId(customer.priceTierId ?? "");
     setEditTierLocked(customer.priceTierLocked ?? false);
-    setEditUsername((customer as any).username ?? '');
-    setEditPin('');
+    setEditUsername((customer as any).username ?? "");
+    setEditPin("");
     setShowEditSheet(true);
   }
 
@@ -188,9 +284,9 @@ export default function CustomerDetailScreen() {
     setResettingPin(true);
     try {
       await getSdk().customers.resetPin(customerId);
-      showToast('PIN reset code sent to customer email', 'success');
+      showToast("PIN reset code sent to customer email", "success");
     } catch (err: any) {
-      showToast(err?.message ?? 'Failed to reset PIN', 'error');
+      showToast(err?.message ?? "Failed to reset PIN", "error");
     } finally {
       setResettingPin(false);
     }
@@ -202,9 +298,9 @@ export default function CustomerDetailScreen() {
     try {
       await getSdk().customers.sendEmailOtp(customerId);
       setShowEmailVerify(true);
-      setEmailVerifyCode('');
+      setEmailVerifyCode("");
     } catch (err: any) {
-      showToast(err?.message ?? 'Failed to send code', 'error');
+      showToast(err?.message ?? "Failed to send code", "error");
     } finally {
       setEmailVerifying(false);
     }
@@ -215,38 +311,47 @@ export default function CustomerDetailScreen() {
     setEmailVerifying(true);
     try {
       await getSdk().customers.verifyEmail(customerId, emailVerifyCode.trim());
-      showToast('Email verified', 'success');
+      showToast("Email verified", "success");
       setShowEmailVerify(false);
       queryClient.invalidateQueries({ queryKey: QK.customer(customerId) });
     } catch (err: any) {
-      showToast(err?.message ?? 'Verification failed', 'error');
+      showToast(err?.message ?? "Verification failed", "error");
     } finally {
       setEmailVerifying(false);
     }
   }
 
-  const tierName = tiers.find(t => t.id === customer?.priceTierId)?.name;
-  const tierLabel = tierName ? `${tierName}${customer?.priceTierLocked ? ' (locked)' : ''}` : t('none');
+  const tierName = tiers.find((t) => t.id === customer?.priceTierId)?.name;
+  const tierLabel = tierName
+    ? `${tierName}${customer?.priceTierLocked ? " (locked)" : ""}`
+    : t("none");
 
-  const filteredLedger = showVoided ? ledger : ledger.filter(entry => {
-    if (entry.type === 'sale') return entry.data.status !== 'VOIDED';
-    if (entry.type === 'payment') return !entry.data.voidedAt;
-    return true;
-  }).filter(entry => {
-    const from = new Date(dateFrom);
-    from.setHours(0, 0, 0, 0);
-    const to = new Date(dateTo);
-    to.setHours(23, 59, 59, 999);
-    const d = new Date(entry.date);
-    if (d < from || d > to) return false;
-    return true;
-  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const filteredLedger = showVoided
+    ? ledger
+    : ledger
+        .filter((entry) => {
+          if (entry.type === "sale") return entry.data.status !== "VOIDED";
+          if (entry.type === "payment") return !entry.data.voidedAt;
+          return true;
+        })
+        .filter((entry) => {
+          const from = new Date(dateFrom);
+          from.setHours(0, 0, 0, 0);
+          const to = new Date(dateTo);
+          to.setHours(23, 59, 59, 999);
+          const d = new Date(entry.date);
+          if (d < from || d > to) return false;
+          return true;
+        })
+        .sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+        );
 
-  const salesEntries = filteredLedger.filter(e => e.type === 'sale');
-  const paymentEntries = filteredLedger.filter(e => e.type === 'payment');
-  const returnEntries = filteredLedger.filter(e => e.type === 'return');
+  const salesEntries = filteredLedger.filter((e) => e.type === "sale");
+  const paymentEntries = filteredLedger.filter((e) => e.type === "payment");
+  const returnEntries = filteredLedger.filter((e) => e.type === "return");
 
-  const accountItems: PickerItem[] = accounts.map(a => ({
+  const accountItems: PickerItem[] = accounts.map((a) => ({
     id: a.id,
     label: a.name,
     subtitle: a.kind,
@@ -255,11 +360,11 @@ export default function CustomerDetailScreen() {
   const handleRecordPayment = () => {
     const amount = parseFloat(paymentAmount);
     if (!amount || amount <= 0) {
-      showToast(t('enterValidAmount'), 'error');
+      showToast(t("enterValidAmount"), "error");
       return;
     }
     if (!selectedAccount) {
-      showToast(t('newSale.selectAccount'), 'error');
+      showToast(t("newSale.selectAccount"), "error");
       return;
     }
     recordPaymentMutation.mutate({
@@ -273,7 +378,7 @@ export default function CustomerDetailScreen() {
     const boxes = parseInt(returnBoxes, 10) || 0;
     const bottles = parseInt(returnBottles, 10) || 0;
     if (boxes <= 0 && bottles <= 0) {
-      showToast(t('enterReturnAmount'), 'error');
+      showToast(t("enterReturnAmount"), "error");
       return;
     }
     recordReturnMutation.mutate({
@@ -284,10 +389,12 @@ export default function CustomerDetailScreen() {
   };
 
   const isLoading = loadingCustomer || loadingLedger;
-  const tabs = [t('activity'), t('sales'), t('payments'), t('returns')];
+  const tabs = [t("activity"), t("sales"), t("payments"), t("returns")];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       {isLoading ? (
         <View style={styles.header}>
           <Skeleton width={160} height={28} />
@@ -301,24 +408,60 @@ export default function CustomerDetailScreen() {
           >
             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={[styles.name, { color: colors.textPrimary }]}>{customer.name}</Text>
+          <Text style={[styles.name, { color: colors.textPrimary }]}>
+            {customer.name}
+          </Text>
           {customer.phone && (
-            <Text style={[styles.phone, { color: colors.textSecondary }]}>{customer.phone}</Text>
+            <Text style={[styles.phone, { color: colors.textSecondary }]}>
+              {customer.phone}
+            </Text>
           )}
           {(customer as any).email && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[1], marginTop: 2 }}>
-              <Text style={[styles.phone, { color: colors.textMuted, fontSize: 12 }]}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: spacing[1],
+                marginTop: 2,
+              }}
+            >
+              <Text
+                style={[
+                  styles.phone,
+                  { color: colors.textMuted, fontSize: 12 },
+                ]}
+              >
                 {(customer as any).email}
               </Text>
-              <Text style={[styles.phone, { color: (customer as any).emailVerified ? colors.success : colors.warning, fontSize: 11, fontWeight: '700' }]}>
-                {(customer as any).emailVerified ? '✓' : 'Unverified'}
+              <Text
+                style={[
+                  styles.phone,
+                  {
+                    color: (customer as any).emailVerified
+                      ? colors.success
+                      : colors.warning,
+                    fontSize: 11,
+                    fontWeight: "700",
+                  },
+                ]}
+              >
+                {(customer as any).emailVerified ? "✓" : "Unverified"}
               </Text>
             </View>
           )}
           <View style={styles.tierRow}>
-            <Text style={[styles.tierLabel, { color: colors.textMuted }]}>Price tier: {tierLabel}</Text>
-            <TouchableOpacity onPress={openEditSheet} style={[styles.tierEditButton, { borderColor: colors.border }]}>
-              <Ionicons name="pencil-outline" size={14} color={colors.textSecondary} />
+            <Text style={[styles.tierLabel, { color: colors.textMuted }]}>
+              Price tier: {tierLabel}
+            </Text>
+            <TouchableOpacity
+              onPress={openEditSheet}
+              style={[styles.tierEditButton, { borderColor: colors.border }]}
+            >
+              <Ionicons
+                name="pencil-outline"
+                size={14}
+                color={colors.textSecondary}
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -327,21 +470,47 @@ export default function CustomerDetailScreen() {
       {customer && (
         <View style={[styles.balanceCard, { backgroundColor: colors.surface }]}>
           <View style={styles.balanceRow}>
-            <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>{t('creditBalance')}</Text>
-            <Text style={[styles.balanceValue, { color: customer.creditBalanceCents > 0 ? colors.danger : colors.success }]}>
+            <Text
+              style={[styles.balanceLabel, { color: colors.textSecondary }]}
+            >
+              {t("creditBalance")}
+            </Text>
+            <Text
+              style={[
+                styles.balanceValue,
+                {
+                  color:
+                    customer.creditBalanceCents > 0
+                      ? colors.danger
+                      : colors.success,
+                },
+              ]}
+            >
               {formatCurrency(customer.creditBalanceCents)}
             </Text>
           </View>
           <View style={styles.containersRow}>
-            <Text style={[styles.containerText, { color: colors.textSecondary }]}>{t('newSale.boxes')}: {customer.outstandingBoxes}</Text>
-            <Text style={[styles.containerText, { color: colors.textSecondary }]}>{t('newSale.bottles')}: {customer.outstandingBottles}</Text>
+            <Text
+              style={[styles.containerText, { color: colors.textSecondary }]}
+            >
+              {t("newSale.boxes")}: {customer.outstandingBoxes}
+            </Text>
+            <Text
+              style={[styles.containerText, { color: colors.textSecondary }]}
+            >
+              {t("newSale.bottles")}: {customer.outstandingBottles}
+            </Text>
           </View>
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={[styles.payButton, { backgroundColor: colors.primary }]}
               onPress={() => setShowPaymentSheet(true)}
             >
-              <Text style={[styles.payButtonText, { color: colors.textInverse }]}>{t('payNow')}</Text>
+              <Text
+                style={[styles.payButtonText, { color: colors.textInverse }]}
+              >
+                {t("payNow")}
+              </Text>
             </TouchableOpacity>
             {(customer.creditBalanceCents > 0 ||
               customer.outstandingBoxes > 0 ||
@@ -351,9 +520,17 @@ export default function CustomerDetailScreen() {
                 onPress={() => remindMutation.mutate()}
                 disabled={remindMutation.isPending}
               >
-                <Ionicons name="notifications-outline" size={16} color={colors.textPrimary} />
-                <Text style={[styles.payButtonText, { color: colors.textPrimary }]}>
-                  {remindMutation.isPending ? t('reminding') : t('remindCustomer')}
+                <Ionicons
+                  name="notifications-outline"
+                  size={16}
+                  color={colors.textPrimary}
+                />
+                <Text
+                  style={[styles.payButtonText, { color: colors.textPrimary }]}
+                >
+                  {remindMutation.isPending
+                    ? t("reminding")
+                    : t("remindCustomer")}
                 </Text>
               </TouchableOpacity>
             )}
@@ -363,9 +540,15 @@ export default function CustomerDetailScreen() {
                 onPress={handleResetPin}
                 disabled={resettingPin}
               >
-                <Ionicons name="key-outline" size={16} color={colors.textPrimary} />
-                <Text style={[styles.payButtonText, { color: colors.textPrimary }]}>
-                  {resettingPin ? 'Sending...' : 'Reset PIN'}
+                <Ionicons
+                  name="key-outline"
+                  size={16}
+                  color={colors.textPrimary}
+                />
+                <Text
+                  style={[styles.payButtonText, { color: colors.textPrimary }]}
+                >
+                  {resettingPin ? "Sending..." : "Reset PIN"}
                 </Text>
               </TouchableOpacity>
             )}
@@ -379,146 +562,216 @@ export default function CustomerDetailScreen() {
         onChange={setActiveTab}
       />
 
-      <View style={[styles.dateFilterBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.dateFilterLabel, { color: colors.textSecondary }]}>{t('filterByDate')}</Text>
+      <View
+        style={[
+          styles.dateFilterBar,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[styles.dateFilterLabel, { color: colors.textSecondary }]}>
+          {t("filterByDate")}
+        </Text>
         <View style={styles.dateInputRow}>
-          <Text style={[styles.dateInputLabel, { color: colors.textMuted }]}>{t('from')}</Text>
-          <EthiopianDatePicker value={dateFrom} onChange={setDateFrom} placeholder="From" />
+          <Text style={[styles.dateInputLabel, { color: colors.textMuted }]}>
+            {t("from")}
+          </Text>
+          <EthiopianDatePicker
+            value={dateFrom}
+            onChange={setDateFrom}
+            placeholder="From"
+          />
         </View>
         <View style={styles.dateInputRow}>
-          <Text style={[styles.dateInputLabel, { color: colors.textMuted }]}>{t('to')}</Text>
-          <EthiopianDatePicker value={dateTo} onChange={setDateTo} placeholder="To" />
+          <Text style={[styles.dateInputLabel, { color: colors.textMuted }]}>
+            {t("to")}
+          </Text>
+          <EthiopianDatePicker
+            value={dateTo}
+            onChange={setDateTo}
+            placeholder="To"
+          />
         </View>
         <TouchableOpacity
-          onPress={() => { setDateFrom(getFirstOfMonthStr()); setDateTo(getTodayStr()); }}
+          onPress={() => {
+            setDateFrom(getFirstOfMonthStr());
+            setDateTo(getTodayStr());
+          }}
           style={styles.thisMonthBtn}
         >
-          <Text style={[styles.thisMonthBtnText, { color: colors.primary }]}>{t('thisMonth')}</Text>
+          <Text style={[styles.thisMonthBtnText, { color: colors.primary }]}>
+            {t("thisMonth")}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setShowVoided((v) => !v)}
           style={[
             styles.voidedBtn,
             {
-              backgroundColor: showVoided ? colors.primary + '1A' : 'transparent',
-              borderColor: showVoided ? colors.primary + '40' : colors.border,
+              backgroundColor: showVoided
+                ? colors.primary + "1A"
+                : "transparent",
+              borderColor: showVoided ? colors.primary + "40" : colors.border,
             },
           ]}
         >
           <Ionicons
-            name={showVoided ? 'eye-outline' : 'eye-off-outline'}
+            name={showVoided ? "eye-outline" : "eye-off-outline"}
             size={14}
             color={showVoided ? colors.primary : colors.textMuted}
           />
-          <Text style={[styles.voidedBtnText, { color: showVoided ? colors.primary : colors.textMuted }]}>
-            {t('showVoided')}
+          <Text
+            style={[
+              styles.voidedBtnText,
+              { color: showVoided ? colors.primary : colors.textMuted },
+            ]}
+          >
+            {t("showVoided")}
           </Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.list}>
-        {activeTab === 0 && filteredLedger.map((entry, i) => {
-          if (entry.type === 'sale') {
+        {activeTab === 0 &&
+          filteredLedger.map((entry, i) => {
+            if (entry.type === "sale") {
+              return (
+                <LedgerEntryRow
+                  key={i}
+                  type="sale"
+                  label={t("sales")}
+                  date={fmtDate(entry.date)}
+                  amountCents={entry.data.creditDeltaCents}
+                  voided={entry.data.status === "VOIDED"}
+                  onPress={() =>
+                    navigation.navigate("SaleDetail", { saleId: entry.data.id })
+                  }
+                />
+              );
+            }
+            if (entry.type === "payment") {
+              return (
+                <LedgerEntryRow
+                  key={i}
+                  type="payment"
+                  label={t("payments")}
+                  date={fmtDate(entry.date)}
+                  amountCents={entry.data.amountCents}
+                  voided={!!entry.data.voidedAt}
+                />
+              );
+            }
             return (
               <LedgerEntryRow
                 key={i}
-                type="sale"
-                label={t('sales')}
+                type="return"
+                label={t("returns")}
                 date={fmtDate(entry.date)}
-                amountCents={entry.data.creditDeltaCents}
-                voided={entry.data.status === 'VOIDED'}
-                onPress={() => navigation.navigate('SaleDetail', { saleId: entry.data.id })}
+                amountCents={0}
+                boxes={entry.data.boxes}
+                bottles={entry.data.bottles}
               />
             );
-          }
-          if (entry.type === 'payment') {
+          })}
+
+        {activeTab === 1 &&
+          salesEntries.map((entry, i) => {
+            if (entry.type !== "sale") return null;
             return (
-              <LedgerEntryRow
+              <SaleRow
                 key={i}
-                type="payment"
-                label={t('payments')}
+                date={fmtDate(entry.date)}
+                totalCents={entry.data.subtotalCents}
+                paidCents={entry.data.paidCents}
+                creditDeltaCents={entry.data.creditDeltaCents}
+                status={entry.data.status}
+                onPress={() =>
+                  navigation.navigate("SaleDetail", { saleId: entry.data.id })
+                }
+              />
+            );
+          })}
+
+        {activeTab === 2 &&
+          paymentEntries.map((entry, i) => {
+            if (entry.type !== "payment") return null;
+            return (
+              <PaymentRow
+                key={i}
                 date={fmtDate(entry.date)}
                 amountCents={entry.data.amountCents}
+                method={entry.data.method}
                 voided={!!entry.data.voidedAt}
+                type={entry.data.saleId ? "sale" : "account"}
               />
             );
-          }
-          return (
-            <LedgerEntryRow
-              key={i}
-              type="return"
-              label={t('returns')}
-              date={fmtDate(entry.date)}
-              amountCents={0}
-              boxes={entry.data.boxes}
-              bottles={entry.data.bottles}
-            />
-          );
-        })}
+          })}
 
-        {activeTab === 1 && salesEntries.map((entry, i) => {
-          if (entry.type !== 'sale') return null;
-          return (
-            <SaleRow
-              key={i}
-              date={fmtDate(entry.date)}
-              totalCents={entry.data.subtotalCents}
-              paidCents={entry.data.paidCents}
-              creditDeltaCents={entry.data.creditDeltaCents}
-              status={entry.data.status}
-              onPress={() => navigation.navigate('SaleDetail', { saleId: entry.data.id })}
-            />
-          );
-        })}
-
-        {activeTab === 2 && paymentEntries.map((entry, i) => {
-          if (entry.type !== 'payment') return null;
-          return (
-            <PaymentRow
-              key={i}
-              date={fmtDate(entry.date)}
-              amountCents={entry.data.amountCents}
-              method={entry.data.method}
-              voided={!!entry.data.voidedAt}
-              type={entry.data.saleId ? 'sale' : 'account'}
-            />
-          );
-        })}
-
-        {activeTab === 3 && returnEntries.map((entry, i) => {
-          if (entry.type !== 'return') return null;
-          return (
-            <LedgerEntryRow
-              key={i}
-              type="return"
-              label={t('returns')}
-              date={fmtDate(entry.date)}
-              amountCents={0}
-              boxes={entry.data.boxes}
-              bottles={entry.data.bottles}
-            />
-          );
-        })}
+        {activeTab === 3 &&
+          returnEntries.map((entry, i) => {
+            if (entry.type !== "return") return null;
+            return (
+              <LedgerEntryRow
+                key={i}
+                type="return"
+                label={t("returns")}
+                date={fmtDate(entry.date)}
+                amountCents={0}
+                boxes={entry.data.boxes}
+                bottles={entry.data.bottles}
+              />
+            );
+          })}
       </ScrollView>
 
-      <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+      <View
+        style={[
+          styles.bottomBar,
+          { backgroundColor: colors.surface, borderTopColor: colors.border },
+        ]}
+      >
         <TouchableOpacity
           style={[styles.bottomButton, { backgroundColor: colors.primary }]}
           onPress={() => setShowPaymentSheet(true)}
         >
-          <Text style={[styles.bottomButtonText, { color: colors.textInverse }]}>{t('recordPayment')}</Text>
+          <Text
+            style={[styles.bottomButtonText, { color: colors.textInverse }]}
+          >
+            {t("recordPayment")}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.bottomButton, styles.bottomButtonSecondary, { backgroundColor: colors.surfaceMuted }]}
+          style={[
+            styles.bottomButton,
+            styles.bottomButtonSecondary,
+            { backgroundColor: colors.surfaceMuted },
+          ]}
           onPress={() => setShowReturnSheet(true)}
         >
-          <Text style={[styles.bottomButtonSecondaryText, { color: colors.textPrimary }]}>{t('recordReturn')}</Text>
+          <Text
+            style={[
+              styles.bottomButtonSecondaryText,
+              { color: colors.textPrimary },
+            ]}
+          >
+            {t("recordReturn")}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.bottomButton, styles.bottomButtonSecondary, { backgroundColor: colors.surfaceMuted }]}
-          onPress={() => navigation.navigate('NewSale', { customerId })}
+          style={[
+            styles.bottomButton,
+            styles.bottomButtonSecondary,
+            { backgroundColor: colors.surfaceMuted },
+          ]}
+          onPress={() => navigation.navigate("NewSale", { customerId })}
         >
-          <Text style={[styles.bottomButtonSecondaryText, { color: colors.textPrimary }]}>{t('newSale.title')}</Text>
+          <Text
+            style={[
+              styles.bottomButtonSecondaryText,
+              { color: colors.textPrimary },
+            ]}
+          >
+            {t("newSale.title")}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -530,46 +783,129 @@ export default function CustomerDetailScreen() {
         onRequestClose={() => setShowPaymentSheet(false)}
       >
         <View style={[styles.modalOverlay, { backgroundColor: colors.scrim }]}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, spacing[6]) }]}>
-            <View style={[styles.modalHeader, { paddingTop: Math.max(insets.top, spacing[4]), borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('recordPayment')}</Text>
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor: colors.background,
+                paddingBottom: Math.max(insets.bottom, spacing[6]),
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.modalHeader,
+                {
+                  paddingTop: Math.max(insets.top, spacing[4]),
+                  borderBottomColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                {t("recordPayment")}
+              </Text>
               <TouchableOpacity onPress={() => setShowPaymentSheet(false)}>
                 <Ionicons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalContent}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('amount')}</Text>
+              <Text
+                style={[styles.fieldLabel, { color: colors.textSecondary }]}
+              >
+                {t("amount")}
+              </Text>
               <AmountInput
                 value={paymentAmount}
                 onChangeText={setPaymentAmount}
                 placeholder="0.00"
               />
 
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[4] }]}>{t('method')}</Text>
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  { color: colors.textSecondary, marginTop: spacing[4] },
+                ]}
+              >
+                {t("method")}
+              </Text>
               <View style={styles.methodRow}>
-                {(['CASH', 'BANK_TRANSFER', 'MOBILE_MONEY', 'OTHER'] as const).map(m => (
+                {(
+                  ["CASH", "BANK_TRANSFER", "MOBILE_MONEY", "OTHER"] as const
+                ).map((m) => (
                   <TouchableOpacity
                     key={m}
-                    style={[styles.methodChip, { backgroundColor: paymentMethod === m ? colors.primary : colors.surfaceMuted }]}
+                    style={[
+                      styles.methodChip,
+                      {
+                        backgroundColor:
+                          paymentMethod === m
+                            ? colors.primary
+                            : colors.surfaceMuted,
+                      },
+                    ]}
                     onPress={() => setPaymentMethod(m)}
                   >
-                    <Text style={[styles.methodText, { color: paymentMethod === m ? colors.textInverse : colors.textSecondary }]}>
-                      {t(m === 'CASH' ? 'newSale.cash' : m === 'BANK_TRANSFER' ? 'newSale.bankTransfer' : m === 'MOBILE_MONEY' ? 'newSale.mobileMoney' : 'newSale.other')}
+                    <Text
+                      style={[
+                        styles.methodText,
+                        {
+                          color:
+                            paymentMethod === m
+                              ? colors.textInverse
+                              : colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      {t(
+                        m === "CASH"
+                          ? "newSale.cash"
+                          : m === "BANK_TRANSFER"
+                            ? "newSale.bankTransfer"
+                            : m === "MOBILE_MONEY"
+                              ? "newSale.mobileMoney"
+                              : "newSale.other",
+                      )}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[4] }]}>{t('account')}</Text>
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  { color: colors.textSecondary, marginTop: spacing[4] },
+                ]}
+              >
+                {t("account")}
+              </Text>
               <TouchableOpacity
-                style={[styles.accountPicker, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                style={[
+                  styles.accountPicker,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
                 onPress={() => setShowAccountPicker(true)}
               >
-                <Text style={[styles.accountPickerText, { color: selectedAccount ? colors.textPrimary : colors.textMuted }]}>
-                  {selectedAccount?.name ?? t('newSale.selectAccount')}
+                <Text
+                  style={[
+                    styles.accountPickerText,
+                    {
+                      color: selectedAccount
+                        ? colors.textPrimary
+                        : colors.textMuted,
+                    },
+                  ]}
+                >
+                  {selectedAccount?.name ?? t("newSale.selectAccount")}
                 </Text>
-                <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
+                <Ionicons
+                  name="chevron-down"
+                  size={20}
+                  color={colors.textMuted}
+                />
               </TouchableOpacity>
             </View>
 
@@ -578,8 +914,12 @@ export default function CustomerDetailScreen() {
               onPress={handleRecordPayment}
               disabled={recordPaymentMutation.isPending}
             >
-              <Text style={[styles.submitButtonText, { color: colors.textInverse }]}>
-                {recordPaymentMutation.isPending ? t('newSale.recording') : t('recordPayment')}
+              <Text
+                style={[styles.submitButtonText, { color: colors.textInverse }]}
+              >
+                {recordPaymentMutation.isPending
+                  ? t("newSale.recording")
+                  : t("recordPayment")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -594,18 +934,47 @@ export default function CustomerDetailScreen() {
         onRequestClose={() => setShowReturnSheet(false)}
       >
         <View style={[styles.modalOverlay, { backgroundColor: colors.scrim }]}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, spacing[6]) }]}>
-            <View style={[styles.modalHeader, { paddingTop: Math.max(insets.top, spacing[4]), borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('recordReturn')}</Text>
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor: colors.background,
+                paddingBottom: Math.max(insets.bottom, spacing[6]),
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.modalHeader,
+                {
+                  paddingTop: Math.max(insets.top, spacing[4]),
+                  borderBottomColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                {t("recordReturn")}
+              </Text>
               <TouchableOpacity onPress={() => setShowReturnSheet(false)}>
                 <Ionicons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalContent}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('newSale.boxes')}</Text>
+              <Text
+                style={[styles.fieldLabel, { color: colors.textSecondary }]}
+              >
+                {t("newSale.boxes")}
+              </Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                  },
+                ]}
                 value={returnBoxes}
                 onChangeText={setReturnBoxes}
                 placeholder="0"
@@ -613,9 +982,23 @@ export default function CustomerDetailScreen() {
                 keyboardType="number-pad"
               />
 
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[4] }]}>{t('newSale.bottles')}</Text>
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  { color: colors.textSecondary, marginTop: spacing[4] },
+                ]}
+              >
+                {t("newSale.bottles")}
+              </Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                  },
+                ]}
                 value={returnBottles}
                 onChangeText={setReturnBottles}
                 placeholder="0"
@@ -623,12 +1006,27 @@ export default function CustomerDetailScreen() {
                 keyboardType="number-pad"
               />
 
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[4] }]}>{t('notes')}</Text>
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  { color: colors.textSecondary, marginTop: spacing[4] },
+                ]}
+              >
+                {t("notes")}
+              </Text>
               <TextInput
-                style={[styles.input, styles.textArea, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.surface,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                  },
+                ]}
                 value={returnNotes}
                 onChangeText={setReturnNotes}
-                placeholder={t('notes')}
+                placeholder={t("notes")}
                 placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={3}
@@ -640,8 +1038,12 @@ export default function CustomerDetailScreen() {
               onPress={handleRecordReturn}
               disabled={recordReturnMutation.isPending}
             >
-              <Text style={[styles.submitButtonText, { color: colors.textInverse }]}>
-                {recordReturnMutation.isPending ? t('saving') : t('recordReturn')}
+              <Text
+                style={[styles.submitButtonText, { color: colors.textInverse }]}
+              >
+                {recordReturnMutation.isPending
+                  ? t("saving")
+                  : t("recordReturn")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -650,46 +1052,103 @@ export default function CustomerDetailScreen() {
 
       <PickerSheet
         visible={showAccountPicker}
-        title={t('account')}
+        title={t("account")}
         items={accountItems}
         onSelect={(item) => {
-          const account = accounts.find(a => a.id === item.id);
-          if (account) setSelectedAccount({ id: account.id, name: account.name });
+          const account = accounts.find((a) => a.id === item.id);
+          if (account)
+            setSelectedAccount({ id: account.id, name: account.name });
         }}
         onClose={() => setShowAccountPicker(false)}
       />
 
       {/* Edit Customer Modal */}
-      <Modal visible={showEditSheet} transparent animationType="slide" onRequestClose={() => setShowEditSheet(false)}>
+      <Modal
+        visible={showEditSheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEditSheet(false)}
+      >
         <View style={[styles.modalOverlay, { backgroundColor: colors.scrim }]}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, spacing[6]) }]}>
-            <View style={[styles.modalHeader, { paddingTop: Math.max(insets.top, spacing[4]), borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('editCustomer')}</Text>
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor: colors.background,
+                paddingBottom: Math.max(insets.bottom, spacing[6]),
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.modalHeader,
+                {
+                  paddingTop: Math.max(insets.top, spacing[4]),
+                  borderBottomColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                {t("editCustomer")}
+              </Text>
               <TouchableOpacity onPress={() => setShowEditSheet(false)}>
                 <Ionicons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalContent}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('fullName')}</Text>
+              <Text
+                style={[styles.fieldLabel, { color: colors.textSecondary }]}
+              >
+                {t("fullName")}
+              </Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                  },
+                ]}
                 value={editName}
                 onChangeText={setEditName}
-                placeholder={t('fullName')}
+                placeholder={t("fullName")}
                 placeholderTextColor={colors.textMuted}
               />
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('phoneNumber')}</Text>
+              <Text
+                style={[styles.fieldLabel, { color: colors.textSecondary }]}
+              >
+                {t("phoneNumber")}
+              </Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                  },
+                ]}
                 value={editPhone}
                 onChangeText={setEditPhone}
-                placeholder={t('phonePlaceholder') as any}
+                placeholder={t("phonePlaceholder") as any}
                 placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
               />
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Email</Text>
+              <Text
+                style={[styles.fieldLabel, { color: colors.textSecondary }]}
+              >
+                Email
+              </Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                  },
+                ]}
                 value={editEmail}
                 onChangeText={setEditEmail}
                 placeholder="customer@example.com"
@@ -697,95 +1156,241 @@ export default function CustomerDetailScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
-              {(customer as any).email && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: spacing[1] }}>
-                  <Text style={[styles.fieldLabel, { color: (customer as any).emailVerified ? colors.success : colors.warning }]}>
-                    {(customer as any).emailVerified ? '✓ Verified' : 'Not verified'}
+              {(customer as any)?.email && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: spacing[2],
+                    marginTop: spacing[1],
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.fieldLabel,
+                      {
+                        color: (customer as any).emailVerified
+                          ? colors.success
+                          : colors.warning,
+                      },
+                    ]}
+                  >
+                    {(customer as any).emailVerified
+                      ? "✓ Verified"
+                      : "Not verified"}
                   </Text>
                   {!(customer as any).emailVerified && (
-                    <TouchableOpacity onPress={handleSendEmailOtp} disabled={emailVerifying}>
-                      <Text style={[styles.fieldLabel, { color: colors.primary, fontWeight: '700' }]}>
-                        {emailVerifying ? 'Sending...' : 'Verify'}
+                    <TouchableOpacity
+                      onPress={handleSendEmailOtp}
+                      disabled={emailVerifying}
+                    >
+                      <Text
+                        style={[
+                          styles.fieldLabel,
+                          { color: colors.primary, fontWeight: "700" },
+                        ]}
+                      >
+                        {emailVerifying ? "Sending..." : "Verify"}
                       </Text>
                     </TouchableOpacity>
                   )}
                 </View>
               )}
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('customerNotes')}</Text>
+              <Text
+                style={[styles.fieldLabel, { color: colors.textSecondary }]}
+              >
+                {t("customerNotes")}
+              </Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                  },
+                ]}
                 value={editNotes}
                 onChangeText={setEditNotes}
-                placeholder={t('optionalNotes') as any}
+                placeholder={t("optionalNotes") as any}
                 placeholderTextColor={colors.textMuted}
                 multiline
               />
-              <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginTop: spacing[3] }]}>Customer Portal Access</Text>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Username</Text>
+              <Text
+                style={[
+                  styles.sectionLabel,
+                  { color: colors.textSecondary, marginTop: spacing[3] },
+                ]}
+              >
+                Customer Portal Access
+              </Text>
+              <Text
+                style={[styles.fieldLabel, { color: colors.textSecondary }]}
+              >
+                Username
+              </Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                  },
+                ]}
                 value={editUsername}
                 onChangeText={setEditUsername}
                 placeholder="Auto-generated from name if empty"
                 placeholderTextColor={colors.textMuted}
               />
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Portal PIN</Text>
+              <Text
+                style={[styles.fieldLabel, { color: colors.textSecondary }]}
+              >
+                Portal PIN
+              </Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border, opacity: customer?.passwordChangedAt ? 0.5 : 1 }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                    opacity: customer?.passwordChangedAt ? 0.5 : 1,
+                  },
+                ]}
                 value={editPin}
                 onChangeText={setEditPin}
-                placeholder={customer?.passwordChangedAt ? "Customer has changed their PIN" : "Set a numeric PIN"}
+                placeholder={
+                  customer?.passwordChangedAt
+                    ? "Customer has changed their PIN"
+                    : "Set a numeric PIN"
+                }
                 placeholderTextColor={colors.textMuted}
                 editable={!customer?.passwordChangedAt}
                 secureTextEntry
                 maxLength={10}
               />
               {customer?.passwordChangedAt && (
-                <Text style={[styles.fieldLabel, { color: colors.textMuted, fontSize: 11, marginTop: 2 }]}>Customer has changed their PIN — only they can change it from the portal.</Text>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+                  ]}
+                >
+                  Customer has changed their PIN — only they can change it from
+                  the portal.
+                </Text>
               )}
-              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Default Price Tier</Text>
-              {tiers.map(tier => (
+              <Text
+                style={[styles.sectionLabel, { color: colors.textSecondary }]}
+              >
+                Default Price Tier
+              </Text>
+              {tiers.map((tier) => (
                 <TouchableOpacity
                   key={tier.id}
-                  style={[styles.tierOption, { borderColor: colors.border, backgroundColor: editTierId === tier.id ? colors.primaryLight : 'transparent' }]}
-                  onPress={() => setEditTierId(editTierId === tier.id ? '' : tier.id)}
+                  style={[
+                    styles.tierOption,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor:
+                        editTierId === tier.id
+                          ? colors.primaryLight
+                          : "transparent",
+                    },
+                  ]}
+                  onPress={() =>
+                    setEditTierId(editTierId === tier.id ? "" : tier.id)
+                  }
                 >
-                  <Text style={[styles.tierOptionText, { color: editTierId === tier.id ? colors.primary : colors.textPrimary }]}>
+                  <Text
+                    style={[
+                      styles.tierOptionText,
+                      {
+                        color:
+                          editTierId === tier.id
+                            ? colors.primary
+                            : colors.textPrimary,
+                      },
+                    ]}
+                  >
                     {tier.name} ({tier.kind.toLowerCase()})
                   </Text>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity
-                style={[styles.tierOption, { borderColor: colors.border, backgroundColor: editTierId === '' ? colors.primaryLight : 'transparent', marginTop: spacing[2] }]}
-                onPress={() => setEditTierId('')}
+                style={[
+                  styles.tierOption,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor:
+                      editTierId === "" ? colors.primaryLight : "transparent",
+                    marginTop: spacing[2],
+                  },
+                ]}
+                onPress={() => setEditTierId("")}
               >
-                <Text style={[styles.tierOptionText, { color: editTierId === '' ? colors.primary : colors.textPrimary }]}>— {t('none')} —</Text>
+                <Text
+                  style={[
+                    styles.tierOptionText,
+                    {
+                      color:
+                        editTierId === "" ? colors.primary : colors.textPrimary,
+                    },
+                  ]}
+                >
+                  — {t("none")} —
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.lockRow, { marginTop: spacing[3] }]}
                 onPress={() => setEditTierLocked(!editTierLocked)}
               >
-                <Ionicons name={editTierLocked ? 'lock-closed' : 'lock-open-outline'} size={18} color={editTierLocked ? colors.danger : colors.textMuted} />
-                <Text style={[styles.lockText, { color: editTierLocked ? colors.danger : colors.textSecondary }]}>
+                <Ionicons
+                  name={editTierLocked ? "lock-closed" : "lock-open-outline"}
+                  size={18}
+                  color={editTierLocked ? colors.danger : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.lockText,
+                    {
+                      color: editTierLocked
+                        ? colors.danger
+                        : colors.textSecondary,
+                    },
+                  ]}
+                >
                   Lock price tier (employees can't change)
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: colors.primary, marginTop: spacing[4], opacity: updateMutation.isPending ? 0.6 : 1 }]}
-                onPress={() => updateMutation.mutate({
-                  name: editName.trim() || undefined,
-                  phone: editPhone.trim() || undefined,
-                  email: editEmail.trim() || undefined,
-                  notes: editNotes.trim() || undefined,
-                  priceTierId: editTierId || undefined,
-                  priceTierLocked: editTierLocked,
-                  username: editUsername.trim() || undefined,
-                  pin: editPin.trim() || undefined,
-                })}
+                style={[
+                  styles.saveButton,
+                  {
+                    backgroundColor: colors.primary,
+                    marginTop: spacing[4],
+                    opacity: updateMutation.isPending ? 0.6 : 1,
+                  },
+                ]}
+                onPress={() =>
+                  updateMutation.mutate({
+                    name: editName.trim() || undefined,
+                    phone: editPhone.trim() || undefined,
+                    email: editEmail.trim() || undefined,
+                    notes: editNotes.trim() || undefined,
+                    priceTierId: editTierId || undefined,
+                    priceTierLocked: editTierLocked,
+                    username: editUsername.trim() || undefined,
+                    pin: editPin.trim() || undefined,
+                  })
+                }
                 disabled={updateMutation.isPending}
               >
-                <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>
-                  {updateMutation.isPending ? t('saving') : t('save')}
+                <Text
+                  style={[styles.saveButtonText, { color: colors.textInverse }]}
+                >
+                  {updateMutation.isPending ? t("saving") : t("save")}
                 </Text>
               </TouchableOpacity>
             </ScrollView>
@@ -794,29 +1399,106 @@ export default function CustomerDetailScreen() {
       </Modal>
 
       {/* Email Verify Modal */}
-      <Modal visible={showEmailVerify} transparent animationType="fade" onRequestClose={() => setShowEmailVerify(false)}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.scrim }}>
-          <View style={{ borderRadius: 14, padding: spacing[5], width: '85%', maxWidth: 340, backgroundColor: colors.surface }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing[2] }}>Verify Email</Text>
-            <Text style={{ fontSize: 15, color: colors.textSecondary, marginBottom: spacing[4] }}>
+      <Modal
+        visible={showEmailVerify}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEmailVerify(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colors.scrim,
+          }}
+        >
+          <View
+            style={{
+              borderRadius: 14,
+              padding: spacing[5],
+              width: "85%",
+              maxWidth: 340,
+              backgroundColor: colors.surface,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                color: colors.textPrimary,
+                marginBottom: spacing[2],
+              }}
+            >
+              Verify Email
+            </Text>
+            <Text
+              style={{
+                fontSize: 15,
+                color: colors.textSecondary,
+                marginBottom: spacing[4],
+              }}
+            >
               Enter the 6-digit code sent to {(customer as any)?.email}
             </Text>
             <TextInput
-              style={{ fontSize: 15, borderRadius: 6, padding: spacing[3], marginBottom: spacing[4], backgroundColor: colors.background, color: colors.textPrimary }}
+              style={{
+                fontSize: 15,
+                borderRadius: 6,
+                padding: spacing[3],
+                marginBottom: spacing[4],
+                backgroundColor: colors.background,
+                color: colors.textPrimary,
+              }}
               placeholder="000000"
               placeholderTextColor={colors.textMuted}
               value={emailVerifyCode}
-              onChangeText={(v) => setEmailVerifyCode(v.replace(/\D/g, '').slice(0, 6))}
+              onChangeText={(v) =>
+                setEmailVerifyCode(v.replace(/\D/g, "").slice(0, 6))
+              }
               keyboardType="number-pad"
               maxLength={6}
             />
-            <View style={{ flexDirection: 'row', gap: spacing[3] }}>
-              <TouchableOpacity style={{ flex: 1, paddingVertical: spacing[3], alignItems: 'center', borderRadius: 6, backgroundColor: colors.surfaceMuted }} onPress={() => setShowEmailVerify(false)}>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary }}>{t('cancel')}</Text>
+            <View style={{ flexDirection: "row", gap: spacing[3] }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: spacing[3],
+                  alignItems: "center",
+                  borderRadius: 6,
+                  backgroundColor: colors.surfaceMuted,
+                }}
+                onPress={() => setShowEmailVerify(false)}
+              >
+                <Text
+                  style={{
+                    fontSize: 15,
+                    fontWeight: "700",
+                    color: colors.textPrimary,
+                  }}
+                >
+                  {t("cancel")}
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ flex: 1, paddingVertical: spacing[3], alignItems: 'center', borderRadius: 6, backgroundColor: colors.primary }} onPress={handleVerifyEmail} disabled={emailVerifying}>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textInverse }}>
-                  {emailVerifying ? 'Verifying...' : 'Verify'}
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: spacing[3],
+                  alignItems: "center",
+                  borderRadius: 6,
+                  backgroundColor: colors.primary,
+                }}
+                onPress={handleVerifyEmail}
+                disabled={emailVerifying}
+              >
+                <Text
+                  style={{
+                    fontSize: 15,
+                    fontWeight: "700",
+                    color: colors.textInverse,
+                  }}
+                >
+                  {emailVerifying ? "Verifying..." : "Verify"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -854,9 +1536,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing[3],
   },
   balanceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   balanceLabel: {
     ...type.caption,
@@ -865,7 +1547,7 @@ const styles = StyleSheet.create({
     ...type.h2,
   },
   containersRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing[4],
     marginTop: spacing[3],
   },
@@ -874,24 +1556,24 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     marginTop: spacing[3],
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing[2],
   },
   payButton: {
     flex: 1,
     borderRadius: radius.sm,
     paddingVertical: spacing[2],
-    alignItems: 'center',
+    alignItems: "center",
   },
   remindButton: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing[1],
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingVertical: spacing[2],
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   payButtonText: {
     ...type.bodyBold,
@@ -904,9 +1586,9 @@ const styles = StyleSheet.create({
     ...type.caption,
   },
   dateFilterBar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
     gap: spacing[2],
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[3],
@@ -920,8 +1602,8 @@ const styles = StyleSheet.create({
     marginRight: spacing[1],
   },
   dateInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing[1],
   },
   dateInputLabel: { ...type.caption },
@@ -931,10 +1613,10 @@ const styles = StyleSheet.create({
   },
   thisMonthBtnText: { ...type.caption, fontSize: 12 },
   voidedBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing[1],
-    marginLeft: 'auto',
+    marginLeft: "auto",
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingHorizontal: spacing[3],
@@ -945,7 +1627,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bottomBar: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing[3],
     paddingHorizontal: spacing[5],
     paddingVertical: spacing[3],
@@ -955,19 +1637,18 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radius.md,
     paddingVertical: spacing[3],
-    alignItems: 'center',
+    alignItems: "center",
   },
   bottomButtonText: {
     ...type.bodyBold,
   },
-  bottomButtonSecondary: {
-  },
+  bottomButtonSecondary: {},
   bottomButtonSecondaryText: {
     ...type.bodyBold,
   },
   modalOverlay: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   modalSheet: {
     borderTopLeftRadius: radius.xl,
@@ -975,9 +1656,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[6],
   },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: spacing[5],
     paddingVertical: spacing[4],
     borderBottomWidth: 1,
@@ -994,24 +1675,23 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
   },
   methodRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing[2],
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   methodChip: {
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
     borderRadius: radius.sm,
   },
-  methodChipActive: {
-  },
+  methodChipActive: {},
   methodText: {
     ...type.caption,
   },
   accountPicker: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing[4],
@@ -1027,22 +1707,51 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     marginHorizontal: spacing[5],
     paddingVertical: spacing[4],
-    alignItems: 'center',
+    alignItems: "center",
   },
   submitButtonText: {
     ...type.bodyBold,
     fontSize: 16,
   },
-  input: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing[3], paddingVertical: spacing[3], ...type.body },
-  textArea: { minHeight: 80, textAlignVertical: 'top' },
-  tierRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing[1], gap: spacing[2] },
+  input: {
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[3],
+    ...type.body,
+  },
+  textArea: { minHeight: 80, textAlignVertical: "top" },
+  tierRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing[1],
+    gap: spacing[2],
+  },
   tierLabel: { ...type.caption },
-  tierEditButton: { borderWidth: 1, borderRadius: radius.sm, padding: spacing[1] },
-  sectionLabel: { ...type.bodyBold, marginBottom: spacing[2], marginTop: spacing[3] },
-  tierOption: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing[3], paddingVertical: spacing[2], marginBottom: spacing[1] },
+  tierEditButton: {
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing[1],
+  },
+  sectionLabel: {
+    ...type.bodyBold,
+    marginBottom: spacing[2],
+    marginTop: spacing[3],
+  },
+  tierOption: {
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    marginBottom: spacing[1],
+  },
   tierOptionText: { ...type.caption },
-  lockRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  lockRow: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
   lockText: { ...type.caption },
-  saveButton: { borderRadius: radius.md, paddingVertical: spacing[3], alignItems: 'center' },
+  saveButton: {
+    borderRadius: radius.md,
+    paddingVertical: spacing[3],
+    alignItems: "center",
+  },
   saveButtonText: { ...type.bodyBold },
 });

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -20,6 +20,9 @@ import { getLanguage, setLanguage, subscribeLanguage, Language } from '../lib/i1
 import { t } from '../lib/i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { radius, spacing, type } from '../theme';
+import { useOffline } from '../offline/context';
+import { SyncStatusBar } from './SyncStatusBar';
+import { saveSubscriptionCache, loadSubscriptionCache } from '../lib/subscription-cache';
 
 type GateState = 'loading' | 'ok' | 'blocked';
 
@@ -31,6 +34,8 @@ export default function SubscriptionGate({ children }: { children: React.ReactNo
   const [planName, setPlanName] = useState<string>('');
   const [support, setSupport] = useState<SupportInfo | null>(null);
   const [lang, setLang] = useState<Language>(getLanguage);
+  const { isOnline } = useOffline();
+  const checkedRef = useRef(false);
 
   useEffect(() => subscribeLanguage(setLang), []);
 
@@ -43,15 +48,26 @@ export default function SubscriptionGate({ children }: { children: React.ReactNo
   const check = useCallback(async () => {
     try {
       const sub = await getSdk().subscriptions.mySubscription();
+      if (sub) {
+        void saveSubscriptionCache(sub);
+      }
       const active =
         sub?.hasSubscription &&
         (sub.status === 'ACTIVE' || sub.status === 'TRIAL');
       setPlanName(sub?.planName ?? '');
       setState(active ? 'ok' : 'blocked');
     } catch {
+      if (!isOnline) {
+        const cached = await loadSubscriptionCache();
+        if (cached?.hasSubscription && (cached.status === 'ACTIVE' || cached.status === 'TRIAL')) {
+          setPlanName(cached.planName ?? '');
+          setState('ok');
+          return;
+        }
+      }
       setState('blocked');
     }
-  }, []);
+  }, [isOnline]);
 
   useFocusEffect(
     useCallback(() => {
@@ -61,19 +77,35 @@ export default function SubscriptionGate({ children }: { children: React.ReactNo
           .subscriptions.mySubscription()
           .catch(() => null);
         if (cancelled) return;
+        if (sub) {
+          void saveSubscriptionCache(sub);
+        }
         const active =
           sub?.hasSubscription &&
           (sub.status === 'ACTIVE' || sub.status === 'TRIAL');
+        if (active) {
+          setPlanName(sub?.planName ?? '');
+          setState('ok');
+          return;
+        }
+        if (!isOnline) {
+          const cached = await loadSubscriptionCache();
+          if (cached?.hasSubscription && (cached.status === 'ACTIVE' || cached.status === 'TRIAL')) {
+            setPlanName(cached.planName ?? '');
+            setState('ok');
+            return;
+          }
+        }
         setPlanName(sub?.planName ?? '');
-        setState(active ? 'ok' : 'blocked');
+        setState('blocked');
       })();
       return () => {
         cancelled = true;
       };
-    }, []),
+    }, [isOnline]),
   );
 
-  if (state === 'ok') return <>{children}</>;
+  if (state === 'ok') return <><SyncStatusBar />{children}</>;
 
   if (state === 'loading') {
     return (

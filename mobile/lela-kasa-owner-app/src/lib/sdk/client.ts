@@ -98,10 +98,12 @@ export class SdkClient {
           headers,
           body: body !== undefined ? JSON.stringify(body) : undefined,
         });
-      }
-    }
 
-    if (response.status === 401) {
+        if (response.status === 401) {
+          this.config.onUnauthenticated?.();
+        }
+      }
+    } else if (response.status === 401) {
       this.config.onUnauthenticated?.();
     }
 
@@ -117,18 +119,15 @@ export class SdkClient {
     const refreshToken = await this.tokenStore.getRefreshToken();
     if (!refreshToken || !this.config.onRefresh) return false;
 
-    this.refreshPromise = this.config
-      .onRefresh(refreshToken)
-      .then(({ accessToken, refreshToken: newRefresh, expiresIn }) =>
-        this.tokenStore.setTokens(accessToken, newRefresh, expiresIn),
-      )
-      .catch(() => this.tokenStore.clearTokens())
-      .finally(() => {
-        this.refreshPromise = null;
-      });
-
-    await this.refreshPromise;
-    return true;
+    try {
+      const result = await this.config.onRefresh(refreshToken);
+      await this.tokenStore.setTokens(result.accessToken, result.refreshToken, result.expiresIn);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      this.refreshPromise = null;
+    }
   }
 
   private async parseResponse<T>(response: Response): Promise<T> {
