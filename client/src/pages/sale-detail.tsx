@@ -222,9 +222,9 @@ export default function SaleDetailPage() {
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">{t("dateTime")}</p>
+                <p className="text-xs text-muted-foreground">{t("saleDate")}</p>
                 <p className="text-sm">
-                  {formatDateTime(sale.createdAt, locale)}
+                  <FormattedDate iso={sale.saleDate} />
                 </p>
               </div>
               <div className="space-y-1">

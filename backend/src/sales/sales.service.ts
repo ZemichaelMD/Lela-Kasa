@@ -64,7 +64,7 @@ export class SalesService {
     const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 25));
     const skip = (page - 1) * pageSize;
 
-    const sortBy = query.sortBy ?? "createdAt";
+    const sortBy = query.sortBy ?? "saleDate";
     const sortDir = query.sortDir ?? "desc";
 
     // Build where

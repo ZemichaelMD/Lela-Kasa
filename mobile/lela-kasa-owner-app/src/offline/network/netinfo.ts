@@ -1,5 +1,5 @@
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
-import { getSdk } from '../../lib/sdk';
+import { BASE_URL } from '../../lib/sdk/client';
 import type { NetworkState } from '../types';
 
 type NetworkListener = (state: NetworkState) => void;
@@ -28,7 +28,7 @@ export async function probeApiHealth(): Promise<boolean> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(`${getSdk() as any}`, {
+    const res = await fetch(`${BASE_URL}/api/v1/health`, {
       method: 'GET',
       signal: controller.signal,
     });

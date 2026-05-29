@@ -22,14 +22,6 @@ export const ethMonths = [
 
 export const shortDays = ["እ", "ሰ", "ማ", "ረ", "ሐ", "ዓ", "ቅ"];
 
-const TIME_PERIODS = [
-  { label: "ማታ", minH: 18 },
-  { label: "ማታ", minH: 0 },
-  { label: "ጠዋት", minH: 6 },
-  { label: "ቀትር", minH: 12 },
-  { label: "ከሰአት", minH: 13 },
-];
-
 export function isLeapYearEt(y: number): boolean {
   return y % 4 === 3;
 }

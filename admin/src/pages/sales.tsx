@@ -1,12 +1,4 @@
-import {
-  Calendar,
-  Copy,
-  Download,
-  Eye,
-  Plus,
-  ShoppingBag,
-  Trash2,
-} from "lucide-react";
+import { Copy, Download, Eye, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -16,7 +8,6 @@ import {
   StatusChip,
   type StatusTone,
 } from "@/components/data-table";
-import { LangToggle } from "@/components/lang-toggle";
 import { PageHeader } from "@/components/page-header";
 import { useAuthContext } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
@@ -159,7 +150,7 @@ function VoidDialog({ sale, onConfirm, onCancel, voiding }: VoidDialogProps) {
         <p className="mt-1 text-sm text-muted-foreground">
           {t("saleFrom")}{" "}
           <strong>
-            <FormattedDate iso={sale.createdAt} />
+            <FormattedDate iso={sale.saleDate} />
           </strong>{" "}
           {t("voidWarning")}
         </p>
@@ -221,7 +212,8 @@ function SaleDrawer({
   onCustomerCreated,
 }: SaleDrawerProps) {
   const { open, mode, sale } = state;
-  const { t, locale } = useI18n();
+
+  const { t } = useI18n();
 
   const isEdit = mode === "edit";
   const isDuplicate = mode === "duplicate";
@@ -1458,7 +1450,7 @@ function SaleCard({
             {customer?.name ?? t("walkIn")}
           </p>
           <p className="text-[11px] text-muted-foreground">
-            <FormattedDate iso={sale.createdAt} />
+            <FormattedDate iso={sale.saleDate} />
           </p>
         </div>
         <StatusChip label={sale.status} tone={statusTone(sale.status)} />
@@ -1564,6 +1556,7 @@ const PAGE_SIZE = 20;
 function AdminSalesView() {
   const navigate = useNavigate();
   const { t } = useI18n();
+
   const [sales, setSales] = useState<import("@/sdk").AdminSale[]>([]);
   const [loading, setLoading] = useState(true);
   const [shops, setShops] = useState<{ id: string; name: string }[]>([]);
@@ -1769,12 +1762,9 @@ function AdminSalesView() {
 
 export default function SalesPage() {
   const { user } = useAuthContext();
-  if (user?.role === "SUPER_ADMIN") {
-    return <AdminSalesView />;
-  }
+
   const navigate = useNavigate();
   const { t, locale } = useI18n();
-  const { shop } = useAuthContext();
   const isOwner = user?.role === "OWNER";
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -1952,6 +1942,10 @@ export default function SalesPage() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  if (user?.role === "SUPER_ADMIN") {
+    return <AdminSalesView />;
+  }
+
   function openCreate() {
     setDrawerState({ open: true, mode: "create", sale: null });
   }
@@ -2024,10 +2018,7 @@ export default function SalesPage() {
       render: (s: Sale) => (
         <div className="whitespace-nowrap">
           <p>
-            <FormattedDate iso={s.createdAt} />
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {formatSaleTime(s.createdAt, locale)}
+            <FormattedDate iso={s.saleDate} />
           </p>
         </div>
       ),

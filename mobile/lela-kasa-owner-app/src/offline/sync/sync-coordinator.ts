@@ -8,6 +8,7 @@ import {
   markOperationSynced,
   getOutboxCounts,
 } from '../outbox';
+import { cacheResponse, getCachedResponse } from '../../lib/api-cache';
 import type { PushResult, SyncSummary } from '../types';
 
 type SyncListener = (summary: SyncSummary) => void;
@@ -226,6 +227,33 @@ export async function pushOutbox(): Promise<PushResult[]> {
 
       const response = await authFetch(op.path, fetchOptions);
       await markOperationSynced(op.id);
+      if (response) {
+        if (op.operation === 'create_sale') {
+          const cached = await getCachedResponse<any>('sales');
+          if (cached?.data) {
+            const idx = cached.data.findIndex((s: any) => s.id === op.entityId);
+            if (idx >= 0) {
+              const data = [...cached.data];
+              data[idx] = response;
+              await cacheResponse('sales', { ...cached, data });
+            } else {
+              await cacheResponse('sales', { ...cached, data: [response, ...cached.data], total: cached.total + 1 });
+            }
+          }
+        } else if (op.operation === 'create_customer') {
+          const cached = await getCachedResponse<any>('customers');
+          if (cached?.data) {
+            const idx = cached.data.findIndex((c: any) => c.id === op.entityId);
+            if (idx >= 0) {
+              const data = [...cached.data];
+              data[idx] = response;
+              await cacheResponse('customers', { ...cached, data });
+            } else {
+              await cacheResponse('customers', { ...cached, data: [...cached.data, response], total: cached.total + 1 });
+            }
+          }
+        }
+      }
       results.push({ operationId: op.id, status: 'success', serverResponse: response });
     } catch (err: any) {
       const errorCode = err?.code ?? 'UNKNOWN';

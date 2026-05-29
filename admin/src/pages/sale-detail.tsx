@@ -209,8 +209,8 @@ export default function SaleDetailPage() {
                 <StatusChip label={sale.status} tone={statusTone(sale.status)} />
               </div>
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">{t('dateTime')}</p>
-                <p className="text-sm">{formatDateTime(sale.createdAt, locale)}</p>
+                <p className="text-xs text-muted-foreground">{t('saleDate')}</p>
+                <p className="text-sm"><FormattedDate iso={sale.saleDate} /></p>
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">{t('lastUpdated')}</p>

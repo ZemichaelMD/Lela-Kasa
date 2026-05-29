@@ -98,13 +98,13 @@ export default function CustomersScreen() {
         phone: dto.phone,
         notes: dto.notes,
       });
-      return { id: 'local', name: dto.name } as any;
+      return { id: "local", name: dto.name } as any;
     },
     onSuccess: (result) => {
       if (!isOnline) {
-        getCachedResponse<any>('customers').then(existing => {
+        getCachedResponse<any>("customers").then((existing) => {
           if (existing?.data) {
-            cacheResponse('customers', {
+            cacheResponse("customers", {
               ...existing,
               data: [...existing.data, result],
               total: existing.total + 1,
@@ -141,7 +141,7 @@ export default function CustomersScreen() {
   } = useInfiniteQuery({
     queryKey: QK.customers({ search, hasCredit }),
     queryFn: async ({ pageParam = 1 }) => {
-      const result = await withCache('customers', () =>
+      const result = await withCache("customers", () =>
         getSdk().customers.list({
           page: pageParam as number,
           pageSize: 30,
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: spacing[2.5],
+    marginTop: spacing[2],
   },
   metaText: {
     flex: 1,
@@ -685,7 +685,7 @@ const styles = StyleSheet.create({
   packagesContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing[1.5],
+    gap: spacing[1],
   },
   packageBadge: {
     flexDirection: "row",
@@ -701,10 +701,10 @@ const styles = StyleSheet.create({
   },
   // Form Sheet Styling
   form: { gap: spacing[1] },
-  fieldGroup: { marginBottom: spacing[2.5] },
+  fieldGroup: { marginBottom: spacing[2] },
   fieldLabel: {
     ...type.micro,
-    marginBottom: spacing[1.5],
+    marginBottom: spacing[1],
     textTransform: "uppercase",
     letterSpacing: 0.5,
     fontWeight: "600",
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     paddingTop: spacing[3],
-    marginBottom: spacing[2.5],
+    marginBottom: spacing[3],
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   sectionLabel: { ...type.caption, fontWeight: "700", letterSpacing: -0.1 },

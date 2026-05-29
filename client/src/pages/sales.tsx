@@ -151,7 +151,7 @@ function VoidDialog({ sale, onConfirm, onCancel, voiding }: VoidDialogProps) {
       <div className="relative w-full max-w-sm rounded-xl bg-card p-6 shadow-xl">
         <h3 className="text-base font-semibold">{t("voidQuestion")}</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("saleFrom")} <strong><FormattedDate iso={sale.createdAt} /></strong>{" "}
+          {t("saleFrom")} <strong><FormattedDate iso={sale.saleDate} /></strong>{" "}
           {t("voidWarning")}
         </p>
         <div className="mt-3 space-y-1.5">
@@ -1319,7 +1319,7 @@ function SaleCard({
             {customer?.name ?? t("walkIn")}
           </p>
           <p className="text-[11px] text-muted-foreground">
-            <FormattedDate iso={sale.createdAt} />
+            <FormattedDate iso={sale.saleDate} />
           </p>
           {createdByName && (
             <p className="text-[11px] text-muted-foreground/70">
@@ -1704,10 +1704,7 @@ export default function SalesPage() {
       header: t("date"),
       render: (s: Sale) => (
         <div className="whitespace-nowrap">
-          <p><FormattedDate iso={s.createdAt} /></p>
-          <p className="text-xs text-muted-foreground">
-            {formatSaleTime(s.createdAt, locale)}
-          </p>
+          <p><FormattedDate iso={s.saleDate} /></p>
         </div>
       ),
     },
