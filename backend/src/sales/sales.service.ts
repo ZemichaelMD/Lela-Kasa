@@ -344,6 +344,7 @@ export class SalesService {
           bottlesReturnedOnSale,
           notes: dto.notes ?? null,
           createdById: userId,
+          updatedById: userId,
         },
       });
 
