@@ -2223,7 +2223,7 @@ export default function CustomerDetailPage() {
 
         <div className="p-5">
           {activeTab === "activity" && (
-            <ActivityList entries={activityEntries} locale={locale} />
+            <ActivityList entries={activityEntries} />
           )}
           {activeTab === "sales" && (
             <SalesList
