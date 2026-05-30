@@ -32,8 +32,13 @@ import { useI18n } from "@/lib/i18n";
 
 type TabId = "activity" | "sales" | "payments" | "returns";
 
-const PAYMENT_METHODS = ['CASH', 'BANK_TRANSFER', 'MOBILE_MONEY', 'OTHER'] as const;
-type PaymentMethod = typeof PAYMENT_METHODS[number];
+const PAYMENT_METHODS = [
+  "CASH",
+  "BANK_TRANSFER",
+  "MOBILE_MONEY",
+  "OTHER",
+] as const;
+type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 function getTodayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -42,7 +47,6 @@ function getFirstOfMonthStr() {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
 }
-
 
 // ─── Widget card ──────────────────────────────────────────────────────────────
 
@@ -251,7 +255,7 @@ function PaymentModal({
 }) {
   const { t } = useI18n();
   const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState<PaymentMethod>('CASH');
+  const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -281,10 +285,10 @@ function PaymentModal({
     "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40";
 
   const methodLabels: Record<PaymentMethod, string> = {
-    CASH: 'Cash',
-    BANK_TRANSFER: 'Bank Transfer',
-    MOBILE_MONEY: 'Mobile Money',
-    OTHER: 'Other',
+    CASH: "Cash",
+    BANK_TRANSFER: "Bank Transfer",
+    MOBILE_MONEY: "Mobile Money",
+    OTHER: "Other",
   };
 
   return (
@@ -300,7 +304,9 @@ function PaymentModal({
 
         {customer.creditBalanceCents > 0 && (
           <div className="rounded-lg bg-destructive/10 px-3.5 py-3">
-            <p className="text-xs font-medium text-destructive uppercase tracking-wide">{t("creditBalance")}</p>
+            <p className="text-xs font-medium text-destructive uppercase tracking-wide">
+              {t("creditBalance")}
+            </p>
             <p className="text-lg font-bold tabular-nums text-destructive">
               {formatMoneyCents(customer.creditBalanceCents)}
             </p>
@@ -322,9 +328,16 @@ function PaymentModal({
         </div>
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Payment Method</label>
-          <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} required className={ic}>
+          <select
+            value={method}
+            onChange={(e) => setMethod(e.target.value as PaymentMethod)}
+            required
+            className={ic}
+          >
             {PAYMENT_METHODS.map((m) => (
-              <option key={m} value={m}>{methodLabels[m]}</option>
+              <option key={m} value={m}>
+                {methodLabels[m]}
+              </option>
             ))}
           </select>
         </div>
@@ -432,13 +445,19 @@ function ReturnModal({
 
         {(customer.outstandingBoxes > 0 || customer.outstandingBottles > 0) && (
           <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 px-3.5 py-3 space-y-1">
-            <p className="text-xs font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wide">{t("pendingBoxes")} / {t("pendingBottles")}</p>
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+              {t("pendingBoxes")} / {t("pendingBottles")}
+            </p>
             <div className="flex gap-4 text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-400">
               {customer.outstandingBoxes > 0 && (
-                <span>{customer.outstandingBoxes} {t("fullBoxes")}</span>
+                <span>
+                  {customer.outstandingBoxes} {t("fullBoxes")}
+                </span>
               )}
               {customer.outstandingBottles > 0 && (
-                <span>{customer.outstandingBottles} {t("extraBottles")}</span>
+                <span>
+                  {customer.outstandingBottles} {t("extraBottles")}
+                </span>
               )}
             </div>
           </div>
@@ -457,7 +476,9 @@ function ReturnModal({
               placeholder="0"
             />
             {boxesError && (
-              <p className="text-xs text-destructive">{t("returnExceedsBoxes")}</p>
+              <p className="text-xs text-destructive">
+                {t("returnExceedsBoxes")}
+              </p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -472,7 +493,9 @@ function ReturnModal({
               placeholder="0"
             />
             {bottlesError && (
-              <p className="text-xs text-destructive">{t("returnExceedsBottles")}</p>
+              <p className="text-xs text-destructive">
+                {t("returnExceedsBottles")}
+              </p>
             )}
           </div>
         </div>
@@ -524,7 +547,9 @@ function EditCustomerDrawer({
   const [username, setUsername] = useState((customer as any).username ?? "");
   const [portalPin, setPortalPin] = useState("");
   const [tierId, setTierId] = useState((customer as any).priceTierId ?? "");
-  const [tierLocked, setTierLocked] = useState((customer as any).priceTierLocked ?? false);
+  const [tierLocked, setTierLocked] = useState(
+    (customer as any).priceTierLocked ?? false,
+  );
   const [tiers, setTiers] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [resettingPin, setResettingPin] = useState(false);
@@ -548,7 +573,10 @@ function EditCustomerDrawer({
   }, [open, customer]);
 
   useEffect(() => {
-    sdk.priceTiers.list().then(setTiers).catch(() => {});
+    sdk.priceTiers
+      .list()
+      .then(setTiers)
+      .catch(() => {});
   }, []);
 
   async function handleResetPin() {
@@ -619,7 +647,9 @@ function EditCustomerDrawer({
           className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5"
         >
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t("nameWithAsterisk")}</label>
+            <label className="text-sm font-medium">
+              {t("nameWithAsterisk")}
+            </label>
             <input
               ref={nameRef}
               value={name}
@@ -651,48 +681,95 @@ function EditCustomerDrawer({
           </div>
 
           <div className="border-t border-border pt-3 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("priceTier")}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("priceTier")}
+            </p>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">{t("defaultPriceTier")}</label>
-              <select value={tierId} onChange={(e) => setTierId(e.target.value)} className={ic}>
+              <label className="text-sm font-medium">
+                {t("defaultPriceTier")}
+              </label>
+              <select
+                value={tierId}
+                onChange={(e) => setTierId(e.target.value)}
+                className={ic}
+              >
                 <option value="">— {t("none")} —</option>
                 {tiers.map((tier: any) => (
-                  <option key={tier.id} value={tier.id}>{tier.name} ({tier.kind.toLowerCase()})</option>
+                  <option key={tier.id} value={tier.id}>
+                    {tier.name} ({tier.kind.toLowerCase()})
+                  </option>
                 ))}
               </select>
-              <p className="text-xs text-muted-foreground">{t("autoFilledOnNewSale")}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("autoFilledOnNewSale")}
+              </p>
             </div>
             <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={tierLocked} onChange={(e) => setTierLocked(e.target.checked)} className="rounded border-border h-4 w-4" />
+              <input
+                type="checkbox"
+                checked={tierLocked}
+                onChange={(e) => setTierLocked(e.target.checked)}
+                className="rounded border-border h-4 w-4"
+              />
               <span className="text-sm">{t("lockPriceTier")}</span>
             </label>
           </div>
 
           <div className="border-t border-border pt-3 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("customerPortalAccess")}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("customerPortalAccess")}
+            </p>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">{t("username")}</label>
-              <input value={username} onChange={e => setUsername(e.target.value)} className={ic} placeholder="Auto-generated from name if empty" />
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className={ic}
+                placeholder="Auto-generated from name if empty"
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">{t("portalPin")}</label>
-              <input value={portalPin} onChange={e => setPortalPin(e.target.value)} type="password" maxLength={10}
+              <input
+                value={portalPin}
+                onChange={(e) => setPortalPin(e.target.value)}
+                type="password"
+                maxLength={10}
                 disabled={pinReadOnly}
                 className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder={pinReadOnly ? "Customer has changed their PIN" : "Set a numeric PIN for customer login"} />
+                placeholder={
+                  pinReadOnly
+                    ? "Customer has changed their PIN"
+                    : "Set a numeric PIN for customer login"
+                }
+              />
               {pinReadOnly && (
-                <p className="text-xs text-muted-foreground">{t("pinReadOnlyHint")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("pinReadOnlyHint")}
+                </p>
               )}
               {(customer as any).username && (
-                <button type="button" onClick={handleResetPin} disabled={resettingPin} className="text-xs font-medium text-primary hover:underline">
-                  {resettingPin ? 'Resetting...' : 'Reset PIN'}
+                <button
+                  type="button"
+                  onClick={handleResetPin}
+                  disabled={resettingPin}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  {resettingPin ? "Resetting..." : "Reset PIN"}
                 </button>
               )}
               {newPin && (
                 <div className="rounded-lg bg-success/10 border border-success/30 p-3 space-y-1">
-                  <p className="text-xs font-medium text-success">New PIN generated</p>
-                  <p className="text-lg font-bold tabular-nums text-success">{newPin}</p>
-                  <p className="text-xs text-muted-foreground">Tell the customer this PIN. They will be required to change it on next login.</p>
+                  <p className="text-xs font-medium text-success">
+                    New PIN generated
+                  </p>
+                  <p className="text-lg font-bold tabular-nums text-success">
+                    {newPin}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Tell the customer this PIN. They will be required to change
+                    it on next login.
+                  </p>
                 </div>
               )}
             </div>
@@ -735,14 +812,14 @@ function ActivityList({
   function formatDateTime(iso: string, locale_?: string): string {
     try {
       const d = new Date(iso);
-      const date = d.toLocaleDateString(locale_ ?? 'en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
+      const date = d.toLocaleDateString(locale_ ?? "en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
       });
-      const time = d.toLocaleTimeString(locale_ ?? 'en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
+      const time = d.toLocaleTimeString(locale_ ?? "en-US", {
+        hour: "numeric",
+        minute: "2-digit",
         hour12: true,
       });
       return `${date} · ${time}`;
@@ -768,11 +845,18 @@ function ActivityList({
 
         let Icon = Package;
         let toneClass = "bg-muted text-muted-foreground";
-        if (isSale) { Icon = Banknote; toneClass = "bg-primary/10 text-primary"; }
-        if (isPayment) { Icon = Coins; toneClass = "bg-success/15 text-success"; }
+        if (isSale) {
+          Icon = Banknote;
+          toneClass = "bg-primary/10 text-primary";
+        }
+        if (isPayment) {
+          Icon = Coins;
+          toneClass = "bg-success/15 text-success";
+        }
         if (isReturn) {
           Icon = RotateCcw;
-          toneClass = "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-500";
+          toneClass =
+            "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-500";
         }
 
         const saleEntry = isSale ? (entry as LedgerSaleEntry) : null;
@@ -783,10 +867,15 @@ function ActivityList({
         const isPaymentVoided = payEntry?.data.voidedAt;
         const isVoided = isSaleVoided || isPaymentVoided;
 
-        const amountCents = saleEntry?.data.subtotalCents ?? payEntry?.data.amountCents;
-        const notes = saleEntry?.data.notes ?? payEntry?.data.notes ?? retEntry?.data.notes;
+        const amountCents =
+          saleEntry?.data.subtotalCents ?? payEntry?.data.amountCents;
+        const notes =
+          saleEntry?.data.notes ?? payEntry?.data.notes ?? retEntry?.data.notes;
 
-        const handleClick = isSale && saleEntry ? () => navigate(`/sales/${saleEntry.data.id}`) : undefined;
+        const handleClick =
+          isSale && saleEntry
+            ? () => navigate(`/sales/${saleEntry.data.id}`)
+            : undefined;
         const isClickable = !!handleClick;
 
         return (
@@ -802,18 +891,26 @@ function ActivityList({
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">
-                    {isSale ? t("sales") : isPayment ? t("payments") : t("returns")}
+                    {isSale
+                      ? t("sales")
+                      : isPayment
+                        ? t("payments")
+                        : t("returns")}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {formatDateTime(entry.date, locale)}
                   </p>
                   {saleEntry && (
                     <div className="mt-2 text-xs space-y-1">
-                      {saleEntry.data.lines && saleEntry.data.lines.length > 0 && (
-                        <div className="text-foreground">
-                          {t("itemsSold")}: {saleEntry.data.lines.length} {saleEntry.data.lines.length === 1 ? t("item") : t("items")}
-                        </div>
-                      )}
+                      {saleEntry.data.lines &&
+                        saleEntry.data.lines.length > 0 && (
+                          <div className="text-foreground">
+                            {t("itemsSold")}: {saleEntry.data.lines.length}{" "}
+                            {saleEntry.data.lines.length === 1
+                              ? t("item")
+                              : t("items")}
+                          </div>
+                        )}
                       <div className="text-muted-foreground">
                         {t("status")}: {saleEntry.data.status}
                       </div>
@@ -822,12 +919,18 @@ function ActivityList({
                   {payEntry && (
                     <div className="mt-2">
                       <StatusChip
-                        label={payEntry.data.voidedAt ? t("voided") : t("active")}
+                        label={
+                          payEntry.data.voidedAt ? t("voided") : t("active")
+                        }
                         tone={payEntry.data.voidedAt ? "neutral" : "success"}
                       />
                     </div>
                   )}
-                  {notes && <p className="text-xs text-muted-foreground mt-1">{notes}</p>}
+                  {notes && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {notes}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -844,8 +947,16 @@ function ActivityList({
               )}
               {isReturn && retEntry && (
                 <div className="text-right text-xs text-muted-foreground tabular-nums">
-                  {retEntry.data.boxes > 0 && <div>{retEntry.data.boxes} {t("boxes")}</div>}
-                  {retEntry.data.bottles > 0 && <div>{retEntry.data.bottles} {t("bottles")}</div>}
+                  {retEntry.data.boxes > 0 && (
+                    <div>
+                      {retEntry.data.boxes} {t("boxes")}
+                    </div>
+                  )}
+                  {retEntry.data.bottles > 0 && (
+                    <div>
+                      {retEntry.data.bottles} {t("bottles")}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -886,17 +997,26 @@ function SalesList({
           {sales.map((s) => {
             const isVoided = s.data.status === "VOIDED";
             return (
-              <tr key={s.data.id} className={`hover:bg-accent/30 ${isVoided ? "bg-muted/20 opacity-60" : ""}`}>
+              <tr
+                key={s.data.id}
+                className={`hover:bg-accent/30 ${isVoided ? "bg-muted/20 opacity-60" : ""}`}
+              >
                 <td className="px-4 py-3 font-medium">
                   <FormattedDate iso={s.date} />
                 </td>
-                <td className={`px-4 py-3 tabular-nums ${isVoided ? "text-muted-foreground line-through" : ""}`}>
+                <td
+                  className={`px-4 py-3 tabular-nums ${isVoided ? "text-muted-foreground line-through" : ""}`}
+                >
                   {formatMoneyCents(s.data.subtotalCents)}
                 </td>
-                <td className={`px-4 py-3 tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-success"}`}>
+                <td
+                  className={`px-4 py-3 tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-success"}`}
+                >
                   {formatMoneyCents(s.data.paidCents)}
                 </td>
-                <td className={`px-4 py-3 tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-destructive"}`}>
+                <td
+                  className={`px-4 py-3 tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-destructive"}`}
+                >
                   {formatMoneyCents(s.data.subtotalCents - s.data.paidCents)}
                 </td>
                 <td className="px-4 py-3">
@@ -951,7 +1071,9 @@ function PaymentsList({
                 <td className="px-4 py-3 font-medium">
                   <FormattedDate iso={p.date} />
                 </td>
-                <td className={`px-4 py-3 font-semibold tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-success"}`}>
+                <td
+                  className={`px-4 py-3 font-semibold tabular-nums ${isVoided ? "text-muted-foreground line-through" : "text-success"}`}
+                >
                   {formatMoneyCents(p.data.amountCents)}
                 </td>
                 <td className="px-4 py-3">
@@ -1020,7 +1142,7 @@ function ReturnsList({
 
 export default function CustomerDetailPage() {
   const { t, lang } = useI18n();
-  const locale = lang === 'am' ? 'am-ET' : 'en-US';
+  const locale = lang === "am" ? "am-ET" : "en-US";
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -1071,12 +1193,19 @@ export default function CustomerDetailPage() {
       const d = new Date(e.date);
       if (d < from || d > to) return false;
       if (!showVoided) {
-        if (e.type === "sale" && (e as LedgerSaleEntry).data.status === "VOIDED") return false;
-        if (e.type === "payment" && (e as LedgerPaymentEntry).data.voidedAt) return false;
+        if (
+          e.type === "sale" &&
+          (e as LedgerSaleEntry).data.status === "VOIDED"
+        )
+          return false;
+        if (e.type === "payment" && (e as LedgerPaymentEntry).data.voidedAt)
+          return false;
       }
       return true;
     });
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return filtered.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
   }, [ledger, dateFrom, dateTo, showVoided]);
 
   const sales = useMemo(
@@ -1084,11 +1213,15 @@ export default function CustomerDetailPage() {
     [filteredLedger],
   );
   const payments = useMemo(
-    () => filteredLedger.filter((e) => e.type === "payment") as LedgerPaymentEntry[],
+    () =>
+      filteredLedger.filter(
+        (e) => e.type === "payment",
+      ) as LedgerPaymentEntry[],
     [filteredLedger],
   );
   const returns = useMemo(
-    () => filteredLedger.filter((e) => e.type === "return") as LedgerReturnEntry[],
+    () =>
+      filteredLedger.filter((e) => e.type === "return") as LedgerReturnEntry[],
     [filteredLedger],
   );
 
@@ -1186,22 +1319,40 @@ export default function CustomerDetailPage() {
           label={t("boxesOut")}
           value={customer.outstandingBoxes.toLocaleString()}
           tone={customer.outstandingBoxes > 0 ? "warning" : "default"}
-          onClick={customer.outstandingBoxes > 0 ? () => setReturnOpen(true) : undefined}
-          actionLabel={customer.outstandingBoxes > 0 ? (t("clickToReturn") as string) : undefined}
+          onClick={
+            customer.outstandingBoxes > 0
+              ? () => setReturnOpen(true)
+              : undefined
+          }
+          actionLabel={
+            customer.outstandingBoxes > 0
+              ? (t("clickToReturn") as string)
+              : undefined
+          }
         />
         <Widget
           icon={Wine}
           label={t("bottlesOut")}
           value={customer.outstandingBottles.toLocaleString()}
           tone={customer.outstandingBottles > 0 ? "warning" : "default"}
-          onClick={customer.outstandingBottles > 0 ? () => setReturnOpen(true) : undefined}
-          actionLabel={customer.outstandingBottles > 0 ? (t("clickToReturn") as string) : undefined}
+          onClick={
+            customer.outstandingBottles > 0
+              ? () => setReturnOpen(true)
+              : undefined
+          }
+          actionLabel={
+            customer.outstandingBottles > 0
+              ? (t("clickToReturn") as string)
+              : undefined
+          }
         />
       </div>
 
       {/* Date filter */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-        <span className="text-sm font-medium text-muted-foreground">{t("filterByDate")}</span>
+        <span className="text-sm font-medium text-muted-foreground">
+          {t("filterByDate")}
+        </span>
         <div className="flex items-center gap-2">
           <label className="text-xs text-muted-foreground">{t("from")}</label>
           <EthiopianDateInput value={dateFrom} onChange={setDateFrom} />
@@ -1212,7 +1363,10 @@ export default function CustomerDetailPage() {
         </div>
         <button
           type="button"
-          onClick={() => { setDateFrom(getFirstOfMonthStr()); setDateTo(getTodayStr()); }}
+          onClick={() => {
+            setDateFrom(getFirstOfMonthStr());
+            setDateTo(getTodayStr());
+          }}
           className="text-xs text-primary hover:underline"
         >
           {t("thisMonth")}
@@ -1226,7 +1380,11 @@ export default function CustomerDetailPage() {
               : "border-border text-muted-foreground hover:bg-accent"
           }`}
         >
-          {showVoided ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          {showVoided ? (
+            <Eye className="h-3.5 w-3.5" />
+          ) : (
+            <EyeOff className="h-3.5 w-3.5" />
+          )}
           {t("showVoided")}
         </button>
       </div>
