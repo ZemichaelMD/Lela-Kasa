@@ -31,7 +31,7 @@ export class SaleLineDto {
 
 export class SalePaymentDto {
   @IsInt() @Min(1) declare amountCents: number;
-  @IsEnum(PaymentMethod) declare method: PaymentMethod;
+  @IsOptional() @IsEnum(PaymentMethod) declare method?: PaymentMethod;
   @IsString() declare paymentAccountId: string;
   @IsOptional() @IsString() reference?: string;
   @IsOptional() @IsString() notes?: string;

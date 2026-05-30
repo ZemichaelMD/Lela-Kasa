@@ -4,7 +4,7 @@ import {
   Injectable,
   Logger,
 } from "@nestjs/common";
-import { SaleStatus } from "../database";
+import { PaymentAccountKind, PaymentMethod, SaleStatus } from "../database";
 import { PrismaService } from "../prisma/prisma.service";
 import { SmsService } from "../sms/sms.service";
 import { SmsTemplatesService } from "../sms/sms-templates.service";
@@ -538,6 +538,13 @@ export class CustomersService {
     if (!account)
       throw AppException.notFound("PaymentAccount", dto.paymentAccountId);
 
+    const kindToMethod: Record<PaymentAccountKind, PaymentMethod> = {
+      [PaymentAccountKind.CASH_PERSON]: PaymentMethod.CASH,
+      [PaymentAccountKind.BANK]: PaymentMethod.BANK_TRANSFER,
+      [PaymentAccountKind.MOBILE_MONEY]: PaymentMethod.MOBILE_MONEY,
+      [PaymentAccountKind.OTHER]: PaymentMethod.OTHER,
+    };
+
     await this.prisma.$transaction(async (tx) => {
       const payment = await tx.payment.create({
         data: {
@@ -545,7 +552,7 @@ export class CustomersService {
           saleId: null,
           customerId,
           amountCents: dto.amountCents,
-          method: dto.method,
+          method: kindToMethod[account.kind],
           paymentAccountId: dto.paymentAccountId,
           reference: dto.reference ?? null,
           notes: dto.notes ?? null,
@@ -617,9 +624,32 @@ export class CustomersService {
             returnedAt: dto.returnedAt ?? new Date().toISOString(),
             previousBoxes: customer.outstandingBoxes,
             previousBottles: customer.outstandingBottles,
+            beverageId: dto.beverageId ?? null,
           }),
         },
       });
+
+      if (dto.beverageId) {
+        await tx.beverage.update({
+          where: { id: dto.beverageId },
+          data: {
+            emptyBoxes: { increment: dto.boxes },
+            emptyBottles: { increment: dto.bottles },
+          },
+        });
+
+        await tx.stockMovement.create({
+          data: {
+            shopId,
+            beverageId: dto.beverageId,
+            reason: 'RETURN',
+            bottlesDelta: 0,
+            emptyBoxesDelta: dto.boxes > 0 ? dto.boxes : null,
+            emptyBottlesDelta: dto.bottles > 0 ? dto.bottles : null,
+            createdById: actorUserId,
+          },
+        });
+      }
     });
 
     return this.findOne(shopId, customerId);

@@ -1,31 +1,32 @@
-import { SdkClient } from './client';
-import { AuthResource } from './resources/auth';
-import { CustomersResource } from './resources/customers';
-import { SalesResource } from './resources/sales';
-import { BeveragesResource } from './resources/beverages';
-import { PriceTiersResource } from './resources/price-tiers';
-import { PaymentAccountsResource } from './resources/payment-accounts';
-import { EmployeesResource } from './resources/employees';
-import { SubscriptionsResource } from './resources/subscriptions';
-import { BillingResource } from './resources/billing';
-import { ShopsResource } from './resources/shops';
-import { DashboardResource } from './resources/dashboard';
-import { ReportsResource } from './resources/reports';
-import { TelegramResource } from './resources/telegram';
-import { PermissionsResource } from './resources/permissions';
-import { tokenStore } from './token-store-rn';
-import { emitAuthLogout } from '../event-emitter';
-import { BASE_URL } from './client';
+import { SdkClient } from "./client";
+import { AuthResource } from "./resources/auth";
+import { CustomersResource } from "./resources/customers";
+import { SalesResource } from "./resources/sales";
+import { BeveragesResource } from "./resources/beverages";
+import { PriceTiersResource } from "./resources/price-tiers";
+import { PaymentAccountsResource } from "./resources/payment-accounts";
+import { EmployeesResource } from "./resources/employees";
+import { SubscriptionsResource } from "./resources/subscriptions";
+import { BillingResource } from "./resources/billing";
+import { ShopsResource } from "./resources/shops";
+import { DashboardResource } from "./resources/dashboard";
+import { ReportsResource } from "./resources/reports";
+import { TelegramResource } from "./resources/telegram";
+import { PermissionsResource } from "./resources/permissions";
+import { SyncResource } from "./resources/sync";
+import { tokenStore } from "./token-store-rn";
+import { emitAuthLogout } from "../event-emitter";
+import { BASE_URL } from "./client";
 
 export const API_URL = BASE_URL;
 
-export type { SdkConfig, RequestOptions } from './client';
-export { SdkClient } from './client';
-export { ApiError } from './error';
-export type { TokenStore } from './token-store';
-export { tokenStore } from './token-store-rn';
+export type { SdkConfig, RequestOptions } from "./client";
+export { SdkClient } from "./client";
+export { ApiError } from "./error";
+export type { TokenStore } from "./token-store";
+export { tokenStore } from "./token-store-rn";
 
-export { AuthResource } from './resources/auth';
+export { AuthResource } from "./resources/auth";
 export type {
   AuthUser,
   LoginInput,
@@ -34,11 +35,11 @@ export type {
   SupportInfo,
   VerificationStatus,
   ChannelVerification,
-} from './resources/auth';
-export { TelegramResource } from './resources/telegram';
-export type { TelegramLinkInfo } from './resources/telegram';
+} from "./resources/auth";
+export { TelegramResource } from "./resources/telegram";
+export type { TelegramLinkInfo } from "./resources/telegram";
 
-export { CustomersResource } from './resources/customers';
+export { CustomersResource } from "./resources/customers";
 export type {
   Customer,
   CreateCustomerDto,
@@ -51,9 +52,9 @@ export type {
   LedgerReturnEntry,
   RecordPaymentDto,
   RecordReturnDto,
-} from './resources/customers';
+} from "./resources/customers";
 
-export { SalesResource } from './resources/sales';
+export { SalesResource } from "./resources/sales";
 export type {
   Sale,
   SaleLine,
@@ -65,37 +66,55 @@ export type {
   ListSalesParams,
   PaginatedSales,
   PaymentMethod,
-} from './resources/sales';
+} from "./resources/sales";
 
-export { BeveragesResource } from './resources/beverages';
-export type { Beverage, PaginatedBeverages } from './resources/beverages';
+export { BeveragesResource } from "./resources/beverages";
+export type { Beverage, PaginatedBeverages } from "./resources/beverages";
 
-export { PriceTiersResource } from './resources/price-tiers';
-export type { PriceTier } from './resources/price-tiers';
+export { PriceTiersResource } from "./resources/price-tiers";
+export type { PriceTier } from "./resources/price-tiers";
 
-export { PaymentAccountsResource } from './resources/payment-accounts';
-export type { PaymentAccount } from './resources/payment-accounts';
+export { PaymentAccountsResource } from "./resources/payment-accounts";
+export type { PaymentAccount } from "./resources/payment-accounts";
 
-export { EmployeesResource } from './resources/employees';
-export type { Employee, EmployeeDetail, CreateEmployeeDto, UpdateEmployeeDto } from './resources/employees';
+export { EmployeesResource } from "./resources/employees";
+export type {
+  Employee,
+  EmployeeDetail,
+  CreateEmployeeDto,
+  UpdateEmployeeDto,
+} from "./resources/employees";
 
-export { SubscriptionsResource } from './resources/subscriptions';
-export type { SubscriptionData, SubscriptionHistoryEntry, SubscriptionProvider, NotifyPaymentInput } from './resources/subscriptions';
+export { SubscriptionsResource } from "./resources/subscriptions";
+export type {
+  SubscriptionData,
+  SubscriptionHistoryEntry,
+  SubscriptionProvider,
+  NotifyPaymentInput,
+} from "./resources/subscriptions";
 
-export { BillingResource } from './resources/billing';
-export type { SubscriptionPlan, SubscriptionStatus as BillingSubscriptionStatus, CheckoutInput, CheckoutResult } from './resources/billing';
+export { BillingResource } from "./resources/billing";
+export type {
+  SubscriptionPlan,
+  SubscriptionStatus as BillingSubscriptionStatus,
+  CheckoutInput,
+  CheckoutResult,
+} from "./resources/billing";
 
-export { ShopsResource } from './resources/shops';
-export type { Shop, UpdateShopDto } from './resources/shops';
+export { ShopsResource } from "./resources/shops";
+export type { Shop, UpdateShopDto } from "./resources/shops";
 
-export { DashboardResource } from './resources/dashboard';
-export type { DashboardData } from './resources/dashboard';
+export { DashboardResource } from "./resources/dashboard";
+export type { DashboardData } from "./resources/dashboard";
 
-export { ReportsResource } from './resources/reports';
-export type { ReportParams } from './resources/reports';
+export { ReportsResource } from "./resources/reports";
+export type { ReportParams } from "./resources/reports";
 
-export { PermissionsResource } from './resources/permissions';
-export type { PermissionGroup, UpdatePermissionsDto } from './resources/permissions';
+export { PermissionsResource } from "./resources/permissions";
+export type {
+  PermissionGroup,
+  UpdatePermissionsDto,
+} from "./resources/permissions";
 
 export interface KasaSdk {
   auth: AuthResource;
@@ -112,6 +131,7 @@ export interface KasaSdk {
   reports: ReportsResource;
   telegram: TelegramResource;
   permissions: PermissionsResource;
+  sync: SyncResource;
 }
 
 let _sdk: KasaSdk | null = null;
@@ -122,12 +142,12 @@ export function getSdk(): KasaSdk {
       tokenStore,
       onRefresh: async (refreshToken: string) => {
         const res = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refreshToken }),
         });
         if (!res.ok) {
-          throw new Error('Refresh failed');
+          throw new Error("Refresh failed");
         }
         const body = await res.json();
         const data = body.data ?? body;
@@ -157,6 +177,7 @@ export function getSdk(): KasaSdk {
       reports: new ReportsResource(client),
       telegram: new TelegramResource(client),
       permissions: new PermissionsResource(client),
+      sync: new SyncResource(client),
     };
   }
   return _sdk;

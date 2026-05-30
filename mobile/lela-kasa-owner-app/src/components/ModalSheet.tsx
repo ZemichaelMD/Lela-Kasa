@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -19,9 +19,6 @@ import { radius, spacing, type } from "../theme";
 
 const { height: SCREEN_H } = Dimensions.get("window");
 
-const HANDLE_HEIGHT = 12;
-const HEADER_HEIGHT = 40;
-
 export interface ModalSheetProps {
   visible: boolean;
   onClose: () => void;
@@ -41,8 +38,6 @@ export function ModalSheet({
 }: ModalSheetProps) {
   const { colors } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
-  const [bodyHeight, setBodyHeight] = useState(0);
-  const [needsScroll, setNeedsScroll] = useState(false);
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -67,31 +62,8 @@ export function ModalSheet({
     }
   }, [visible]);
 
-  useEffect(() => {
-    if (!visible) {
-      setBodyHeight(0);
-      setNeedsScroll(false);
-    }
-  }, [visible]);
-
+  // Use maximum height constraint rather than calculating exact sheet height
   const maxSheetHeight = SCREEN_H * maxHeightFraction;
-  const footerHeight = footer ? 54 : 0;
-  const availableBodyHeight =
-    maxSheetHeight - HANDLE_HEIGHT - HEADER_HEIGHT - footerHeight;
-
-  const handleBodyLayout = useCallback(
-    (e: { nativeEvent: { layout: { height: number } } }) => {
-      const h = e.nativeEvent.layout.height;
-      setBodyHeight(h);
-      setNeedsScroll(h > availableBodyHeight);
-    },
-    [availableBodyHeight],
-  );
-
-  const sheetHeight = Math.min(
-    HANDLE_HEIGHT + HEADER_HEIGHT + bodyHeight + footerHeight,
-    maxSheetHeight,
-  );
 
   const translateY = anim.interpolate({
     inputRange: [0, 1],
@@ -103,20 +75,6 @@ export function ModalSheet({
     outputRange: [0, 1],
     extrapolate: "clamp",
   });
-
-  const bodyContent = needsScroll ? (
-    <ScrollView
-      style={{ maxHeight: availableBodyHeight }}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-      bounces={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      {children}
-    </ScrollView>
-  ) : (
-    <View>{children}</View>
-  );
 
   return (
     <Modal
@@ -145,7 +103,7 @@ export function ModalSheet({
             styles.sheet,
             {
               backgroundColor: colors.surface,
-              height: sheetHeight,
+              maxHeight: maxSheetHeight,
               transform: [{ translateY }],
             },
           ]}
@@ -172,9 +130,15 @@ export function ModalSheet({
             </TouchableOpacity>
           </View>
 
-          <View style={styles.body} onLayout={handleBodyLayout}>
-            {bodyContent}
-          </View>
+          <ScrollView
+            style={styles.bodyScroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
 
           {footer ? (
             <View
@@ -199,14 +163,17 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     justifyContent: "flex-end",
+    paddingBottom: spacing[6],
   },
   backdrop: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
   },
   sheet: {
     borderTopLeftRadius: radius["2xl"],
     borderTopRightRadius: radius["2xl"],
     overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
   },
   handleBar: {
     alignItems: "center",
@@ -237,18 +204,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  body: {
+  bodyScroll: {
+    flexShrink: 1, // Crucial: Allows ScrollView to yield space to the footer when constrained by maxHeight
     paddingHorizontal: spacing[5],
     paddingTop: spacing[2],
-    paddingBottom: spacing[0],
   },
   scrollContent: {
-    paddingBottom: spacing[1],
+    paddingBottom: spacing[6],
   },
   footer: {
     paddingHorizontal: spacing[5],
-    paddingTop: spacing[2],
-    paddingBottom: spacing[1],
+    paddingTop: spacing[4],
+    paddingBottom: spacing[8],
     borderTopWidth: StyleSheet.hairlineWidth,
+    flexShrink: 0, // Crucial: Ensures the footer is never squished vertically
   },
 });

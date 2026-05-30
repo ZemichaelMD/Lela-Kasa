@@ -119,7 +119,7 @@ export type LedgerEntry =
 
 export interface RecordPaymentDto {
   amountCents: number;
-  method: 'CASH' | 'BANK_TRANSFER' | 'MOBILE_MONEY' | 'OTHER';
+  method?: 'CASH' | 'BANK_TRANSFER' | 'MOBILE_MONEY' | 'OTHER';
   paymentAccountId: string;
   reference?: string;
   notes?: string;
@@ -129,6 +129,7 @@ export interface RecordPaymentDto {
 export interface RecordReturnDto {
   boxes: number;
   bottles: number;
+  beverageId?: string;
   notes?: string;
   returnedAt?: string;
 }

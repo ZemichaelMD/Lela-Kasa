@@ -86,7 +86,7 @@ export type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'MOBILE_MONEY' | 'OTHER';
 export interface CreateSalePaymentDto {
   paymentAccountId: string;
   amountCents: number;
-  method: PaymentMethod;
+  method?: PaymentMethod;
   reference?: string;
   notes?: string;
   paidAt?: string;
@@ -119,7 +119,7 @@ export interface UpdateSaleDto {
 export interface AddPaymentDto {
   paymentAccountId: string;
   amountCents: number;
-  method: PaymentMethod;
+  method?: PaymentMethod;
   reference?: string;
   notes?: string;
   paidAt?: string;

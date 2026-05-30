@@ -160,6 +160,49 @@ export class PriceTiersService {
     return price;
   }
 
+  async setPrices(
+    shopId: string,
+    tierId: string,
+    prices: SetBeveragePriceDto[],
+    actorUserId: string,
+  ) {
+    await this.findOne(shopId, tierId);
+
+    const results = [];
+    for (const dto of prices) {
+      const beverage = await this.prisma.beverage.findFirst({
+        where: { id: dto.beverageId, shopId, deletedAt: null },
+      });
+      if (!beverage) continue;
+
+      const price = await this.prisma.beveragePrice.create({
+        data: {
+          beverageId: dto.beverageId,
+          priceTierId: tierId,
+          pricePerBoxCents: dto.pricePerBoxCents,
+          pricePerBottleCents: dto.pricePerBottleCents,
+          effectiveFrom: new Date(),
+          createdById: actorUserId,
+        },
+      });
+
+      await this.prisma.auditLog.create({
+        data: {
+          shopId,
+          actorUserId,
+          action: 'price_tier.set_price',
+          entityType: 'BeveragePrice',
+          entityId: price.id,
+          afterJson: JSON.stringify(price),
+        },
+      });
+
+      results.push(price);
+    }
+
+    return results;
+  }
+
   async getPrices(shopId: string, tierId: string) {
     await this.findOne(shopId, tierId);
 

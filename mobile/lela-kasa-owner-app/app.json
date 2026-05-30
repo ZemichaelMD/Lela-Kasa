@@ -26,7 +26,7 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiUrl": "https://lela-kasa.vercel.app",
+      "apiUrl": "http://192.168.0.125:3001",
       "eas": {
         "projectId": "863ca630-31cf-47aa-aa80-7502b3d0feb9"
       }

@@ -30,7 +30,7 @@ import {
 import { useTheme } from "../context/ThemeContext";
 import { withCache } from "../lib/api-cache";
 import { t } from "../lib/i18n";
-import { radius, spacing, type } from "../theme";
+import { radius, spacing, type, layout } from "../theme";
 
 type SalesDatePreset = BaseDatePreset | "custom";
 
@@ -162,7 +162,7 @@ export default function SalesScreen() {
     queryKey,
     queryFn: async ({ pageParam }) => {
       try {
-        return await withCache('sales', () =>
+        return await withCache("sales", () =>
           getSdk().sales.list({
             page: pageParam,
             pageSize: PAGE_SIZE,
@@ -359,7 +359,7 @@ export default function SalesScreen() {
           keyExtractor={(item) => item.id}
           style={{ flex: 1, paddingHorizontal: spacing[4] }}
           contentContainerStyle={{
-            paddingBottom: spacing[8],
+            paddingBottom: layout.screenPaddingBottom,
             paddingTop: spacing[2],
           }}
           renderItem={({ item }) => {

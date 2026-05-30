@@ -179,6 +179,10 @@ export const spacing = {
   20: 80,
 };
 
+export const layout = {
+  screenPaddingBottom: 100, // Enough to clear the floating bottom nav
+};
+
 export const type = {
   display: { fontSize: 32, fontWeight: "800" as const, lineHeight: 38 },
   h1: { fontSize: 26, fontWeight: "800" as const, lineHeight: 32 },

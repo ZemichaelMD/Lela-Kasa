@@ -7,7 +7,7 @@ import { MemoryTokenStore } from "./token-store";
 const BASE_URL =
   Constants.expoConfig?.extra?.apiUrl ??
   process.env.EXPO_PUBLIC_API_URL ??
-  "http://192.168.0.186:3000";
+  "http://192.168.0.186:3001";
 
 export { BASE_URL };
 

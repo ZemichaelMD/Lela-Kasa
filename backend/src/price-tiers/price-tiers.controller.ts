@@ -14,6 +14,7 @@ import { PriceTiersService } from './price-tiers.service';
 import { CreatePriceTierDto } from './dto/create-price-tier.dto';
 import { UpdatePriceTierDto } from './dto/update-price-tier.dto';
 import { SetBeveragePriceDto } from './dto/set-beverage-price.dto';
+import { SetBeveragePricesDto } from './dto/set-beverage-prices.dto';
 import { CurrentShopId } from '../common/decorators/current-shop.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermission } from '../permissions/decorators/require-permission.decorator';
@@ -70,7 +71,7 @@ export class PriceTiersController {
   }
 
   @Put(':id/prices')
-  @ApiOperation({ summary: 'Set beverage price for tier' })
+  @ApiOperation({ summary: 'Set beverage price for tier (single)' })
   setPrice(
     @CurrentShopId() shopId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -78,6 +79,17 @@ export class PriceTiersController {
     @Body() dto: SetBeveragePriceDto,
   ) {
     return this.priceTiersService.setPrice(shopId, id, dto, user.id);
+  }
+
+  @Post(':id/prices')
+  @ApiOperation({ summary: 'Set beverage prices for tier (bulk)' })
+  setPrices(
+    @CurrentShopId() shopId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: SetBeveragePricesDto,
+  ) {
+    return this.priceTiersService.setPrices(shopId, id, dto.prices, user.id);
   }
 
   @Get(':id/prices')

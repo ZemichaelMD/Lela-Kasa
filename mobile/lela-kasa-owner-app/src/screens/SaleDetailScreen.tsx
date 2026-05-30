@@ -15,7 +15,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
 import type { RootStackParamList } from '../navigation/types';
-import type { PaymentMethod, AddPaymentDto, UpdateSaleDto, UpdateSaleLineDto, UpdateSalePaymentDto } from '../lib/sdk/resources/sales';
+import type { AddPaymentDto, UpdateSaleDto, UpdateSaleLineDto, UpdateSalePaymentDto } from '../lib/sdk/resources/sales';
 import { getSdk } from '../lib/sdk';
 import { QK } from '../lib/query-keys';
 import { StatusBadge } from '../components/StatusBadge';
@@ -49,7 +49,7 @@ export default function SaleDetailScreen() {
   const [voidReason, setVoidReason] = useState('');
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
+
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; name: string } | null>(null);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -142,7 +142,6 @@ export default function SaleDetailScreen() {
     addPaymentMutation.mutate({
       paymentAccountId: selectedAccount.id,
       amountCents: Math.round(amount * 100),
-      method: paymentMethod,
     });
   };
 
@@ -163,7 +162,6 @@ export default function SaleDetailScreen() {
       .map(p => ({
         paymentAccountId: p.paymentAccountId,
         amountCents: p.amountCents,
-        method: p.method as PaymentMethod,
         reference: p.reference,
         notes: p.notes,
         paidAt: p.paidAt,
@@ -382,20 +380,7 @@ export default function SaleDetailScreen() {
             <View style={styles.modalContent}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('amount')}</Text>
               <AmountInput value={paymentAmount} onChangeText={setPaymentAmount} placeholder="0.00" />
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[4] }]}>{t('method')}</Text>
-              <View style={styles.methodRow}>
-                {(['CASH', 'BANK_TRANSFER', 'MOBILE_MONEY', 'OTHER'] as const).map(m => (
-                  <TouchableOpacity
-                    key={m}
-                    style={[styles.methodChip, { backgroundColor: paymentMethod === m ? colors.primary : colors.surfaceMuted }]}
-                    onPress={() => setPaymentMethod(m)}
-                  >
-                    <Text style={[styles.methodText, { color: paymentMethod === m ? colors.textInverse : colors.textSecondary }]}>
-                      {t(m === 'CASH' ? 'newSale.cash' : m === 'BANK_TRANSFER' ? 'newSale.bankTransfer' : m === 'MOBILE_MONEY' ? 'newSale.mobileMoney' : 'newSale.other')}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+
               <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: spacing[4] }]}>{t('account')}</Text>
               <TouchableOpacity style={[styles.accountPicker, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => setShowAccountPicker(true)}>
                 <Text style={[styles.accountPickerText, { color: selectedAccount ? colors.textPrimary : colors.textMuted }]}>
@@ -547,10 +532,6 @@ const styles = StyleSheet.create({
   modalTitle: { ...type.h3 },
   modalContent: { paddingHorizontal: spacing[5], paddingVertical: spacing[4] },
   fieldLabel: { ...type.caption, marginBottom: spacing[2] },
-  methodRow: { flexDirection: 'row', gap: spacing[2], flexWrap: 'wrap' },
-  methodChip: { paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radius.sm },
-  methodChipActive: { },
-  methodText: { ...type.caption },
   accountPicker: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
   accountPickerText: { ...type.body },
   accountPickerPlaceholder: { ...type.body },

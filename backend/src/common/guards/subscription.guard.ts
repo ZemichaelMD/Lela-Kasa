@@ -20,6 +20,7 @@ const SUBSCRIPTION_WHITELIST = [
   "/api/v1/orders",
   "/api/v1/auth/config",
   "/api/v1/health",
+  "/api/v1/sync",
 ];
 
 @Injectable()

@@ -216,6 +216,8 @@ model Beverage {
   imageUrl           String?
   isActive           Boolean                 @default(true)
   stockBottles       Int                     @default(0)
+  emptyBottles       Int                     @default(0)
+  emptyBoxes         Int                     @default(0)
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
   deletedAt          DateTime?
@@ -380,6 +382,7 @@ model Payment {
   paidAt           DateTime       @default(now())
   recordedById     String
   createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @default(now()) @updatedAt
   voidedAt         DateTime?
   voidReason       String?
   customer         Customer       @relation(fields: [customerId], references: [id])
@@ -398,10 +401,12 @@ model StockMovement {
   id           String              @id @default(cuid())
   shopId       String
   beverageId   String
-  reason       StockMovementReason
-  bottlesDelta Int
-  saleId       String?
-  notes        String?
+  reason            StockMovementReason
+  bottlesDelta      Int
+  emptyBoxesDelta   Int?
+  emptyBottlesDelta Int?
+  saleId            String?
+  notes             String?
   createdAt    DateTime            @default(now())
   createdById  String?
   beverage     Beverage            @relation(fields: [beverageId], references: [id])
@@ -695,6 +700,7 @@ enum StockMovementReason {
   PURCHASE
   ADJUSTMENT
   RETURN
+  SWAP
 }
 
 enum SubscriptionStatus {
@@ -711,4 +717,15 @@ enum OrderStatus {
   CONFIRMED
   REJECTED
   CANCELLED
+}
+
+model ProcessedMutation {
+  id               String   @id @default(cuid())
+  clientMutationId String   @unique
+  serverId         String?
+  entityType       String
+  shopId           String
+  createdAt        DateTime @default(now())
+
+  @@index([shopId, clientMutationId])
 }

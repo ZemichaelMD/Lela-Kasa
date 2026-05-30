@@ -5,6 +5,8 @@ import { ErrorCode } from '../contract';
 import type { CreateBeverageDto } from './dto/create-beverage.dto';
 import type { UpdateBeverageDto } from './dto/update-beverage.dto';
 import type { AdjustStockDto } from './dto/adjust-stock.dto';
+import type { AdjustInventoryDto } from './dto/adjust-inventory.dto';
+import type { SwapDto } from './dto/swap.dto';
 
 export interface BeverageListQuery {
   page?: number;
@@ -254,5 +256,162 @@ export class BeveragesService {
     );
 
     return results;
+  }
+
+  async adjustInventory(
+    shopId: string,
+    beverageId: string,
+    dto: AdjustInventoryDto,
+    actorUserId: string,
+  ) {
+    const beverage = await this.findOne(shopId, beverageId);
+
+    const fullDelta = dto.fullBottlesDelta ?? 0;
+    const emptyBoxesDelta = dto.emptyBoxesDelta ?? 0;
+    const emptyBottlesDelta = dto.emptyBottlesDelta ?? 0;
+
+    if (fullDelta === 0 && emptyBoxesDelta === 0 && emptyBottlesDelta === 0) {
+      throw new AppException({
+        code: ErrorCode.VALIDATION_ERROR,
+        message: 'Enter at least one full or empty quantity',
+        status: 422,
+      });
+    }
+
+    if (beverage.stockBottles + fullDelta < 0) {
+      throw new AppException({
+        code: ErrorCode.VALIDATION_ERROR,
+        message: `Not enough full stock to remove (have ${beverage.stockBottles} bottles)`,
+        status: 422,
+      });
+    }
+
+    const newEmptyBoxes = beverage.emptyBoxes + emptyBoxesDelta;
+    const newEmptyBottles = beverage.emptyBottles + emptyBottlesDelta;
+
+    if (newEmptyBoxes < 0 || newEmptyBottles < 0) {
+      throw new AppException({
+        code: ErrorCode.VALIDATION_ERROR,
+        message: 'Not enough empty containers to remove',
+        status: 422,
+      });
+    }
+
+    const [movement, updated] = await this.prisma.$transaction([
+      this.prisma.stockMovement.create({
+        data: {
+          shopId,
+          beverageId,
+          reason: dto.reason,
+          bottlesDelta: fullDelta,
+          emptyBoxesDelta: emptyBoxesDelta !== 0 ? emptyBoxesDelta : null,
+          emptyBottlesDelta: emptyBottlesDelta !== 0 ? emptyBottlesDelta : null,
+          notes: dto.notes ?? null,
+          createdById: actorUserId,
+        },
+      }),
+      this.prisma.beverage.update({
+        where: { id: beverageId },
+        data: {
+          stockBottles: { increment: fullDelta },
+          emptyBoxes: { increment: emptyBoxesDelta },
+          emptyBottles: { increment: emptyBottlesDelta },
+        },
+      }),
+    ]);
+
+    await this.prisma.auditLog.create({
+      data: {
+        shopId,
+        actorUserId,
+        action: 'beverage.adjust_inventory',
+        entityType: 'StockMovement',
+        entityId: movement.id,
+        afterJson: JSON.stringify({
+          movement,
+          stockBottles: updated.stockBottles,
+          emptyBoxes: updated.emptyBoxes,
+          emptyBottles: updated.emptyBottles,
+        }),
+      },
+    });
+
+    return updated;
+  }
+
+  async swap(
+    shopId: string,
+    beverageId: string,
+    dto: SwapDto,
+    actorUserId: string,
+  ) {
+    const beverage = await this.findOne(shopId, beverageId);
+
+    if (dto.emptyBoxes === 0 && dto.emptyBottles === 0) {
+      throw new AppException({
+        code: ErrorCode.VALIDATION_ERROR,
+        message: 'Enter at least one empty box or bottle to swap',
+        status: 422,
+      });
+    }
+
+    if (dto.emptyBoxes > beverage.emptyBoxes) {
+      throw new AppException({
+        code: ErrorCode.VALIDATION_ERROR,
+        message: `Not enough empty boxes (have ${beverage.emptyBoxes}, requested ${dto.emptyBoxes})`,
+        status: 422,
+      });
+    }
+
+    if (dto.emptyBottles > beverage.emptyBottles) {
+      throw new AppException({
+        code: ErrorCode.VALIDATION_ERROR,
+        message: `Not enough empty bottles (have ${beverage.emptyBottles}, requested ${dto.emptyBottles})`,
+        status: 422,
+      });
+    }
+
+    const fullBottlesDelta =
+      dto.emptyBoxes * beverage.bottlesPerBox + dto.emptyBottles;
+
+    const [movement, updated] = await this.prisma.$transaction([
+      this.prisma.stockMovement.create({
+        data: {
+          shopId,
+          beverageId,
+          reason: 'SWAP',
+          bottlesDelta: fullBottlesDelta,
+          emptyBoxesDelta: dto.emptyBoxes > 0 ? -dto.emptyBoxes : null,
+          emptyBottlesDelta: dto.emptyBottles > 0 ? -dto.emptyBottles : null,
+          createdById: actorUserId,
+        },
+      }),
+      this.prisma.beverage.update({
+        where: { id: beverageId },
+        data: {
+          stockBottles: { increment: fullBottlesDelta },
+          emptyBoxes: { decrement: dto.emptyBoxes },
+          emptyBottles: { decrement: dto.emptyBottles },
+        },
+      }),
+    ]);
+
+    await this.prisma.auditLog.create({
+      data: {
+        shopId,
+        actorUserId,
+        action: 'beverage.swap',
+        entityType: 'StockMovement',
+        entityId: movement.id,
+        afterJson: JSON.stringify({
+          movement,
+          stockBottles: updated.stockBottles,
+          emptyBoxes: updated.emptyBoxes,
+          emptyBottles: updated.emptyBottles,
+        }),
+      },
+    });
+
+    return updated;
   }
 }

@@ -50,6 +50,8 @@ export interface StockMovement {
   id: string;
   beverageId: string;
   bottlesDelta: number;
+  emptyBoxesDelta?: number;
+  emptyBottlesDelta?: number;
   reason: string;
   notes?: string;
   createdAt: string;

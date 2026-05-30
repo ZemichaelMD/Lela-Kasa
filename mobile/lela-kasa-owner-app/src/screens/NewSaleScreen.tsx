@@ -1,922 +1,1969 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+} from "react-native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 
-import type { RootStackParamList } from '../navigation/types';
-import { getSdk } from '../lib/sdk';
-import { QK } from '../lib/query-keys';
-import type { CreateSaleDto, CreateSaleLineDto, CreateSalePaymentDto, PaymentMethod } from '../lib/sdk/resources/sales';
-import type { PickerItem } from '../components/PickerSheet';
-import { PickerSheet } from '../components/PickerSheet';
-import { AmountInput } from '../components/AmountInput';
-import { showToast } from '../components/Toast';
-import { t } from '../lib/i18n';
-import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
-import { useOffline } from '../offline/context';
-import { createSaleOffline } from '../offline/writes';
-import { withCache, cacheResponse, getCachedResponse } from '../lib/api-cache';
-import { radius, spacing, type } from '../theme';
+import type { RootStackParamList } from "../navigation/types";
+import { getSdk } from "../lib/sdk";
+import { customerRepo } from "../offline/repositories/CustomerRepository";
+import { beverageRepo } from "../offline/repositories/BeverageRepository";
+import { priceTierRepo } from "../offline/repositories/PriceTierRepository";
+import { beveragePriceRepo } from "../offline/repositories/BeveragePriceRepository";
+import { paymentAccountRepo } from "../offline/repositories/PaymentAccountRepository";
+import {
+  saleRepo,
+  SaleCreatePayload,
+} from "../offline/repositories/SaleRepository";
 
-interface SaleLineItem {
+import { EthiopianDatePicker } from "../components/EthiopianDatePicker";
+import { PickerSheet, type PickerItem } from "../components/PickerSheet";
+import { showToast } from "../components/Toast";
+import { t } from "../lib/i18n";
+import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
+import { useOffline } from "../providers/OfflineProvider";
+import { radius, spacing, type } from "../theme";
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function custVal(c: any, prop: string): any {
+  return c?.[prop] ?? c?.[{
+    credit_balance_cents: "creditBalanceCents",
+    outstanding_boxes: "outstandingBoxes",
+    outstanding_bottles: "outstandingBottles",
+    price_tier_id: "priceTierId",
+  }[prop] ?? prop];
+}
+
+function todayIso(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
+
+interface LineItem {
   beverageId: string;
-  beverageName: string;
+  name: string;
   boxes: number;
+  boxesText: string;
   bottles: number;
+  bottlesText: string;
   pricePerBoxCents: number;
   pricePerBottleCents: number;
 }
 
-interface ContainerKasaItem {
+interface PaymentRow {
+  amountCents: number;
+  amountInput: string;
+  paymentAccountId: string;
+}
+
+interface ContainerKasaRow {
   beverageId: string;
-  beverageName: string;
+  name: string;
   count: number;
+  countText: string;
 }
 
-interface ReturnedContainerItem {
+interface ReturnedContainerRow {
   beverageId: string;
-  beverageName: string;
+  name: string;
   boxes: number;
+  boxesText: string;
   bottles: number;
+  bottlesText: string;
 }
 
-interface TierPrice {
-  beverageId: string;
-  pricePerBoxCents: number;
-  pricePerBottleCents: number;
-}
-
-function todayStr(): string {
-  return new Date().toISOString().split('T')[0];
-}
-
-function formatCurrency(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 });
-}
+// ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function NewSaleScreen() {
   const { colors } = useTheme();
-  const route = useRoute<RouteProp<RootStackParamList, 'NewSale'>>();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const queryClient = useQueryClient();
-  const preSelectedCustomerId = route.params?.customerId;
-  const insets = useSafeAreaInsets();
+  const route = useRoute<RouteProp<RootStackParamList, "NewSale">>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
-  const { isOnline } = useOffline();
+  const { isOnline, triggerSync } = useOffline();
 
-  const [saleDate] = useState(todayStr());
-  const [selectedCustomer, setSelectedCustomer] = useState<{ id: string; name: string } | null>(null);
-  const [showCustomerPicker, setShowCustomerPicker] = useState(false);
-  const [selectedTier, setSelectedTier] = useState<{ id: string; name: string } | null>(null);
+  // ─── Form state ──────────────────────────────────────────────────────────────
+  const [saleDate, setSaleDate] = useState(todayIso());
+  const [customerId, setCustomerId] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [newCustName, setNewCustName] = useState("");
+  const [newCustPhone, setNewCustPhone] = useState("");
+  const [addingCustomer, setAddingCustomer] = useState(false);
+  const [priceTierId, setPriceTierId] = useState("");
   const [showTierPicker, setShowTierPicker] = useState(false);
-  const [lines, setLines] = useState<SaleLineItem[]>([]);
+  const [lines, setLines] = useState<LineItem[]>([]);
   const [showBeveragePicker, setShowBeveragePicker] = useState(false);
-  const [containerKasas, setContainerKasas] = useState<ContainerKasaItem[]>([]);
-  const [showContainerKasaPicker, setShowContainerKasaPicker] = useState(false);
-  const [returnedContainers, setReturnedContainers] = useState<ReturnedContainerItem[]>([]);
-  const [showReturnedContainerPicker, setShowReturnedContainerPicker] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
-  const [selectedAccount, setSelectedAccount] = useState<{ id: string; name: string } | null>(null);
-  const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const [editingLineIndex, setEditingLineIndex] = useState<number | null>(null);
+  const [paymentRows, setPaymentRows] = useState<PaymentRow[]>([]);
+  const [showAccountPicker, setShowAccountPicker] = useState<number | null>(null);
+  const [notes, setNotes] = useState("");
+  const [applyCredit, setApplyCredit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState<"draft" | "confirm" | null>(null);
 
-  const shopId = user?.shopId;
+  // Container kasa
+  const [containerKasas, setContainerKasas] = useState<ContainerKasaRow[]>([]);
+  const [showKasaPicker, setShowKasaPicker] = useState(false);
+  const [editingKasaIndex, setEditingKasaIndex] = useState<number | null>(null);
 
-  const { data: customersData } = useQuery({
-    queryKey: QK.customers({}),
-    queryFn: () => withCache('customers', () => getSdk().customers.list({ pageSize: 100 })),
-  });
+  // Returned containers
+  const [returnedContainers, setReturnedContainers] = useState<
+    ReturnedContainerRow[]
+  >([]);
+  const [showReturnPicker, setShowReturnPicker] = useState(false);
+  const [editingReturnIndex, setEditingReturnIndex] = useState<number | null>(null);
 
-  const { data: beveragesData } = useQuery({
-    queryKey: QK.beverages(),
-    queryFn: () => withCache('beverages', () => getSdk().beverages.list({ pageSize: 100, isActive: true })),
-  });
+  // ─── Reference data ──────────────────────────────────────────────────────────
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [beverages, setBeverages] = useState<any[]>([]);
+  const [tiers, setTiers] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [tierPrices, setTierPrices] = useState<any[]>([]);
+  const [loadingRef, setLoadingRef] = useState(true);
 
-  const { data: tiers } = useQuery({
-    queryKey: QK.priceTiers(),
-    queryFn: () => withCache('price-tiers', () => getSdk().priceTiers.list()),
-  });
+  const loadRefData = useCallback(async () => {
+    setLoadingRef(true);
+    const shopId = user?.shopId || "";
+    try {
+      if (isOnline) {
+        const [custRes, bevRes, tierRes, accRes] = await Promise.all([
+          getSdk().customers.list({ pageSize: 500 }),
+          getSdk().beverages.list({ pageSize: 500, isActive: true }),
+          getSdk().priceTiers.list(),
+          getSdk().paymentAccounts.list(),
+        ]);
+        setCustomers(custRes.data ?? custRes);
+        setBeverages(bevRes.data ?? bevRes);
+        setTiers(tierRes);
+        setAccounts(accRes);
+      } else {
+        const [c, b, t, a] = await Promise.all([
+          customerRepo.list(shopId),
+          beverageRepo.list(shopId),
+          priceTierRepo.list(shopId),
+          paymentAccountRepo.listActive(shopId),
+        ]);
+        setCustomers(c);
+        setBeverages(b);
+        setTiers(t);
+        setAccounts(a);
+      }
+    } catch {
+      try {
+        const [c, b, t, a] = await Promise.all([
+          customerRepo.list(shopId),
+          beverageRepo.list(shopId),
+          priceTierRepo.list(shopId),
+          paymentAccountRepo.listActive(shopId),
+        ]);
+        setCustomers(c);
+        setBeverages(b);
+        setTiers(t);
+        setAccounts(a);
+      } catch {}
+    } finally {
+      setLoadingRef(false);
+    }
+  }, [isOnline, user?.shopId]);
 
-  const { data: tierPrices, isLoading: loadingPrices } = useQuery({
-    queryKey: ['tier-prices', selectedTier?.id],
-    queryFn: () => {
-      if (!selectedTier) return Promise.resolve([]);
-      return withCache(`tier-prices:${selectedTier.id}`, () => getSdk().priceTiers.getPrices(selectedTier.id));
-    },
-    enabled: !!selectedTier,
-  });
+  useEffect(() => {
+    loadRefData();
+  }, [loadRefData]);
 
-  const { data: accounts } = useQuery({
-    queryKey: QK.paymentAccounts(),
-    queryFn: () => withCache('payment-accounts', () => getSdk().paymentAccounts.list()),
-  });
+  // Load tier prices when a tier is selected
+  useEffect(() => {
+    if (!priceTierId) return;
+    async function loadPrices() {
+      try {
+        if (isOnline) {
+          const prices = await getSdk().priceTiers.getPrices(priceTierId);
+          setTierPrices(prices);
+        } else {
+          const prices = await beveragePriceRepo.getPricesByTier(priceTierId);
+          setTierPrices(prices);
+        }
+      } catch {
+        try {
+          const prices = await beveragePriceRepo.getPricesByTier(priceTierId);
+          setTierPrices(prices);
+        } catch {}
+      }
+    }
+    loadPrices();
+  }, [priceTierId, isOnline]);
 
-  React.useEffect(() => {
-    if (tiers && !selectedTier) {
-      const defaultTier = tiers.find(t => t.isDefault) ?? tiers[0];
-      if (defaultTier) setSelectedTier({ id: defaultTier.id, name: defaultTier.name });
+  // Default price tier
+  useEffect(() => {
+    if (tiers.length > 0 && !priceTierId) {
+      const def = tiers.find((t) => t.isDefault) || tiers[0];
+      setPriceTierId(def.id || def.local_id || def.server_id);
     }
   }, [tiers]);
 
-  React.useEffect(() => {
-    if (preSelectedCustomerId && customersData && tiers) {
-      const customer = customersData.data.find(c => c.id === preSelectedCustomerId);
-      if (customer) {
-        setSelectedCustomer({ id: customer.id, name: customer.name });
-        if (customer.priceTierId) {
-          const tier = tiers.find(t => t.id === customer.priceTierId);
-          if (tier) setSelectedTier({ id: tier.id, name: tier.name });
-        }
+  // Prefill customer from route param
+  useEffect(() => {
+    if (!route.params?.customerId || customers.length === 0) return;
+    const c = customers.find(
+      (x) => (x.id || x.server_id || x.local_id) === route.params!.customerId,
+    );
+    if (c) {
+      const cId = c.id || c.server_id || c.local_id || "";
+      setCustomerId(cId);
+      setCustomerSearch(c.name || "");
+      if (c.priceTierId || c.price_tier_id) {
+        setPriceTierId(c.priceTierId ?? c.price_tier_id);
       }
     }
-  }, [preSelectedCustomerId, customersData, tiers]);
+  }, [route.params?.customerId, customers]);
 
-  // Is the price tier locked for the selected customer?
-  const tierLocked = useMemo(() => {
-    if (!selectedCustomer || !customersData) return false;
-    const c = customersData.data.find(c => c.id === selectedCustomer.id);
-    return c?.priceTierLocked ?? false;
-  }, [selectedCustomer, customersData]);
+  // ─── Price helpers ───────────────────────────────────────────────────────────
 
-  const priceMap = useMemo(() => {
-    const map: Record<string, TierPrice> = {};
-    (tierPrices ?? []).forEach(p => {
-      map[p.beverageId] = {
-        beverageId: p.beverageId,
-        pricePerBoxCents: p.pricePerBoxCents,
-        pricePerBottleCents: p.pricePerBottleCents,
-      };
+  function getPriceForBeverage(
+    bevId: string,
+  ): { pricePerBoxCents: number; pricePerBottleCents: number } | null {
+    const price = tierPrices.find(
+      (p) => (p.beverageId || p.beverage_id) === bevId,
+    );
+    if (!price) return null;
+    return {
+      pricePerBoxCents: price.pricePerBoxCents ?? price.price_per_box_cents,
+      pricePerBottleCents:
+        price.pricePerBottleCents ?? price.price_per_bottle_cents,
+    };
+  }
+
+  function computeLineTotal(line: LineItem): number {
+    return line.boxes * line.pricePerBoxCents + line.bottles * line.pricePerBottleCents;
+  }
+
+  function maybeFoldBottlesIntoBoxes(idx: number) {
+    setLines((prev) => {
+      const line = prev[idx];
+      if (!line || !line.beverageId) return prev;
+      const bev = beverages.find(
+        (b) => (b.id || b.local_id) === line.beverageId,
+      );
+      if (!bev) return prev;
+      const perBox = bev.bottlesPerBox || 24;
+      if (perBox <= 0 || line.bottles < perBox) return prev;
+      const priceMatch =
+        line.pricePerBottleCents * perBox === line.pricePerBoxCents;
+      if (!priceMatch) return prev;
+      const extraBoxes = Math.floor(line.bottles / perBox);
+      const remBottles = line.bottles % perBox;
+      return prev.map((l, i) =>
+        i === idx
+          ? {
+              ...l,
+              boxes: l.boxes + extraBoxes,
+              boxesText: String(l.boxes + extraBoxes),
+              bottles: remBottles,
+              bottlesText: remBottles ? String(remBottles) : "",
+            }
+          : l,
+      );
     });
-    return map;
-  }, [tierPrices]);
+  }
 
-  const customerItems: PickerItem[] = (customersData?.data ?? []).map(c => ({
-    id: c.id,
-    label: c.name,
-    subtitle: c.phone ?? undefined,
-  }));
-
-  const beverageItems: PickerItem[] = (beveragesData?.data ?? []).map(b => ({
-    id: b.id,
-    label: b.name,
-    subtitle: b.brand ? `${b.brand} · ${b.bottlesPerBox} btls/box` : `${b.bottlesPerBox} btls/box`,
-  }));
-
-  const tierItems: PickerItem[] = (tiers ?? []).map(t => ({
-    id: t.id,
-    label: t.name,
-  }));
-
-  const accountItems: PickerItem[] = (accounts ?? []).map(a => ({
-    id: a.id,
-    label: a.name,
-    subtitle: a.kind,
-  }));
-
-  const totalBottles = useMemo(() => lines.reduce((sum, l) => sum + l.bottles, 0), [lines]);
-  const showContainerKasa = true;
+  // ─── Computed values ─────────────────────────────────────────────────────────
 
   const subtotalCents = useMemo(() => {
-    return lines.reduce((sum, line) => {
-      return sum + line.boxes * line.pricePerBoxCents + line.bottles * line.pricePerBottleCents;
-    }, 0);
+    return lines.reduce((sum, l) => sum + computeLineTotal(l), 0);
   }, [lines]);
 
   const paidCents = useMemo(() => {
-    const amount = parseFloat(paymentAmount);
-    return amount > 0 ? Math.round(amount * 100) : 0;
-  }, [paymentAmount]);
+    return paymentRows.reduce((sum, r) => sum + (r.amountCents || 0), 0);
+  }, [paymentRows]);
 
   const creditDelta = subtotalCents - paidCents;
 
-  const createSaleMutation = useMutation({
-    mutationFn: async (dto: CreateSaleDto) => {
-      if (isOnline) {
-        return getSdk().sales.create(dto);
+  const totalBottles = useMemo(() => {
+    return lines.reduce((sum, l) => sum + l.bottles, 0);
+  }, [lines]);
+
+  const selectedCustomer = useMemo(() => {
+    return customers.find(
+      (c) =>
+        (c.id || c.server_id || c.local_id) === customerId,
+    );
+  }, [customers, customerId]);
+
+  const isPriceTierLocked = selectedCustomer?.priceTierLocked ?? false;
+
+  const filteredCustomers = useMemo(() => {
+    const q = customerSearch.trim().toLowerCase();
+    if (!q) return customers;
+    return customers.filter((c) => c.name?.toLowerCase().includes(q));
+  }, [customers, customerSearch]);
+
+  // ─── Line handlers ───────────────────────────────────────────────────────────
+
+  function addLine() {
+    setLines((prev) => [
+      ...prev,
+      {
+        beverageId: "",
+        name: "",
+        boxes: 0,
+        boxesText: "",
+        bottles: 0,
+        bottlesText: "",
+        pricePerBoxCents: 0,
+        pricePerBottleCents: 0,
+      },
+    ]);
+  }
+
+  function updateLine(idx: number, patch: Partial<LineItem>) {
+    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  }
+
+  function removeLine(idx: number) {
+    setLines((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function openBeveragePickerForLine(idx?: number) {
+    if (idx !== undefined) setEditingLineIndex(idx);
+    else setEditingLineIndex(null);
+    setShowBeveragePicker(true);
+  }
+
+  function handleSelectBeverage(item: PickerItem) {
+    const idx =
+      editingLineIndex !== null
+        ? editingLineIndex
+        : lines.findIndex((l) => !l.beverageId);
+    if (idx < 0) {
+      // Add new line with this beverage
+      const bev = beverages.find((b) => (b.id || b.local_id) === item.id);
+      const bevId = bev?.id || bev?.local_id || "";
+      const price = getPriceForBeverage(bevId);
+      setLines((prev) => [
+        ...prev,
+        {
+          beverageId: bevId,
+          name: bev?.name || "",
+          boxes: 1,
+          boxesText: "1",
+          bottles: 0,
+          bottlesText: "",
+          pricePerBoxCents: price?.pricePerBoxCents ?? 0,
+          pricePerBottleCents: price?.pricePerBottleCents ?? 0,
+        },
+      ]);
+      if (!price) showToast(t("newSale.noPriceSet"), "error");
+    } else {
+      const bev = beverages.find((b) => (b.id || b.local_id) === item.id);
+      const bevId = bev?.id || bev?.local_id || "";
+      const price = getPriceForBeverage(bevId);
+      if (!price) {
+        showToast(t("newSale.noPriceSet"), "error");
+        return;
       }
-      if (!shopId || !user) throw new Error(t('newSale.failedToCreateSale'));
-      const saleId = await createSaleOffline({
-        shopId,
-        actorUserId: user.id,
-        saleDate: dto.saleDate,
-        customerId: dto.customerId,
-        priceTierId: dto.priceTierId,
-        notes: dto.notes,
-        lines: dto.lines.map(l => {
-          const p = priceMap[l.beverageId];
-          return {
-            id: '',
-            beverageId: l.beverageId,
-            boxes: l.boxes ?? 0,
-            bottles: l.bottles ?? 0,
-            pricePerBoxCents: p?.pricePerBoxCents ?? 0,
-            pricePerBottleCents: p?.pricePerBottleCents ?? 0,
-          };
-        }),
-        payments: dto.payments?.map(p => ({
-          id: '',
-          paymentAccountId: p.paymentAccountId,
-          amountCents: p.amountCents,
-          method: p.method,
-        })),
-        containerKasas: dto.containerKasas?.map(k => ({
-          id: '',
-          beverageId: k.beverageId,
-          count: k.count,
-        })),
-        returnedContainers: dto.returnedContainers?.map(r => ({
-          id: '',
-          beverageId: r.beverageId,
-          boxes: r.boxes,
-          bottles: r.bottles,
-        })),
+      updateLine(idx, {
+        beverageId: bevId,
+        name: bev?.name || "",
+        boxes: 1,
+        boxesText: "1",
+        bottles: 0,
+        bottlesText: "",
+        pricePerBoxCents: price.pricePerBoxCents,
+        pricePerBottleCents: price.pricePerBottleCents,
       });
-      return { id: saleId, customerId: dto.customerId, subtotalCents: subtotalCents, paidCents: paidCents, creditDeltaCents: creditDelta, saleDate: dto.saleDate } as any;
-    },
-    onSuccess: (sale) => {
-      if (!isOnline) {
-        getCachedResponse<any>('sales').then(existing => {
-          if (existing?.data) {
-            cacheResponse('sales', { ...existing, data: [sale, ...existing.data], total: existing.total + 1 });
-          }
+    }
+    setShowBeveragePicker(false);
+    setEditingLineIndex(null);
+  }
+
+  // ─── Container Kasa handlers ────────────────────────────────────────────────
+
+  function addContainerKasa() {
+    setContainerKasas((prev) => [
+      ...prev,
+      { beverageId: "", name: "", count: 1, countText: "1" },
+    ]);
+  }
+
+  function updateContainerKasa(idx: number, patch: Partial<ContainerKasaRow>) {
+    setContainerKasas((prev) =>
+      prev.map((k, i) => (i === idx ? { ...k, ...patch } : k)),
+    );
+  }
+
+  function removeContainerKasa(idx: number) {
+    setContainerKasas((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function openKasaPicker(idx: number) {
+    setEditingKasaIndex(idx);
+    setShowKasaPicker(true);
+  }
+
+  function handleSelectKasaBeverage(item: PickerItem) {
+    if (editingKasaIndex === null) return;
+    const bev = beverages.find((b) => (b.id || b.local_id) === item.id);
+    updateContainerKasa(editingKasaIndex, {
+      beverageId: bev?.id || bev?.local_id || item.id,
+      name: bev?.name || item.label,
+    });
+    setShowKasaPicker(false);
+    setEditingKasaIndex(null);
+  }
+
+  // ─── Returned Container handlers ─────────────────────────────────────────────
+
+  function addReturnedContainer() {
+    setReturnedContainers((prev) => [
+      ...prev,
+      { beverageId: "", name: "", boxes: 0, boxesText: "", bottles: 0, bottlesText: "" },
+    ]);
+  }
+
+  function updateReturnedContainer(
+    idx: number,
+    patch: Partial<ReturnedContainerRow>,
+  ) {
+    setReturnedContainers((prev) =>
+      prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
+    );
+  }
+
+  function removeReturnedContainer(idx: number) {
+    setReturnedContainers((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function openReturnPicker(idx: number) {
+    setEditingReturnIndex(idx);
+    setShowReturnPicker(true);
+  }
+
+  function handleSelectReturnBeverage(item: PickerItem) {
+    if (editingReturnIndex === null) return;
+    const bev = beverages.find((b) => (b.id || b.local_id) === item.id);
+    updateReturnedContainer(editingReturnIndex, {
+      beverageId: bev?.id || bev?.local_id || item.id,
+      name: bev?.name || item.label,
+    });
+    setShowReturnPicker(false);
+    setEditingReturnIndex(null);
+  }
+
+  // ─── Payment handlers ────────────────────────────────────────────────────────
+
+  function addPaymentRow() {
+    setPaymentRows((prev) => [
+      ...prev,
+      {
+        amountCents: 0,
+        amountInput: "",
+        paymentAccountId: accounts[0]?.id || accounts[0]?.server_id || accounts[0]?.local_id || "",
+      },
+    ]);
+  }
+
+  function updatePaymentRow(idx: number, patch: Partial<PaymentRow>) {
+    setPaymentRows((prev) =>
+      prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
+    );
+  }
+
+  function removePaymentRow(idx: number) {
+    setPaymentRows((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  // ─── Add Customer ────────────────────────────────────────────────────────────
+
+  async function handleAddCustomer() {
+    if (!newCustName.trim()) return;
+    setAddingCustomer(true);
+    const shopId = user?.shopId || "";
+    try {
+      if (isOnline) {
+        const created = await getSdk().customers.create({
+          name: newCustName.trim(),
+          phone: newCustPhone.trim() || undefined,
         });
-        if (sale.customerId) {
-          getCachedResponse<any>(`customer:${sale.customerId}`).then(existing => {
-            if (existing) {
-              cacheResponse(`customer:${sale.customerId}`, {
-                ...existing,
-                creditBalanceCents: (existing.creditBalanceCents ?? 0) + (sale.creditDeltaCents ?? 0),
-              });
-            }
-          });
-        }
+        setCustomers((prev) =>
+          prev.some((x) => (x.id || x.server_id || x.local_id) === created.id)
+            ? prev
+            : [...prev, created],
+        );
+        setCustomerId(created.id);
+        setCustomerSearch(created.name);
+      } else {
+        const localId = await customerRepo.createOffline({
+          shop_id: shopId,
+          name: newCustName.trim(),
+          phone: newCustPhone.trim() || undefined,
+        });
+        setCustomerId(localId);
+        setCustomerSearch(newCustName.trim());
+        const updated = await customerRepo.list(shopId);
+        setCustomers(updated);
       }
-      queryClient.invalidateQueries({ queryKey: QK.sales() });
-      queryClient.invalidateQueries({ queryKey: QK.dashboard });
-      if (sale.customerId) {
-        queryClient.invalidateQueries({ queryKey: QK.customer(sale.customerId) });
-        queryClient.invalidateQueries({ queryKey: QK.customerLedger(sale.customerId) });
-      }
+      setShowAddCustomer(false);
+      setNewCustName("");
+      setNewCustPhone("");
+    } catch {
+      showToast("Failed to create customer", "error");
+    } finally {
+      setAddingCustomer(false);
+    }
+  }
+
+  // ─── Save ────────────────────────────────────────────────────────────────────
+
+  async function handleSave(status: "draft" | "confirm") {
+    if (!customerId) {
+      showToast(t("newSale.pleaseSelectCustomer"), "error");
+      return;
+    }
+    if (!priceTierId) {
+      showToast(t("newSale.pleaseSelectTier"), "error");
+      return;
+    }
+    const validLines = lines.filter(
+      (l) => l.beverageId && (l.boxes > 0 || l.bottles > 0),
+    );
+    if (validLines.length === 0) {
+      showToast(t("newSale.pleaseAddItem"), "error");
+      return;
+    }
+    const missingPrice = validLines.filter((l) => !getPriceForBeverage(l.beverageId));
+    if (missingPrice.length > 0) {
+      const names = missingPrice.map((l) => l.name || "?").join(", ");
+      showToast(`${t("newSale.noPriceSet")}: ${names}`, "error");
+      return;
+    }
+
+    setSaving(status);
+    setSubmitting(true);
+    try {
+      const validPayments = paymentRows.filter(
+        (r) => r.amountCents > 0 && r.paymentAccountId,
+      );
+      const validKasas = containerKasas.filter(
+        (k) => k.beverageId && k.count > 0,
+      );
+      const validReturns = returnedContainers.filter(
+        (r) => r.beverageId && (r.boxes > 0 || r.bottles > 0),
+      );
+
+      const fullSaleDate = saleDate
+        ? `${saleDate}T00:00:00.000Z`
+        : new Date().toISOString();
+
+      const payload: SaleCreatePayload = {
+        shop_id: user?.shopId || "",
+        customer_id: customerId,
+        sale_date: fullSaleDate,
+        price_tier_id: priceTierId,
+        notes: notes.trim() || undefined,
+        apply_credit: applyCredit || undefined,
+        lines: validLines.map((l) => ({
+          beverage_id: l.beverageId,
+          boxes: l.boxes,
+          bottles: l.bottles,
+          price_per_box_cents: l.pricePerBoxCents,
+          price_per_bottle_cents: l.pricePerBottleCents,
+        })),
+        payments:
+          validPayments.length > 0
+            ? validPayments.map((r) => ({
+                amount_cents: r.amountCents,
+                method: "CASH",
+                payment_account_id: r.paymentAccountId,
+              }))
+            : undefined,
+        returned_containers:
+          validReturns.length > 0
+            ? validReturns.map((r) => ({
+                beverage_id: r.beverageId,
+                boxes: r.boxes,
+                bottles: r.bottles,
+              }))
+            : undefined,
+        container_kasas:
+          validKasas.length > 0
+            ? validKasas.map((k) => ({
+                beverage_id: k.beverageId,
+                count: k.count,
+              }))
+            : undefined,
+      };
+
+      await saleRepo.createOffline(payload);
+      showToast(
+        status === "confirm"
+          ? "Sale confirmed successfully"
+          : "Draft saved",
+        "success",
+      );
       navigation.goBack();
-      showToast(t('newSale.saleRecordedSuccess'), 'success');
-    },
-    onError: (err: any) => {
-      showToast(err?.message ?? t('newSale.failedToCreateSale'), 'error');
-    },
-  });
-
-  const handleAddBeverage = useCallback((item: PickerItem) => {
-    const beverage = beveragesData?.data.find(b => b.id === item.id);
-    if (!beverage || !selectedTier) return;
-    const prices = priceMap[beverage.id];
-    if (!prices) {
-      showToast(t('newSale.noPriceSet'), 'error');
-      return;
+      if (isOnline) triggerSync();
+    } catch (err: any) {
+      showToast(err.message || t("newSale.failedToCreateSale"), "error");
+    } finally {
+      setSubmitting(false);
+      setSaving(null);
     }
-    setLines(prev => [...prev, {
-      beverageId: beverage.id,
-      beverageName: beverage.name,
-      boxes: 0,
-      bottles: 0,
-      pricePerBoxCents: prices.pricePerBoxCents,
-      pricePerBottleCents: prices.pricePerBottleCents,
-    }]);
-  }, [beveragesData, selectedTier, priceMap]);
+  }
 
-  const handleRemoveLine = useCallback((index: number) => {
-    setLines(prev => prev.filter((_, i) => i !== index));
-  }, []);
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
-  const updateLineQty = useCallback((index: number, field: 'boxes' | 'bottles', delta: number) => {
-    setLines(prev => {
-      const newLines = [...prev];
-      newLines[index] = { ...newLines[index], [field]: Math.max(0, newLines[index][field] + delta) };
-      return newLines;
-    });
-  }, []);
+  const drawerTitle = t("newSale.title");
 
-  const handleAddContainerKasa = useCallback((item: PickerItem) => {
-    const beverage = beveragesData?.data.find(b => b.id === item.id);
-    if (!beverage) return;
-    setContainerKasas(prev => [...prev, { beverageId: beverage.id, beverageName: beverage.name, count: 1 }]);
-  }, [beveragesData]);
-
-  const updateContainerKasaCount = useCallback((index: number, delta: number) => {
-    setContainerKasas(prev => {
-      const next = [...prev];
-      next[index] = { ...next[index], count: Math.max(1, next[index].count + delta) };
-      return next;
-    });
-  }, []);
-
-  const removeContainerKasa = useCallback((index: number) => {
-    setContainerKasas(prev => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const handleAddReturnedContainer = useCallback((item: PickerItem) => {
-    const beverage = beveragesData?.data.find(b => b.id === item.id);
-    if (!beverage) return;
-    setReturnedContainers(prev => [...prev, { beverageId: beverage.id, beverageName: beverage.name, boxes: 0, bottles: 0 }]);
-  }, [beveragesData]);
-
-  const updateReturnedContainerQty = useCallback((index: number, field: 'boxes' | 'bottles', delta: number) => {
-    setReturnedContainers(prev => {
-      const next = [...prev];
-      next[index] = { ...next[index], [field]: Math.max(0, next[index][field] + delta) };
-      return next;
-    });
-  }, []);
-
-  const removeReturnedContainer = useCallback((index: number) => {
-    setReturnedContainers(prev => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const handleSubmit = () => {
-    if (!selectedCustomer) {
-      showToast(t('newSale.pleaseSelectCustomer'), 'error');
-      return;
-    }
-    if (!selectedTier) {
-      showToast(t('newSale.pleaseSelectTier'), 'error');
-      return;
-    }
-    if (lines.length === 0) {
-      showToast(t('newSale.pleaseAddItem'), 'error');
-      return;
-    }
-    const hasItems = lines.some(l => l.boxes > 0 || l.bottles > 0);
-    if (!hasItems) {
-      showToast(t('newSale.pleaseSetQuantity'), 'error');
-      return;
-    }
-
-    const saleLines: CreateSaleLineDto[] = lines.map(l => ({
-      beverageId: l.beverageId,
-      priceTierId: selectedTier.id,
-      boxes: l.boxes,
-      bottles: l.bottles,
-    }));
-
-    const payments: CreateSalePaymentDto[] | undefined = paidCents > 0 && selectedAccount
-      ? [{
-          paymentAccountId: selectedAccount.id,
-          amountCents: paidCents,
-          method: paymentMethod,
-        }]
-      : undefined;
-
-    const validKasas = containerKasas.filter(k => k.beverageId && k.count > 0);
-    const dto: CreateSaleDto = {
-      saleDate,
-      customerId: selectedCustomer.id,
-      priceTierId: selectedTier.id,
-      lines: saleLines,
-      returnedContainers: returnedContainers
-        .filter(r => r.beverageId && (r.boxes > 0 || r.bottles > 0))
-        .map(r => ({ beverageId: r.beverageId, boxes: r.boxes, bottles: r.bottles })),
-      payments,
-      containerKasas: validKasas.map(k => ({ beverageId: k.beverageId, count: k.count })),
-    };
-
-    createSaleMutation.mutate(dto);
-  };
-
-  const pricesLoaded = !!selectedTier && !loadingPrices;
-  const hasPrices = pricesLoaded && (tierPrices?.length ?? 0) > 0;
+  function QtyStepper({
+    value,
+    text,
+    onChange,
+    onBlur,
+    min,
+  }: {
+    value: number;
+    text: string;
+    onChange: (v: string, n: number) => void;
+    onBlur?: () => void;
+    min?: number;
+  }) {
+    const m = min ?? 0;
+    return (
+      <View style={styles.stepperRow}>
+        <TouchableOpacity
+          style={[styles.stepperBtn, { borderColor: colors.border }]}
+          onPress={() => {
+            const next = Math.max(m, value - 1);
+            onChange(String(next), next);
+          }}
+          hitSlop={6}
+        >
+          <Ionicons name="remove" size={16} color={colors.textSecondary} />
+        </TouchableOpacity>
+        <TextInput
+          style={[
+            styles.stepperInput,
+            {
+              backgroundColor: colors.background,
+              color: colors.textPrimary,
+              borderColor: colors.border,
+            },
+          ]}
+          keyboardType="number-pad"
+          value={text || (value > 0 ? String(value) : "")}
+          onChangeText={(v) => {
+            const n = v === "" ? 0 : parseInt(v) || 0;
+            onChange(v, n);
+          }}
+          onBlur={onBlur}
+          selectTextOnFocus
+        />
+        <TouchableOpacity
+          style={[styles.stepperBtn, { borderColor: colors.border }]}
+          onPress={() => {
+            const next = value + 1;
+            onChange(String(next), next);
+          }}
+          hitSlop={6}
+        >
+          <Ionicons name="add" size={16} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, spacing[4]) }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="close" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t('newSale.title')}</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          {drawerTitle}
+        </Text>
         <View style={{ width: 28 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>{t('newSale.customer')}</Text>
-          <TouchableOpacity
-            style={[styles.pickerField, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={() => setShowCustomerPicker(true)}
-          >
-            <Text style={[styles.pickerValue, { color: selectedCustomer ? colors.textPrimary : colors.textMuted }]}>
-              {selectedCustomer?.name ?? t('newSale.selectCustomer')}
-            </Text>
-            <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.field}>
+      {/* Body */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Sale Date */}
+        <View style={styles.fieldGroup}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>
-            {t('newSale.priceTier')}{tierLocked ? ' (locked)' : ''}
+            Sale Date *
           </Text>
-          <TouchableOpacity
-            style={[styles.pickerField, { backgroundColor: colors.surface, borderColor: colors.border, opacity: tierLocked ? 0.6 : 1 }]}
-            onPress={() => !tierLocked && setShowTierPicker(true)}
-            disabled={tierLocked}
-          >
-            <Text style={[styles.pickerValue, { color: selectedTier ? colors.textPrimary : colors.textMuted }]}>
-              {selectedTier?.name ?? t('newSale.selectTier')}
-            </Text>
-            <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
+          <EthiopianDatePicker
+            value={saleDate}
+            onChange={setSaleDate}
+            placeholder="Select sale date"
+          />
         </View>
 
-        {selectedTier && loadingPrices && (
-          <View style={styles.loadingPrices}>
-            <Text style={[styles.loadingPricesText, { color: colors.textSecondary }]}>{t('newSale.loadingPrices')}</Text>
-          </View>
-        )}
-
-        {selectedTier && !loadingPrices && !hasPrices && (
-          <View style={[styles.noPrices, { backgroundColor: colors.warningLight }]}>
-            <Ionicons name="warning-outline" size={20} color={colors.warning} />
-            <Text style={[styles.noPricesText, { color: colors.warning }]}>{t('newSale.noPricesWarning')}</Text>
-          </View>
-        )}
-
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('newSale.items')}</Text>
-        {lines.map((line, index) => (
-          <View key={index} style={[styles.lineItem, { backgroundColor: colors.surface }]}>
-            <View style={styles.lineHeader}>
-              <Text style={[styles.lineName, { color: colors.textPrimary }]}>{line.beverageName}</Text>
-              <Text style={[styles.linePrice, { color: colors.textSecondary }]}>
-                {line.pricePerBoxCents > 0 && `Br ${(line.pricePerBoxCents / 100).toFixed(2)}/box`}
-                {line.pricePerBoxCents > 0 && line.pricePerBottleCents > 0 && ' · '}
-                {line.pricePerBottleCents > 0 && `Br ${(line.pricePerBottleCents / 100).toFixed(2)}/btl`}
-              </Text>
-              <TouchableOpacity onPress={() => handleRemoveLine(index)} hitSlop={8}>
-                <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+        {/* Customer */}
+        <View style={styles.fieldGroup}>
+          <View style={styles.labelRow}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Customer *
+            </Text>
+            {!showAddCustomer && (
+              <TouchableOpacity
+                onPress={() => setShowAddCustomer(true)}
+                style={[styles.badgeBtn, { backgroundColor: colors.primary }]}
+              >
+                <Ionicons name="add" size={12} color="#fff" />
+                <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>
+                  New
+                </Text>
               </TouchableOpacity>
-            </View>
-            <View style={styles.lineInputs}>
-              <View style={styles.lineInput}>
-                <Text style={[styles.lineInputLabel, { color: colors.textSecondary }]}>{t('newSale.boxes')}</Text>
-                <TouchableOpacity
-                  style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
-                  onPress={() => updateLineQty(index, 'boxes', -1)}
-                >
-                  <Ionicons name="remove" size={16} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={[styles.qtyValue, { color: colors.textPrimary }]}>{line.boxes}</Text>
-                <TouchableOpacity
-                  style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
-                  onPress={() => updateLineQty(index, 'boxes', 1)}
-                >
-                  <Ionicons name="add" size={16} color={colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.lineInput}>
-                <Text style={[styles.lineInputLabel, { color: colors.textSecondary }]}>{t('newSale.bottles')}</Text>
-                <TouchableOpacity
-                  style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
-                  onPress={() => updateLineQty(index, 'bottles', -1)}
-                >
-                  <Ionicons name="remove" size={16} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={[styles.qtyValue, { color: colors.textPrimary }]}>{line.bottles}</Text>
-                <TouchableOpacity
-                  style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
-                  onPress={() => updateLineQty(index, 'bottles', 1)}
-                >
-                  <Ionicons name="add" size={16} color={colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-            </View>
+            )}
           </View>
-        ))}
-
-        <TouchableOpacity
-          style={[styles.addLineButton, { borderColor: hasPrices ? colors.primary : colors.border }, !hasPrices && { backgroundColor: colors.surfaceMuted }]}
-          onPress={() => hasPrices && setShowBeveragePicker(true)}
-          disabled={!hasPrices}
-        >
-          <Ionicons name="add-circle-outline" size={20} color={hasPrices ? colors.primary : colors.textMuted} />
-          <Text style={[styles.addLineText, { color: hasPrices ? colors.primary : colors.textMuted }]}>
-            {hasPrices ? t('newSale.addItem') : t('newSale.noPricesAvailable')}
-          </Text>
-        </TouchableOpacity>
-
-        <View style={styles.returnedContainersSection}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('newSale.returnedContainersSection')}</Text>
-          <Text style={[styles.kasaHint, { color: colors.textSecondary }]}>{t('newSale.returnedContainersHint')}</Text>
-          {returnedContainers.map((ret, index) => (
-            <View key={index} style={[styles.kasaItem, { backgroundColor: colors.surface }]}>
-              <View style={styles.kasaItemHeader}>
-                <Text style={[styles.lineName, { color: colors.textPrimary }]}>{ret.beverageName}</Text>
-                <TouchableOpacity onPress={() => removeReturnedContainer(index)} hitSlop={8}>
-                  <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+          <View style={styles.searchWrapper}>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.surface,
+                  color: colors.textPrimary,
+                  borderColor: colors.border,
+                },
+              ]}
+              value={customerOpen ? customerSearch : selectedCustomer?.name || customerSearch}
+              onChangeText={(v) => {
+                setCustomerSearch(v);
+                setCustomerOpen(true);
+                if (customerId && v !== selectedCustomer?.name) {
+                  setCustomerId("");
+                }
+              }}
+              onFocus={() => {
+                setCustomerOpen(true);
+                setCustomerSearch("");
+              }}
+              onBlur={() => {
+                setTimeout(() => setCustomerOpen(false), 150);
+              }}
+              placeholder="Search & pick customer"
+              placeholderTextColor={colors.textMuted}
+            />
+            {customerId ? (
+              <TouchableOpacity
+                style={styles.searchClear}
+                onPress={() => {
+                  setCustomerId("");
+                  setCustomerSearch("");
+                }}
+              >
+                <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            ) : null}
+            {customerOpen &&
+              (() => {
+                const filtered = filteredCustomers;
+                return (
+                  <View
+                    style={[
+                      styles.dropdown,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    {filtered.length === 0 ? (
+                      <Text style={[styles.dropdownEmpty, { color: colors.textMuted }]}>
+                        No matches
+                      </Text>
+                    ) : (
+                      filtered.slice(0, 50).map((c: any) => {
+                        const cId = c.id || c.server_id || c.local_id;
+                        const isSel = cId === customerId;
+                        return (
+                          <TouchableOpacity
+                            key={cId}
+                            style={[
+                              styles.dropdownItem,
+                              isSel && { backgroundColor: colors.surfaceTinted },
+                            ]}
+                            onPress={() => {
+                              setCustomerId(cId);
+                              setCustomerSearch(c.name || "");
+                              setCustomerOpen(false);
+                              const cTier = c.priceTierId ?? c.price_tier_id;
+                              if (cTier && !isPriceTierLocked) {
+                                setPriceTierId(cTier);
+                              }
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownLabel,
+                                { color: isSel ? colors.primary : colors.textPrimary },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {c.name}
+                            </Text>
+                            {c.phone ? (
+                              <Text style={[styles.dropdownSub, { color: colors.textMuted }]}>
+                                {c.phone}
+                              </Text>
+                            ) : null}
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </View>
+                );
+              })()}
+          </View>
+          {showAddCustomer && (
+            <View
+              style={[
+                styles.inlineForm,
+                { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.inlineFormTitle, { color: colors.textSecondary }]}>
+                New Customer
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                  },
+                ]}
+                value={newCustName}
+                onChangeText={setNewCustName}
+                placeholder="Name *"
+                placeholderTextColor={colors.textMuted}
+              />
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                  },
+                ]}
+                value={newCustPhone}
+                onChangeText={setNewCustPhone}
+                placeholder="Phone"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="phone-pad"
+              />
+              <View style={styles.inlineFormActions}>
+                <TouchableOpacity
+                  onPress={handleAddCustomer}
+                  disabled={addingCustomer || !newCustName.trim()}
+                  style={[
+                    styles.badgeBtn,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: addingCustomer || !newCustName.trim() ? 0.6 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>
+                    {addingCustomer ? "Adding..." : "Add"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowAddCustomer(false);
+                    setNewCustName("");
+                    setNewCustPhone("");
+                  }}
+                  style={[
+                    styles.badgeBtn,
+                    {
+                      backgroundColor: colors.surface,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: "600" }}>
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.lineInputs}>
-                <View style={styles.lineInput}>
-                  <Text style={[styles.lineInputLabel, { color: colors.textSecondary }]}>{t('newSale.returnBoxes')}</Text>
-                  <TouchableOpacity
-                    style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
-                    onPress={() => updateReturnedContainerQty(index, 'boxes', -1)}
-                  >
-                    <Ionicons name="remove" size={16} color={colors.textPrimary} />
-                  </TouchableOpacity>
-                  <Text style={[styles.qtyValue, { color: colors.textPrimary }]}>{ret.boxes}</Text>
-                  <TouchableOpacity
-                    style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
-                    onPress={() => updateReturnedContainerQty(index, 'boxes', 1)}
-                  >
-                    <Ionicons name="add" size={16} color={colors.textPrimary} />
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.lineInput}>
-                  <Text style={[styles.lineInputLabel, { color: colors.textSecondary }]}>{t('newSale.returnBottles')}</Text>
-                  <TouchableOpacity
-                    style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
-                    onPress={() => updateReturnedContainerQty(index, 'bottles', -1)}
-                  >
-                    <Ionicons name="remove" size={16} color={colors.textPrimary} />
-                  </TouchableOpacity>
-                  <Text style={[styles.qtyValue, { color: colors.textPrimary }]}>{ret.bottles}</Text>
-                  <TouchableOpacity
-                    style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
-                    onPress={() => updateReturnedContainerQty(index, 'bottles', 1)}
-                  >
-                    <Ionicons name="add" size={16} color={colors.textPrimary} />
-                  </TouchableOpacity>
-                </View>
-              </View>
             </View>
-          ))}
-          <TouchableOpacity
-            style={[styles.addLineButton, { borderColor: colors.primary }]}
-            onPress={() => setShowReturnedContainerPicker(true)}
-          >
-            <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-            <Text style={[styles.addLineText, { color: colors.primary }]}>
-              {t('newSale.addReturnedContainer')}
-            </Text>
-          </TouchableOpacity>
+          )}
         </View>
 
-        {showContainerKasa && (
-          <View style={styles.containerKasaSection}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('newSale.containerKasaSection')}</Text>
-            {totalBottles >= 24 && (
-              <Text style={[styles.kasaHint, { color: colors.textSecondary }]}>
-                {totalBottles} {t('newSale.containerKasaHint')}
+        {/* Price Tier */}
+        <View style={styles.fieldGroup}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Price Tier *{" "}
+            {isPriceTierLocked && (
+              <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                (locked for this customer)
               </Text>
             )}
-            {containerKasas.map((kasa, index) => (
-              <View key={index} style={[styles.kasaItem, { backgroundColor: colors.surface }]}>
-                <View style={styles.kasaItemHeader}>
-                  <Text style={[styles.lineName, { color: colors.textPrimary }]}>{kasa.beverageName}</Text>
-                  <TouchableOpacity onPress={() => removeContainerKasa(index)} hitSlop={8}>
-                    <Ionicons name="close-circle" size={20} color={colors.textMuted} />
-                  </TouchableOpacity>
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.selector,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                opacity: isPriceTierLocked ? 0.6 : 1,
+              },
+            ]}
+            onPress={() => !isPriceTierLocked && setShowTierPicker(true)}
+            disabled={isPriceTierLocked}
+          >
+            <Text
+              style={[
+                styles.selectorValue,
+                { color: priceTierId ? colors.textPrimary : colors.textMuted },
+              ]}
+            >
+              {priceTierId
+                ? tiers.find(
+                    (t) => (t.id || t.local_id || t.server_id) === priceTierId,
+                  )?.name || "Selected Tier"
+                : "Select Tier"}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Items Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+              Items *
+            </Text>
+            <TouchableOpacity onPress={() => openBeveragePickerForLine()}>
+              <Text style={[styles.addText, { color: colors.primary }]}>+ Add Item</Text>
+            </TouchableOpacity>
+          </View>
+
+          {lines.length === 0 ? (
+            <TouchableOpacity
+              style={[
+                styles.addFirstItemBtn,
+                { borderColor: colors.border, backgroundColor: colors.surface },
+              ]}
+              onPress={() => {
+                addLine();
+                openBeveragePickerForLine();
+              }}
+            >
+              <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+              <Text style={[styles.addFirstItemText, { color: colors.primary }]}>
+                Add first item
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            lines.map((line, idx) => {
+              const price = getPriceForBeverage(line.beverageId);
+              const lineTotal = computeLineTotal(line);
+              const selBev = beverages.find(
+                (b) => (b.id || b.local_id) === line.beverageId,
+              );
+              return (
+                <View
+                  key={idx}
+                  style={[
+                    styles.lineCard,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                  ]}
+                >
+                  {/* Beverage + remove */}
+                  <View style={styles.lineHeader}>
+                    <TouchableOpacity
+                      style={styles.lineBevSelector}
+                      onPress={() => openBeveragePickerForLine(idx)}
+                    >
+                      <Text
+                        style={[
+                          styles.lineBevText,
+                          {
+                            color: line.beverageId
+                              ? colors.textPrimary
+                              : colors.textMuted,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {selBev
+                          ? `${selBev.name}${selBev.brand ? ` (${selBev.brand})` : ""}`
+                          : "Select beverage"}
+                      </Text>
+                      <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => removeLine(idx)} hitSlop={8}>
+                      <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Qty + Total row */}
+                  <View style={styles.lineQtyRow}>
+                    <View style={styles.qtyField}>
+                      <Text style={[styles.qtyLabel, { color: colors.textMuted }]}>
+                        Boxes
+                      </Text>
+                      <QtyStepper
+                        value={line.boxes}
+                        text={line.boxesText}
+                        onChange={(v, n) => updateLine(idx, { boxesText: v, boxes: n })}
+                        onBlur={() => maybeFoldBottlesIntoBoxes(idx)}
+                        min={0}
+                      />
+                    </View>
+                    <View style={styles.qtyField}>
+                      <Text style={[styles.qtyLabel, { color: colors.textMuted }]}>
+                        Bottles
+                      </Text>
+                      <QtyStepper
+                        value={line.bottles}
+                        text={line.bottlesText}
+                        onChange={(v, n) => updateLine(idx, { bottlesText: v, bottles: n })}
+                        onBlur={() => maybeFoldBottlesIntoBoxes(idx)}
+                        min={0}
+                      />
+                    </View>
+                    <View style={styles.qtyField}>
+                      <Text style={[styles.qtyLabel, { color: colors.textMuted }]}>
+                        Total
+                      </Text>
+                      <Text style={[styles.lineTotalText, { color: colors.textPrimary }]}>
+                        {(lineTotal / 100).toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Price info */}
+                  {price && (
+                    <Text style={[styles.priceInfo, { color: colors.textMuted }]}>
+                      {(price.pricePerBoxCents / 100).toLocaleString()}/box ·{" "}
+                      {(price.pricePerBottleCents / 100).toLocaleString()}/btl
+                    </Text>
+                  )}
+                  {line.beverageId && !price && (
+                    <Text style={[styles.noPrice, { color: colors.warning }]}>
+                      No price set for this tier
+                    </Text>
+                  )}
                 </View>
-                <View style={styles.lineInput}>
-                  <Text style={[styles.lineInputLabel, { color: colors.textSecondary }]}>{t('newSale.containerKasaCount')}</Text>
+              );
+            })
+          )}
+        </View>
+
+        {/* Container Kasa Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+              Container Kasa
+            </Text>
+            <TouchableOpacity onPress={addContainerKasa}>
+              <Text style={[styles.addText, { color: colors.primary }]}>+ Add</Text>
+            </TouchableOpacity>
+          </View>
+          {totalBottles >= 24 && (
+            <Text style={[styles.hint, { color: colors.textMuted }]}>
+              {totalBottles} loose bottles — specify the container box type.
+            </Text>
+          )}
+          {containerKasas.map((kasa, idx) => {
+            const selectedBev = beverages.find(
+              (b) => (b.id || b.local_id) === kasa.beverageId,
+            );
+            return (
+              <View
+                key={idx}
+                style={[
+                  styles.kasaCard,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.kasaRow}>
                   <TouchableOpacity
-                    style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
-                    onPress={() => updateContainerKasaCount(index, -1)}
+                    style={[
+                      styles.kasaSelector,
+                      { borderColor: colors.border, backgroundColor: colors.background },
+                    ]}
+                    onPress={() => openKasaPicker(idx)}
                   >
-                    <Ionicons name="remove" size={16} color={colors.textPrimary} />
+                    <Text
+                      style={[
+                        styles.kasaSelectorText,
+                        {
+                          color: kasa.beverageId
+                            ? colors.textPrimary
+                            : colors.textMuted,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {selectedBev
+                        ? `${selectedBev.name}${selectedBev.brand ? ` (${selectedBev.brand})` : ""}`
+                        : "Select box type"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
                   </TouchableOpacity>
-                  <Text style={[styles.qtyValue, { color: colors.textPrimary }]}>{kasa.count}</Text>
-                  <TouchableOpacity
-                    style={[styles.qtyButton, { backgroundColor: colors.surfaceMuted }]}
-                    onPress={() => updateContainerKasaCount(index, 1)}
-                  >
-                    <Ionicons name="add" size={16} color={colors.textPrimary} />
+                  <View style={styles.kasaCountWrap}>
+                    <QtyStepper
+                      value={kasa.count}
+                      text={kasa.countText}
+                      onChange={(v, n) =>
+                        updateContainerKasa(idx, {
+                          countText: v,
+                          count: Math.max(1, n),
+                        })
+                      }
+                      min={1}
+                    />
+                  </View>
+                  <TouchableOpacity onPress={() => removeContainerKasa(idx)} hitSlop={8}>
+                    <Ionicons name="trash-outline" size={18} color={colors.danger} />
                   </TouchableOpacity>
                 </View>
               </View>
-            ))}
-            <TouchableOpacity
-              style={[styles.addLineButton, { borderColor: colors.primary }]}
-              onPress={() => setShowContainerKasaPicker(true)}
+            );
+          })}
+        </View>
+
+        {/* Returned Containers Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+              Returned Containers
+            </Text>
+            <TouchableOpacity onPress={addReturnedContainer}>
+              <Text style={[styles.addText, { color: colors.primary }]}>+ Add</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={[styles.hint, { color: colors.textMuted }]}>
+            Containers returned by the customer with this sale.
+          </Text>
+          {returnedContainers.map((ret, idx) => {
+            const selectedBev = beverages.find(
+              (b) => (b.id || b.local_id) === ret.beverageId,
+            );
+            return (
+              <View
+                key={idx}
+                style={[
+                  styles.kasaCard,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.kasaRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.kasaSelector,
+                      { borderColor: colors.border, backgroundColor: colors.background },
+                    ]}
+                    onPress={() => openReturnPicker(idx)}
+                  >
+                    <Text
+                      style={[
+                        styles.kasaSelectorText,
+                        {
+                          color: ret.beverageId
+                            ? colors.textPrimary
+                            : colors.textMuted,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {selectedBev
+                        ? `${selectedBev.name}${selectedBev.brand ? ` (${selectedBev.brand})` : ""}`
+                        : "Select beverage"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => removeReturnedContainer(idx)} hitSlop={8}>
+                    <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.returnQtyRow}>
+                  <View style={styles.qtyField}>
+                    <Text style={[styles.qtyLabel, { color: colors.textMuted }]}>
+                      Boxes
+                    </Text>
+                    <QtyStepper
+                      value={ret.boxes}
+                      text={ret.boxesText}
+                      onChange={(v, n) =>
+                        updateReturnedContainer(idx, {
+                          boxesText: v,
+                          boxes: Math.max(0, n),
+                        })
+                      }
+                      min={0}
+                    />
+                  </View>
+                  <View style={styles.qtyField}>
+                    <Text style={[styles.qtyLabel, { color: colors.textMuted }]}>
+                      Bottles
+                    </Text>
+                    <QtyStepper
+                      value={ret.bottles}
+                      text={ret.bottlesText}
+                      onChange={(v, n) =>
+                        updateReturnedContainer(idx, {
+                          bottlesText: v,
+                          bottles: Math.max(0, n),
+                        })
+                      }
+                      min={0}
+                    />
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Live Totals Card */}
+        <View
+          style={[
+            styles.totalsCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.totalsLabel, { color: colors.textMuted }]}>
+            Total
+          </Text>
+          <View style={styles.totalsRow}>
+            <Text style={[styles.totalsKey, { color: colors.textSecondary }]}>
+              Subtotal
+            </Text>
+            <Text style={[styles.totalsVal, { color: colors.textPrimary }]}>
+              {(subtotalCents / 100).toLocaleString()} Br
+            </Text>
+          </View>
+          <View style={styles.totalsRow}>
+            <Text style={[styles.totalsKey, { color: colors.textSecondary }]}>
+              Paid
+            </Text>
+            <Text style={[styles.totalsVal, { color: colors.textPrimary }]}>
+              {(paidCents / 100).toLocaleString()} Br
+            </Text>
+          </View>
+          <View style={[styles.totalsDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.totalsRow}>
+            <Text style={[styles.totalsKey, { color: colors.textSecondary }]}>
+              Credit
+            </Text>
+            <Text
+              style={[
+                styles.totalsVal,
+                {
+                  color:
+                    creditDelta > 0
+                      ? colors.danger
+                      : creditDelta < 0
+                        ? colors.success
+                        : colors.textPrimary,
+                  fontWeight: "700",
+                },
+              ]}
             >
-              <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-              <Text style={[styles.addLineText, { color: colors.primary }]}>
-                {t('newSale.addContainerKasa')}
+              {(creditDelta / 100).toLocaleString()} Br
+            </Text>
+          </View>
+        </View>
+
+        {/* Payments Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+              Payments
+            </Text>
+            <TouchableOpacity onPress={addPaymentRow}>
+              <Text style={[styles.addText, { color: colors.primary }]}>
+                + Add Payment
               </Text>
             </TouchableOpacity>
           </View>
-        )}
+          {paymentRows.map((row, idx) => (
+            <View
+              key={idx}
+              style={[
+                styles.paymentCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.paymentRow}>
+                <TextInput
+                  style={[
+                    styles.paymentInput,
+                    {
+                      backgroundColor: colors.background,
+                      color: colors.textPrimary,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="decimal-pad"
+                  value={row.amountInput}
+                  onChangeText={(v) => {
+                    const parsed = parseFloat(v);
+                    updatePaymentRow(idx, {
+                      amountInput: v,
+                      amountCents: isNaN(parsed) ? 0 : Math.round(parsed * 100),
+                    });
+                  }}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.paymentAccountBtn,
+                    { borderColor: colors.border },
+                  ]}
+                  onPress={() => setShowAccountPicker(idx)}
+                >
+                  <Text
+                    style={[
+                      styles.paymentAccountText,
+                      {
+                        color: row.paymentAccountId
+                          ? colors.textPrimary
+                          : colors.textMuted,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {row.paymentAccountId
+                      ? accounts.find(
+                          (a) =>
+                            (a.id || a.server_id || a.local_id) ===
+                            row.paymentAccountId,
+                        )?.name || "Account"
+                      : "Account"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => removePaymentRow(idx)} hitSlop={8}>
+                  <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
 
-        <View style={styles.paymentSection}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('newSale.paymentOptional')}</Text>
-          <AmountInput value={paymentAmount} onChangeText={setPaymentAmount} placeholder="0.00" />
-          <View style={styles.methodRow}>
-            {([
-              { key: 'CASH', label: t('newSale.cash') },
-              { key: 'BANK_TRANSFER', label: t('newSale.bankTransfer') },
-              { key: 'MOBILE_MONEY', label: t('newSale.mobileMoney') },
-              { key: 'OTHER', label: t('newSale.other') },
-            ] as const).map(({ key, label }) => (
-              <TouchableOpacity
-                key={key}
-                style={[styles.methodChip, { backgroundColor: paymentMethod === key ? colors.primary : colors.surfaceMuted }]}
-                onPress={() => setPaymentMethod(key)}
-              >
-                <Text style={[styles.methodText, { color: paymentMethod === key ? colors.textInverse : colors.textSecondary }]}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+        {/* Notes */}
+        <View style={styles.fieldGroup}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Notes
+          </Text>
+          <TextInput
+            style={[
+              styles.textarea,
+              {
+                backgroundColor: colors.surface,
+                color: colors.textPrimary,
+                borderColor: colors.border,
+              },
+            ]}
+            placeholder="Optional notes..."
+            placeholderTextColor={colors.textMuted}
+            multiline
+            value={notes}
+            onChangeText={setNotes}
+          />
+        </View>
+
+        {/* Apply Credit Toggle */}
+        {selectedCustomer && custVal(selectedCustomer, "credit_balance_cents") > 0 ? (
           <TouchableOpacity
-            style={[styles.pickerField, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={() => setShowAccountPicker(true)}
+            style={styles.creditRow}
+            onPress={() => setApplyCredit(!applyCredit)}
           >
-            <Text style={[styles.pickerValue, { color: selectedAccount ? colors.textPrimary : colors.textMuted }]}>
-              {selectedAccount?.name ?? t('newSale.selectAccount')}
+            <View
+              style={[
+                styles.checkbox,
+                {
+                  backgroundColor: applyCredit ? colors.primary : "transparent",
+                  borderColor: applyCredit ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              {applyCredit && <Ionicons name="checkmark" size={14} color="#fff" />}
+            </View>
+            <Text style={[styles.creditText, { color: colors.textPrimary }]}>
+              Apply existing credit (
+              {((custVal(selectedCustomer, "credit_balance_cents") ?? 0) / 100).toLocaleString()}{" "}
+              Br)
             </Text>
-            <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
           </TouchableOpacity>
-        </View>
-
-        <View style={[styles.totals, { backgroundColor: colors.surface }]}>
-          <View style={styles.totalRow}>
-            <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>{t('newSale.subtotal')}</Text>
-            <Text style={[styles.totalValue, { color: colors.textPrimary }]}>{formatCurrency(subtotalCents)}</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>{t('newSale.paid')}</Text>
-            <Text style={[styles.totalValue, { color: colors.success }]}>{formatCurrency(paidCents)}</Text>
-          </View>
-          <View style={[styles.totalRow, styles.totalRowFinal, { borderTopColor: colors.border }]}>
-            <Text style={[styles.totalLabelFinal, { color: colors.textPrimary }]}>{t('newSale.creditDelta')}</Text>
-            <Text style={[styles.totalValueFinal, { color: creditDelta > 0 ? colors.danger : colors.success }]}>
-              {formatCurrency(creditDelta)} {creditDelta > 0 ? '↑' : ''}
+        ) : selectedCustomer ? (
+          <TouchableOpacity
+            style={styles.creditRow}
+            onPress={() => setApplyCredit(!applyCredit)}
+          >
+            <View
+              style={[
+                styles.checkbox,
+                {
+                  backgroundColor: applyCredit ? colors.primary : "transparent",
+                  borderColor: applyCredit ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              {applyCredit && <Ionicons name="checkmark" size={14} color="#fff" />}
+            </View>
+            <Text style={[styles.creditText, { color: colors.textPrimary }]}>
+              Apply customer credit
             </Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {/* Projected Balances */}
+        {selectedCustomer && (
+          <View
+            style={[
+              styles.projectedCard,
+              { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.projectedTitle, { color: colors.textSecondary }]}>
+              Projected balances for {selectedCustomer.name}
+            </Text>
+            <View style={styles.totalsRow}>
+              <Text style={[styles.totalsKey, { color: colors.textSecondary }]}>
+                Current credit
+              </Text>
+              <Text style={[styles.totalsVal, { color: colors.textPrimary }]}>
+                {((custVal(selectedCustomer, "credit_balance_cents") ?? 0) / 100).toLocaleString()} Br
+              </Text>
+            </View>
+            <View style={styles.totalsRow}>
+              <Text style={[styles.totalsKey, { color: colors.textSecondary }]}>
+                After this sale
+              </Text>
+              <Text
+                style={[
+                  styles.totalsVal,
+                  {
+                    color:
+                      (custVal(selectedCustomer, "credit_balance_cents") ?? 0) + creditDelta > 0
+                        ? colors.danger
+                        : colors.success,
+                    fontWeight: "600",
+                  },
+                ]}
+              >
+                {(
+                  ((custVal(selectedCustomer, "credit_balance_cents") ?? 0) + creditDelta) /
+                  100
+                ).toLocaleString()}{" "}
+                Br
+              </Text>
+            </View>
+            <View style={[styles.totalsDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.totalsRow}>
+              <Text style={[styles.totalsKey, { color: colors.textSecondary, fontSize: 12 }]}>
+                Boxes outstanding
+              </Text>
+              <Text style={[styles.totalsVal, { color: colors.textPrimary, fontSize: 13 }]}>
+                {(() => {
+                  const kasaBoxes = containerKasas.reduce((s, k) => s + (k.count || 0), 0);
+                  const lineBoxes = lines.reduce((s, l) => s + (l.boxes || 0), 0);
+                  const retBoxes = returnedContainers.reduce((s, r) => s + (r.boxes || 0), 0);
+                  const current = custVal(selectedCustomer, "outstanding_boxes") ?? 0;
+                  const projected = current + lineBoxes + kasaBoxes - retBoxes;
+                  const delta = lineBoxes + kasaBoxes - retBoxes;
+                  return delta !== 0 ? `${current} → ${projected}` : String(current);
+                })()}
+              </Text>
+            </View>
+            <View style={styles.totalsRow}>
+              <Text style={[styles.totalsKey, { color: colors.textSecondary, fontSize: 12 }]}>
+                Bottles outstanding
+              </Text>
+              <Text style={[styles.totalsVal, { color: colors.textPrimary, fontSize: 13 }]}>
+                {custVal(selectedCustomer, "outstanding_bottles") ?? 0}
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
       </ScrollView>
 
-      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+      {/* Footer */}
+      <View
+        style={[
+          styles.footer,
+          { borderTopColor: colors.border, backgroundColor: colors.surface },
+        ]}
+      >
         <TouchableOpacity
-          style={[styles.submitButton, { backgroundColor: colors.primary }, createSaleMutation.isPending && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={createSaleMutation.isPending}
+          onPress={() => navigation.goBack()}
+          style={[styles.footerBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
         >
-          <Text style={[styles.submitButtonText, { color: colors.textInverse }]}>
-            {createSaleMutation.isPending ? t('newSale.recording') : t('newSale.recordSale')}
+          <Text style={[styles.footerBtnText, { color: colors.textPrimary }]}>
+            Cancel
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => handleSave("draft")}
+          disabled={submitting}
+          style={[
+            styles.footerBtn,
+            {
+              borderColor: colors.border,
+              backgroundColor: colors.background,
+              opacity: submitting ? 0.6 : 1,
+            },
+          ]}
+        >
+          <Text style={[styles.footerBtnText, { color: colors.textPrimary }]}>
+            {submitting && saving === "draft" ? "Saving..." : "Save Draft"}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => handleSave("confirm")}
+          disabled={submitting}
+          style={[
+            styles.footerBtnPrimary,
+            { backgroundColor: colors.primary, opacity: submitting ? 0.6 : 1 },
+          ]}
+        >
+          <Text style={[styles.footerBtnPrimaryText, { color: "#fff" }]}>
+            {submitting && saving === "confirm" ? "Saving..." : "Confirm Sale"}
           </Text>
         </TouchableOpacity>
       </View>
 
-      <PickerSheet visible={showCustomerPicker} title={t('newSale.customer')} items={customerItems} onSelect={(item) => {
-        const c = customersData?.data.find(x => x.id === item.id);
-        if (c) setSelectedCustomer({ id: c.id, name: c.name });
-      }} onClose={() => setShowCustomerPicker(false)} />
+      {/* Pickers */}
+      {loadingRef ? (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <>
+          <PickerSheet
+            visible={showTierPicker}
+            title="Select Price Tier"
+            items={tiers.map((t) => ({
+              id: t.id || t.local_id || t.server_id,
+              label: t.name,
+            }))}
+            selectedId={priceTierId}
+            onSelect={(item) => {
+              setPriceTierId(item.id);
+              setShowTierPicker(false);
+            }}
+            onClose={() => setShowTierPicker(false)}
+          />
 
-      <PickerSheet visible={showTierPicker} title={t('newSale.priceTier')} items={tierItems} onSelect={(item) => {
-        const t = tiers?.find(x => x.id === item.id);
-        if (t) setSelectedTier({ id: t.id, name: t.name });
-      }} onClose={() => setShowTierPicker(false)} />
+          <PickerSheet
+            visible={showBeveragePicker}
+            title="Select Beverage"
+            items={beverages.map((b) => ({
+              id: b.id || b.local_id,
+              label: b.name,
+              subtitle: b.brand || undefined,
+            }))}
+            onSelect={handleSelectBeverage}
+            onClose={() => {
+              setShowBeveragePicker(false);
+              setEditingLineIndex(null);
+            }}
+          />
 
-      <PickerSheet visible={showBeveragePicker} title={t('newSale.addBeverage')} items={beverageItems} onSelect={handleAddBeverage} onClose={() => setShowBeveragePicker(false)} />
+          <PickerSheet
+            visible={showKasaPicker}
+            title="Select Box Type"
+            items={beverages.map((b) => ({
+              id: b.id || b.local_id,
+              label: b.name,
+              subtitle: b.brand || undefined,
+            }))}
+            onSelect={handleSelectKasaBeverage}
+            onClose={() => {
+              setShowKasaPicker(false);
+              setEditingKasaIndex(null);
+            }}
+          />
 
-      <PickerSheet visible={showAccountPicker} title={t('newSale.paymentAccount')} items={accountItems} onSelect={(item) => {
-        const a = accounts?.find(x => x.id === item.id);
-        if (a) setSelectedAccount({ id: a.id, name: a.name });
-      }} onClose={() => setShowAccountPicker(false)} />
+          <PickerSheet
+            visible={showReturnPicker}
+            title="Select Beverage for Return"
+            items={beverages.map((b) => ({
+              id: b.id || b.local_id,
+              label: b.name,
+              subtitle: b.brand || undefined,
+            }))}
+            onSelect={handleSelectReturnBeverage}
+            onClose={() => {
+              setShowReturnPicker(false);
+              setEditingReturnIndex(null);
+            }}
+          />
 
-      <PickerSheet visible={showContainerKasaPicker} title={t('newSale.containerKasaType')} items={beverageItems} onSelect={handleAddContainerKasa} onClose={() => setShowContainerKasaPicker(false)} />
-      <PickerSheet visible={showReturnedContainerPicker} title={t('newSale.returnedContainersSection')} items={beverageItems} onSelect={handleAddReturnedContainer} onClose={() => setShowReturnedContainerPicker(false)} />
+          <PickerSheet
+            visible={showAccountPicker !== null}
+            title="Select Account"
+            items={accounts.map((a) => ({
+              id: a.id || a.server_id || a.local_id,
+              label: a.name,
+              subtitle: a.kind,
+            }))}
+            onSelect={(item) => {
+              if (showAccountPicker !== null) {
+                updatePaymentRow(showAccountPicker, {
+                  paymentAccountId: item.id,
+                });
+              }
+              setShowAccountPicker(null);
+            }}
+            onClose={() => setShowAccountPicker(null)}
+          />
+        </>
+      )}
     </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: spacing[5],
-    paddingBottom: spacing[4],
+    paddingVertical: spacing[4],
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headerTitle: {
-    ...type.h3,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[6],
-  },
-  field: {
-    marginBottom: spacing[4],
-  },
-  label: {
-    ...type.caption,
+  headerTitle: { ...type.h3 },
+  scrollContent: { paddingBottom: spacing[10], paddingHorizontal: spacing[5] },
+
+  // ─── Fields ──────────────────────────────────────────────────────────────────
+  fieldGroup: { marginTop: spacing[5] },
+  label: { ...type.caption, marginBottom: spacing[2] },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing[2],
   },
-  pickerField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  input: {
+    ...type.body,
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: spacing[4],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[3],
+    height: 44,
+  },
+  textarea: {
+    ...type.body,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing[3],
+    minHeight: 64,
+    textAlignVertical: "top",
+  },
+  selector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[3],
+    height: 44,
+  },
+  selectorValue: { ...type.body, flex: 1 },
+
+  // ─── Customer search ─────────────────────────────────────────────────────────
+  searchWrapper: { position: "relative", zIndex: 20 },
+  searchClear: { position: "absolute", right: 10, top: 13 },
+  dropdown: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: "100%",
+    marginTop: 2,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    maxHeight: 220,
+    overflow: "hidden",
+    zIndex: 100,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
+  dropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing[3],
     paddingVertical: spacing[3],
   },
-  pickerValue: {
-    ...type.body,
-  },
-  pickerPlaceholder: {
-    ...type.body,
-  },
-  loadingPrices: {
-    padding: spacing[4],
-    alignItems: 'center',
-  },
-  loadingPricesText: {
-    ...type.caption,
-  },
-  noPrices: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
+  dropdownLabel: { ...type.body, flex: 1 },
+  dropdownSub: { ...type.caption, marginLeft: spacing[2] },
+  dropdownEmpty: { ...type.caption, padding: spacing[3], textAlign: "center" },
+  inlineForm: {
+    marginTop: spacing[2],
+    borderWidth: 1,
+    borderRadius: radius.md,
     padding: spacing[3],
-    borderRadius: radius.sm,
-    marginBottom: spacing[3],
+    gap: spacing[2],
   },
-  noPricesText: {
-    ...type.caption,
-    flex: 1,
+  inlineFormTitle: { ...type.caption, fontWeight: "600" },
+  inlineFormActions: { flexDirection: "row", gap: spacing[2] },
+  badgeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1],
+    borderRadius: radius.md,
   },
-  sectionTitle: {
-    ...type.h4,
-    marginTop: spacing[4],
+
+  // ─── Section ─────────────────────────────────────────────────────────────────
+  section: { marginTop: spacing[6] },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing[2],
   },
-  lineItem: {
-    borderRadius: radius.md,
+  sectionTitle: { ...type.h4 },
+  addText: { ...type.bodyBold, fontSize: 14 },
+
+  // ─── Add first item ──────────────────────────────────────────────────────────
+  addFirstItemBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing[2],
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: radius.lg,
+    paddingVertical: spacing[4],
+  },
+  addFirstItemText: { ...type.bodyBold, fontSize: 14 },
+
+  // ─── Line items ──────────────────────────────────────────────────────────────
+  lineCard: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
     padding: spacing[3],
     marginBottom: spacing[2],
   },
   lineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
     marginBottom: spacing[2],
   },
-  lineName: {
-    ...type.bodyMedium,
+  lineBevSelector: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
-  linePrice: {
-    ...type.micro,
-    marginRight: spacing[2],
+  lineBevText: { ...type.bodyBold, flex: 1 },
+  lineQtyRow: { flexDirection: "row", gap: spacing[2] },
+  qtyField: { flex: 1 },
+  qtyLabel: { ...type.micro, marginBottom: 4 },
+  lineTotalText: { ...type.bodyBold, marginTop: spacing[3], textAlign: "center" },
+  priceInfo: { ...type.micro, marginTop: spacing[1] },
+  noPrice: { ...type.micro, marginTop: spacing[1] },
+
+  // ─── Stepper ─────────────────────────────────────────────────────────────────
+  stepperRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 0,
   },
-  lineInputs: {
-    flexDirection: 'row',
-    gap: spacing[3],
-  },
-  lineInput: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-  },
-  lineInputLabel: {
-    ...type.caption,
-    width: 40,
-  },
-  qtyButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qtyValue: {
-    ...type.bodyBold,
-    width: 24,
-    textAlign: 'center',
-  },
-  addLineButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
-    paddingVertical: spacing[3],
+  stepperBtn: {
+    width: 30,
+    height: 34,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderRadius: radius.md,
-    borderStyle: 'dashed',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  addLineButtonDisabled: {
-    opacity: 0.6,
+  stepperInput: {
+    ...type.body,
+    borderWidth: 1,
+    borderRadius: 0,
+    width: 44,
+    height: 34,
+    textAlign: "center",
+    padding: 0,
+    marginHorizontal: -1,
   },
-  addLineText: {
-    ...type.bodyMedium,
-  },
-  returnedContainersSection: {
-    marginTop: spacing[4],
-  },
-  containerKasaSection: {
-    marginTop: spacing[4],
-  },
-  kasaHint: {
-    ...type.caption,
-    marginBottom: spacing[2],
-  },
-  kasaItem: {
-    borderRadius: radius.md,
+
+  // ─── Container Kasa / Returned ───────────────────────────────────────────────
+  hint: { ...type.caption, marginBottom: spacing[2] },
+  kasaCard: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
     padding: spacing[3],
     marginBottom: spacing[2],
   },
-  kasaItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing[2],
-  },
-  returnsRow: {
-    flexDirection: 'row',
-    gap: spacing[3],
-  },
-  returnInput: {
-    flex: 1,
-  },
-  returnLabel: {
-    ...type.caption,
-    marginBottom: spacing[2],
-  },
-  returnAmount: {
-    height: 40,
-  },
-  paymentSection: {
-    marginTop: spacing[4],
-  },
-  methodRow: {
-    flexDirection: 'row',
+  kasaRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing[2],
-    marginTop: spacing[2],
-    flexWrap: 'wrap',
   },
-  methodChip: {
+  kasaSelector: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: radius.md,
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
-    borderRadius: radius.sm,
+    height: 38,
   },
-  methodText: {
-    ...type.caption,
+  kasaSelectorText: { ...type.body, flex: 1, fontSize: 13 },
+  kasaCountWrap: { width: 88 },
+  returnQtyRow: {
+    flexDirection: "row",
+    gap: spacing[2],
+    marginTop: spacing[2],
   },
-  totals: {
+
+  // ─── Totals ──────────────────────────────────────────────────────────────────
+  totalsCard: {
     marginTop: spacing[6],
-    borderRadius: radius.md,
+    borderWidth: 1,
+    borderRadius: radius.xl,
     padding: spacing[4],
   },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: spacing[2],
+  totalsLabel: { ...type.micro, marginBottom: spacing[2] },
+  totalsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
   },
-  totalLabel: {
+  totalsKey: { ...type.body },
+  totalsVal: { ...type.bodyBold },
+  totalsDivider: { height: 1, marginVertical: spacing[2] },
+
+  // ─── Payments ────────────────────────────────────────────────────────────────
+  paymentCard: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing[3],
+    marginBottom: spacing[2],
+  },
+  paymentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+  },
+  paymentInput: {
     ...type.body,
-  },
-  totalValue: {
-    ...type.bodyBold,
-  },
-  totalRowFinal: {
-    borderTopWidth: 1,
-    marginTop: spacing[2],
-    paddingTop: spacing[3],
-  },
-  totalLabelFinal: {
-    ...type.bodyMedium,
-  },
-  totalValueFinal: {
-    ...type.h4,
-  },
-  footer: {
-    paddingHorizontal: spacing[5],
-    paddingVertical: spacing[3],
-    borderTopWidth: 1,
-  },
-  submitButton: {
+    borderWidth: 1,
     borderRadius: radius.md,
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[2],
+    width: 100,
+    height: 38,
+    textAlign: "center",
+  },
+  paymentAccountBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[2],
+    height: 38,
+  },
+  paymentAccountText: { ...type.body, flex: 1, fontSize: 13 },
+
+  // ─── Apply credit ────────────────────────────────────────────────────────────
+  creditRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+    marginTop: spacing[5],
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  creditText: { ...type.body, fontWeight: "500" },
+
+  // ─── Projected balances ─────────────────────────────────────────────────────
+  projectedCard: {
+    marginTop: spacing[4],
+    borderWidth: 1,
+    borderRadius: radius.xl,
+    padding: spacing[4],
+  },
+  projectedTitle: { ...type.caption, fontWeight: "600", marginBottom: spacing[2] },
+
+  // ─── Footer ──────────────────────────────────────────────────────────────────
+  footer: {
+    flexDirection: "row",
+    gap: spacing[2],
+    paddingHorizontal: spacing[5],
     paddingVertical: spacing[4],
-    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
+  footerBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing[3],
+    borderRadius: radius.lg,
+    borderWidth: 1,
   },
-  submitButtonText: {
-    ...type.bodyBold,
-    fontSize: 17,
+  footerBtnText: { ...type.bodyBold, fontSize: 13 },
+  footerBtnPrimary: {
+    flex: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing[3],
+    borderRadius: radius.lg,
   },
+  footerBtnPrimaryText: { ...type.bodyBold, fontSize: 13 },
 });

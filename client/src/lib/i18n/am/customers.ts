@@ -44,6 +44,8 @@ export const customers = {
   sendingSms: "በመላክ ላይ...",
   recordPayment: "ክፍያ መዝግብ",
   recordReturn: "መልስ መዝግብ",
+  returnBeverage: "መጠጥ (አማራጭ)",
+  selectBeverage: "መጠጥ ይምረጡ...",
   amountPaid: "የተከፈለ መጠን (ብር)",
   beverage: "መጠጥ",
   quantity: "ብዛት",

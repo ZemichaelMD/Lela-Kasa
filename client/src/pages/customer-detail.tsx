@@ -27,6 +27,7 @@ import { PermissionGate } from "@/components/permission-gate";
 import { StatusChip } from "@/components/data-table";
 import { sdk } from "@/lib/sdk";
 import type {
+  Beverage,
   Customer,
   LedgerEntry,
   LedgerPaymentEntry,
@@ -40,14 +41,6 @@ import { formatMoneyCents } from "@/utils/money";
 import { useI18n } from "@/lib/i18n";
 
 type TabId = "activity" | "sales" | "payments" | "returns";
-
-const PAYMENT_METHODS = [
-  "CASH",
-  "BANK_TRANSFER",
-  "MOBILE_MONEY",
-  "OTHER",
-] as const;
-type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 function getTodayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -264,7 +257,6 @@ function PaymentModal({
 }) {
   const { t } = useI18n();
   const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -277,7 +269,6 @@ function PaymentModal({
     try {
       await sdk.customers.recordPayment(customer.id, {
         amountCents: cents,
-        method,
         paymentAccountId: accountId,
         notes: notes.trim() || undefined,
       });
@@ -292,13 +283,6 @@ function PaymentModal({
 
   const ic =
     "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40";
-
-  const methodLabels: Record<PaymentMethod, string> = {
-    CASH: "Cash",
-    BANK_TRANSFER: "Bank Transfer",
-    MOBILE_MONEY: "Mobile Money",
-    OTHER: "Other",
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -335,21 +319,7 @@ function PaymentModal({
             placeholder="0.00"
           />
         </div>
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Payment Method</label>
-          <select
-            value={method}
-            onChange={(e) => setMethod(e.target.value as PaymentMethod)}
-            required
-            className={ic}
-          >
-            {PAYMENT_METHODS.map((m) => (
-              <option key={m} value={m}>
-                {methodLabels[m]}
-              </option>
-            ))}
-          </select>
-        </div>
+
         <div className="space-y-1.5">
           <label className="text-sm font-medium">{t("paymentAccounts")}</label>
           <select
@@ -407,8 +377,14 @@ function ReturnModal({
   const { t } = useI18n();
   const [boxes, setBoxes] = useState("");
   const [bottles, setBottles] = useState("");
+  const [beverageId, setBeverageId] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [beverages, setBeverages] = useState<Beverage[]>([]);
+
+  useEffect(() => {
+    sdk.beverages.list({ pageSize: 200 }).then((r) => setBeverages(r.data)).catch(() => {});
+  }, []);
 
   const boxesCount = parseInt(boxes, 10) || 0;
   const bottlesCount = parseInt(bottles, 10) || 0;
@@ -425,6 +401,7 @@ function ReturnModal({
       await sdk.customers.recordReturn(customer.id, {
         boxes: boxesCount,
         bottles: bottlesCount,
+        beverageId: beverageId || undefined,
         notes: notes.trim() || undefined,
       });
       toast.success(t("returnRecorded"));
@@ -701,7 +678,9 @@ function EditCustomerDrawer({
           className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5"
         >
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t("nameWithAsterisk")}</label>
+            <label className="text-sm font-medium">
+              {t("nameWithAsterisk")}
+            </label>
             <input
               ref={nameRef}
               value={name}
@@ -732,12 +711,19 @@ function EditCustomerDrawer({
             />
             {(customer as any).email && (
               <div className="flex items-center gap-2 mt-1">
-                <span className={`text-xs ${emailVerified ? 'text-success' : 'text-amber-500'}`}>
-                  {emailVerified ? '✓ Verified' : 'Not verified'}
+                <span
+                  className={`text-xs ${emailVerified ? "text-success" : "text-amber-500"}`}
+                >
+                  {emailVerified ? "✓ Verified" : "Not verified"}
                 </span>
                 {!emailVerified && (
-                  <button type="button" onClick={handleSendEmailOtp} disabled={emailVerifying} className="text-xs font-medium text-primary hover:underline">
-                    {emailVerifying ? 'Sending...' : 'Verify'}
+                  <button
+                    type="button"
+                    onClick={handleSendEmailOtp}
+                    disabled={emailVerifying}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    {emailVerifying ? "Sending..." : "Verify"}
                   </button>
                 )}
               </div>
@@ -755,9 +741,13 @@ function EditCustomerDrawer({
           </div>
 
           <div className="border-t border-border pt-3 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("priceTier")}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("priceTier")}
+            </p>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">{t("defaultPriceTier")}</label>
+              <label className="text-sm font-medium">
+                {t("defaultPriceTier")}
+              </label>
               <select
                 value={tierId}
                 onChange={(e) => setTierId(e.target.value)}
@@ -770,7 +760,9 @@ function EditCustomerDrawer({
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-muted-foreground">{t("autoFilledOnNewSale")}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("autoFilledOnNewSale")}
+              </p>
             </div>
             <label className="flex items-center gap-3 cursor-pointer">
               <input
@@ -784,7 +776,9 @@ function EditCustomerDrawer({
           </div>
 
           <div className="border-t border-border pt-3 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("customerPortalAccess")}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("customerPortalAccess")}
+            </p>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">{t("username")}</label>
               <input
@@ -810,18 +804,32 @@ function EditCustomerDrawer({
                 }
               />
               {pinReadOnly && (
-                <p className="text-xs text-muted-foreground">{t("pinReadOnlyHint")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("pinReadOnlyHint")}
+                </p>
               )}
               {(customer as any).username && (
-                <button type="button" onClick={handleResetPin} disabled={resettingPin} className="text-xs font-medium text-primary hover:underline">
-                  {resettingPin ? 'Resetting...' : 'Reset PIN'}
+                <button
+                  type="button"
+                  onClick={handleResetPin}
+                  disabled={resettingPin}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  {resettingPin ? "Resetting..." : "Reset PIN"}
                 </button>
               )}
               {newPin && (
                 <div className="rounded-lg bg-success/10 border border-success/30 p-3 space-y-1">
-                  <p className="text-xs font-medium text-success">New PIN generated</p>
-                  <p className="text-lg font-bold tabular-nums text-success">{newPin}</p>
-                  <p className="text-xs text-muted-foreground">Tell the customer this PIN. They will be required to change it on next login.</p>
+                  <p className="text-xs font-medium text-success">
+                    New PIN generated
+                  </p>
+                  <p className="text-lg font-bold tabular-nums text-success">
+                    {newPin}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Tell the customer this PIN. They will be required to change
+                    it on next login.
+                  </p>
                 </div>
               )}
             </div>
@@ -847,7 +855,7 @@ function EditCustomerDrawer({
       </aside>
 
       {showEmailVerify && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-xs rounded-xl bg-card p-6 shadow-xl space-y-4">
             <h4 className="text-sm font-semibold">Verify Email</h4>
             <p className="text-xs text-muted-foreground">
@@ -855,7 +863,11 @@ function EditCustomerDrawer({
             </p>
             <input
               value={emailVerifyCode}
-              onChange={(e) => setEmailVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={(e) =>
+                setEmailVerifyCode(
+                  e.target.value.replace(/\D/g, "").slice(0, 6),
+                )
+              }
               className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
               placeholder="000000"
               inputMode="numeric"
@@ -863,11 +875,20 @@ function EditCustomerDrawer({
               autoFocus
             />
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowEmailVerify(false)} className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent">
+              <button
+                type="button"
+                onClick={() => setShowEmailVerify(false)}
+                className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent"
+              >
                 Cancel
               </button>
-              <button type="button" onClick={handleVerifyEmail} disabled={emailVerifying} className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-                {emailVerifying ? 'Verifying...' : 'Verify'}
+              <button
+                type="button"
+                onClick={handleVerifyEmail}
+                disabled={emailVerifying}
+                className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              >
+                {emailVerifying ? "Verifying..." : "Verify"}
               </button>
             </div>
           </div>
@@ -1067,7 +1088,7 @@ type ActivityTypeFilter = "all" | "sale" | "payment" | "return";
 
 function ActivityList({
   entries,
-  locale,
+  local,
 }: {
   entries: LedgerEntry[];
   locale?: string;
@@ -1930,8 +1951,10 @@ export default function CustomerDetailPage() {
             {(customer as any).email && (
               <span className="ml-2 text-sm font-normal text-muted-foreground">
                 {(customer as any).email}
-                <span className={`ml-1 ${(customer as any).emailVerified ? 'text-success' : 'text-amber-500'}`}>
-                  {(customer as any).emailVerified ? '✓' : 'Unverified'}
+                <span
+                  className={`ml-1 ${(customer as any).emailVerified ? "text-success" : "text-amber-500"}`}
+                >
+                  {(customer as any).emailVerified ? "✓" : "Unverified"}
                 </span>
               </span>
             )}

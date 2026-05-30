@@ -5,4 +5,5 @@ export class RecordContainerReturnDto {
   @IsInt() @Min(0) declare bottles: number;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsString() returnedAt?: string;
+  @IsOptional() @IsString() beverageId?: string;
 }

@@ -1,9 +1,9 @@
-import React from 'react';
-import { StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React from "react";
+import { StyleSheet, Text, View, ViewStyle } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-import { useTheme } from '../context/ThemeContext';
-import { radius, spacing, type } from '../theme';
+import { useTheme } from "../context/ThemeContext";
+import { radius, spacing, type } from "../theme";
 
 export function StatCard({
   label,
@@ -11,19 +11,26 @@ export function StatCard({
   trend,
   icon,
   style,
+  color,
 }: {
   label: string;
   value: string;
   trend?: { value: string; positive: boolean };
   icon?: keyof typeof Ionicons.glyphMap;
   style?: ViewStyle;
+  color?: string;
 }) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface }, style]}>
+    <View style={[styles.card, { backgroundColor: `${color}` }, style]}>
       <View style={styles.header}>
         {icon && (
-          <View style={[styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: colors.primaryLight },
+            ]}
+          >
             <Ionicons name={icon} size={18} color={colors.primary} />
           </View>
         )}
@@ -31,11 +38,15 @@ export function StatCard({
           <View
             style={[
               styles.trendBadge,
-              { backgroundColor: trend.positive ? colors.successLight : colors.dangerLight },
+              {
+                backgroundColor: trend.positive
+                  ? colors.successLight
+                  : colors.dangerLight,
+              },
             ]}
           >
             <Ionicons
-              name={trend.positive ? 'trending-up' : 'trending-down'}
+              name={trend.positive ? "trending-up" : "trending-down"}
               size={12}
               color={trend.positive ? colors.success : colors.danger}
             />
@@ -51,7 +62,9 @@ export function StatCard({
         )}
       </View>
       <Text style={[styles.value, { color: colors.textPrimary }]}>{value}</Text>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -64,21 +77,21 @@ const styles = StyleSheet.create({
     minWidth: 140,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing[2],
   },
   iconContainer: {
     width: 32,
     height: 32,
     borderRadius: radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   trendBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 2,
     paddingHorizontal: 6,
     paddingVertical: 2,

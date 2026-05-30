@@ -25,7 +25,7 @@ import {
 import { t } from "../lib/i18n";
 import type { RootStackParamList } from "../navigation/types";
 import { radius, spacing, type } from "../theme";
-import { useOffline } from "../offline/context";
+import { useOffline } from "../providers/OfflineProvider";
 import { SyncStatusBar } from "./SyncStatusBar";
 import {
   saveSubscriptionCache,

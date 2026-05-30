@@ -29,7 +29,7 @@ import { useTheme } from "../context/ThemeContext";
 import { getSdk } from "../lib/sdk";
 import { t } from "../lib/i18n";
 import { showToast } from "../components/Toast";
-import { radius, spacing, type } from "../theme";
+import { radius, spacing, type, layout } from "../theme";
 
 const WEB_APP_URL =
   process.env.EXPO_PUBLIC_WEB_APP_URL || "https://lelakasa.halepo.com";
@@ -1691,7 +1691,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: spacing[5], paddingVertical: spacing[4] },
   title: { ...type.h1 },
-  scrollContent: { paddingBottom: spacing[4] },
+  scrollContent: { paddingBottom: layout.screenPaddingBottom },
   section: { marginTop: spacing[4] },
   sectionTitle: {
     ...type.caption,

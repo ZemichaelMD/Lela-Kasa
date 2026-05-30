@@ -15,6 +15,8 @@ import { CreateBeverageDto } from './dto/create-beverage.dto';
 import { CreateBeverageBulkDto } from './dto/create-beverage-bulk.dto';
 import { UpdateBeverageDto } from './dto/update-beverage.dto';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
+import { AdjustInventoryDto } from './dto/adjust-inventory.dto';
+import { SwapDto } from './dto/swap.dto';
 import { CurrentShopId } from '../common/decorators/current-shop.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermission } from '../permissions/decorators/require-permission.decorator';
@@ -113,5 +115,27 @@ export class BeveragesController {
   @ApiOperation({ summary: 'Get current prices per tier for beverage' })
   getCurrentPrices(@CurrentShopId() shopId: string, @Param('id') id: string) {
     return this.beveragesService.getCurrentPrices(shopId, id);
+  }
+
+  @Post(':id/inventory')
+  @ApiOperation({ summary: 'Adjust full and/or empty inventory for beverage' })
+  adjustInventory(
+    @CurrentShopId() shopId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: AdjustInventoryDto,
+  ) {
+    return this.beveragesService.adjustInventory(shopId, id, dto, user.id);
+  }
+
+  @Post(':id/swap')
+  @ApiOperation({ summary: 'Swap empty containers for full bottles' })
+  swap(
+    @CurrentShopId() shopId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: SwapDto,
+  ) {
+    return this.beveragesService.swap(shopId, id, dto, user.id);
   }
 }

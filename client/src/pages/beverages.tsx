@@ -19,27 +19,7 @@ import type { Beverage, StockMovement } from "@/sdk";
 import { ApiError } from "@/sdk";
 import { useI18n } from "@/lib/i18n";
 import { EthiopianDateInput, FormattedDate } from "@/ui";
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function stockLabel(beverage: Beverage, t: (k: any) => string): string {
-  const boxes = Math.floor(beverage.stockBottles / beverage.bottlesPerBox);
-  const bottles = beverage.stockBottles % beverage.bottlesPerBox;
-  const parts: string[] = [];
-  if (boxes > 0)
-    parts.push(
-      `${boxes} ${t(boxes === 1 ? "boxes" : "boxes")
-        .slice(0, boxes === 1 ? -1 : undefined)
-        .toLowerCase()}`,
-    );
-  if (bottles > 0 || parts.length === 0)
-    parts.push(
-      `${bottles} ${t(bottles === 1 ? "bottles" : "bottles")
-        .slice(0, bottles === 1 ? -1 : undefined)
-        .toLowerCase()}`,
-    );
-  return parts.join(" + ");
-}
+import { stockLabel, emptyStockLabel } from "@/lib/stock-utils";
 
 // ─── Beverage Drawer ──────────────────────────────────────────────────────────
 
@@ -66,13 +46,11 @@ function BeverageDrawer({ open, onClose, editing, onSaved }: BevDrawerProps) {
   const { t } = useI18n();
   const isAddMode = !editing;
 
-  // Single-entry state for edit mode
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
   const [sizeMl, setSizeMl] = useState("");
   const [bottlesPerBox, setBottlesPerBox] = useState("24");
 
-  // Multi-entry state for add mode
   const [entries, setEntries] = useState<BeverageEntry[]>([newEntry()]);
 
   const [saving, setSaving] = useState(false);
@@ -254,9 +232,9 @@ function BeverageDrawer({ open, onClose, editing, onSaved }: BevDrawerProps) {
   );
 }
 
-// ─── Stock Drawer ─────────────────────────────────────────────────────────────
+// ─── Stock (Inventory) Drawer ─────────────────────────────────────────────────
 
-type HistoryTab = 'add' | 'history';
+type StockTab = "adjust" | "swap" | "history";
 
 interface StockDrawerProps {
   beverage: Beverage | null;
@@ -264,15 +242,50 @@ interface StockDrawerProps {
   onAdjusted: (b: Beverage) => void;
 }
 
+function movFullLabel(m: StockMovement, beverage: Beverage | null, t: (k: any) => string) {
+  const abs = Math.abs(m.bottlesDelta);
+  const bx = beverage ? Math.floor(abs / beverage.bottlesPerBox) : 0;
+  const bt = beverage ? abs % beverage.bottlesPerBox : abs;
+  const parts: string[] = [];
+  if (bx > 0) parts.push(`${bx} ${t("boxes").toLowerCase()}`);
+  if (bt > 0 || parts.length === 0) parts.push(`${bt} ${t("bottles").toLowerCase()}`);
+  return `${m.bottlesDelta > 0 ? "+" : "\u2212"}${parts.join(" + ")}`;
+}
+
+function movLabel(m: StockMovement, beverage: Beverage | null, t: (k: any) => string) {
+  const parts: string[] = [];
+  if (m.bottlesDelta && m.bottlesDelta !== 0) {
+    parts.push(`${movFullLabel(m, beverage, t)} ${t("fullStock").toLowerCase()}`);
+  }
+  if (m.emptyBoxesDelta || m.emptyBottlesDelta) {
+    const ebd = m.emptyBoxesDelta ?? 0;
+    const ebtd = m.emptyBottlesDelta ?? 0;
+    const sub: string[] = [];
+    if (ebd !== 0) sub.push(`${Math.abs(ebd)} ${t("boxes").toLowerCase()}`);
+    if (ebtd !== 0 || sub.length === 0) sub.push(`${Math.abs(ebtd)} ${t("bottles").toLowerCase()}`);
+    const isPositive = (m.emptyBoxesDelta ?? 0) + (m.emptyBottlesDelta ?? 0) > 0;
+    parts.push(`${isPositive ? "+" : "\u2212"}${sub.join(" + ")} ${t("emptyStock").toLowerCase()}`);
+  }
+  return parts.join("  \u00B7  ");
+}
+
 function StockDrawer({ beverage, onClose, onAdjusted }: StockDrawerProps) {
   const { t } = useI18n();
-  const [tab, setTab] = useState<HistoryTab>("add");
+  const [tab, setTab] = useState<StockTab>("adjust");
 
-  // Add Stock form
-  const [boxes, setBoxes] = useState("");
-  const [bottles, setBottles] = useState("");
+  // Adjust form
+  const [fullBoxes, setFullBoxes] = useState("");
+  const [fullBottles, setFullBottles] = useState("");
+  const [isRemoveFull, setIsRemoveFull] = useState(false);
+  const [emptyBoxes, setEmptyBoxes] = useState("");
+  const [emptyBottles, setEmptyBottles] = useState("");
   const [reason, setReason] = useState<string>("PURCHASE");
   const [notes, setNotes] = useState("");
+
+  // Swap form
+  const [swapBoxes, setSwapBoxes] = useState("");
+  const [swapBottles, setSwapBottles] = useState("");
+
   const [saving, setSaving] = useState(false);
 
   // History
@@ -286,11 +299,16 @@ function StockDrawer({ beverage, onClose, onAdjusted }: StockDrawerProps) {
 
   useEffect(() => {
     if (open) {
-      setTab("add");
-      setBoxes("");
-      setBottles("");
+      setTab("adjust");
+      setFullBoxes("");
+      setFullBottles("");
+      setIsRemoveFull(false);
+      setEmptyBoxes("");
+      setEmptyBottles("");
       setReason("PURCHASE");
       setNotes("");
+      setSwapBoxes("");
+      setSwapBottles("");
       setMovements([]);
       setHistDateFrom("");
       setHistDateTo("");
@@ -309,30 +327,69 @@ function StockDrawer({ beverage, onClose, onAdjusted }: StockDrawerProps) {
     }
   }, [tab, beverage, t]);
 
-  async function handleAddStock(e: React.FormEvent) {
+  async function handleAdjust(e: React.FormEvent) {
     e.preventDefault();
     if (!beverage) return;
-    const bxNum = parseInt(boxes, 10) || 0;
-    const btlNum = parseInt(bottles, 10) || 0;
-    const delta = bxNum * beverage.bottlesPerBox + btlNum;
-    if (delta === 0) {
-      toast.error(t("enterAtLeastOne"));
+    const fb = parseInt(fullBoxes, 10) || 0;
+    const fbt = parseInt(fullBottles, 10) || 0;
+    const eb = parseInt(emptyBoxes, 10) || 0;
+    const ebt = parseInt(emptyBottles, 10) || 0;
+    const fullDelta = (isRemoveFull ? -1 : 1) * (fb * beverage.bottlesPerBox + fbt);
+
+    if (fullDelta === 0 && eb === 0 && ebt === 0) {
+      toast.error(t("enterAtLeastOneFullOrEmpty"));
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const updated = await sdk.beverages.adjustInventory(beverage.id, {
+        fullBottlesDelta: fullDelta !== 0 ? fullDelta : undefined,
+        emptyBoxesDelta: eb > 0 ? eb : undefined,
+        emptyBottlesDelta: ebt > 0 ? ebt : undefined,
+        reason,
+        notes: notes.trim() || undefined,
+      });
+      toast.success(t("inventoryAdjusted"));
+      onAdjusted(updated);
+      setFullBoxes("");
+      setFullBottles("");
+      setEmptyBoxes("");
+      setEmptyBottles("");
+      setNotes("");
+      setIsRemoveFull(false);
+    } catch {
+      toast.error(t("inventoryAdjustFailed"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSwap(e: React.FormEvent) {
+    e.preventDefault();
+    if (!beverage) return;
+    const eb = parseInt(swapBoxes, 10) || 0;
+    const ebt = parseInt(swapBottles, 10) || 0;
+    if (eb === 0 && ebt === 0) {
+      toast.error(t("enterAtLeastOneFullOrEmpty"));
+      return;
+    }
+    if (eb > beverage.emptyBoxes || ebt > beverage.emptyBottles) {
+      toast.error(t("notEnoughEmpties"));
       return;
     }
     setSaving(true);
     try {
-      const updated = await sdk.beverages.adjustStock(beverage.id, {
-        bottlesDelta: delta,
-        reason,
-        notes: notes.trim() || undefined,
+      const updated = await sdk.beverages.swap(beverage.id, {
+        emptyBoxes: eb,
+        emptyBottles: ebt,
       });
-      toast.success(t("stockUpdated"));
+      toast.success(t("swapCompleted"));
       onAdjusted(updated);
-      setBoxes("");
-      setBottles("");
-      setNotes("");
+      setSwapBoxes("");
+      setSwapBottles("");
     } catch {
-      toast.error(t("failedUpdateStock"));
+      toast.error(t("swapFailed"));
     } finally {
       setSaving(false);
     }
@@ -348,35 +405,21 @@ function StockDrawer({ beverage, onClose, onAdjusted }: StockDrawerProps) {
   const inputClass =
     "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40";
 
-  const bxNum = parseInt(boxes, 10) || 0;
-  const btlNum = parseInt(bottles, 10) || 0;
-  const computedDelta = beverage ? bxNum * beverage.bottlesPerBox + btlNum : 0;
-
-  function movLabel(m: StockMovement): string {
-    const abs = Math.abs(m.bottlesDelta);
-    const bx = beverage ? Math.floor(abs / beverage.bottlesPerBox) : 0;
-    const bt = beverage ? abs % beverage.bottlesPerBox : abs;
-    const parts: string[] = [];
-    if (bx > 0)
-      parts.push(
-        `${bx} ${t(bx === 1 ? "boxes" : "boxes")
-          .slice(0, bx === 1 ? -1 : undefined)
-          .toLowerCase()}`,
-      );
-    if (bt > 0 || parts.length === 0)
-      parts.push(
-        `${bt} ${t(bt === 1 ? "bottles" : "bottles")
-          .slice(0, bt === 1 ? -1 : undefined)
-          .toLowerCase()}`,
-      );
-    return `${m.bottlesDelta > 0 ? "+" : "−"}${parts.join(" + ")}`;
-  }
-
   const REASONS = [
     { value: "PURCHASE", label: t("purchase") },
     { value: "ADJUSTMENT", label: t("stockAdjustment") },
     { value: "RETURN", label: t("return") },
   ];
+
+  const ALL_REASONS = [...REASONS, { value: "SWAP", label: t("swap") }];
+
+  const fullBoxDelta = (parseInt(fullBoxes, 10) || 0) * (beverage?.bottlesPerBox ?? 0);
+  const fullBtlDelta = parseInt(fullBottles, 10) || 0;
+  const fullComputed = (isRemoveFull ? -1 : 1) * (fullBoxDelta + fullBtlDelta);
+
+  const swapBoxesNum = parseInt(swapBoxes, 10) || 0;
+  const swapBottlesNum = parseInt(swapBottles, 10) || 0;
+  const swapReceiving = swapBoxesNum * (beverage?.bottlesPerBox ?? 0) + swapBottlesNum;
 
   return (
     <>
@@ -388,127 +431,124 @@ function StockDrawer({ beverage, onClose, onAdjusted }: StockDrawerProps) {
         className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-card shadow-xl transition-transform duration-200 ${open ? "translate-x-0" : "translate-x-full"}`}
         role="dialog"
         aria-modal="true"
-        aria-label={t("stock")}
       >
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
-            <h2 className="text-lg font-semibold">
-              {t("stockHeading")} {beverage?.name}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {t("current")}: {beverage ? stockLabel(beverage, t) : "…"}
-            </p>
+            <h2 className="text-lg font-semibold">{beverage?.name}</h2>
+            <div className="flex gap-4 text-xs text-muted-foreground">
+              <span>{t("fullStock")}: {stockLabel(beverage, t)}</span>
+              <span>{t("emptyStock")}: {emptyStockLabel(beverage, t)}</span>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:bg-accent"
-          >
-            ✕
+          <button type="button" onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-accent">
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 border-b border-border bg-muted/30 px-4 pt-2">
-          {(["add", "history"] as const).map((t_tab) => (
+          {(["adjust", "swap", "history"] as const).map((t_tab) => (
             <button
               key={t_tab}
               type="button"
               onClick={() => setTab(t_tab)}
-              className={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${
-                tab === t_tab
-                  ? "border border-b-0 border-border bg-card text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${tab === t_tab ? "border border-b-0 border-border bg-card text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
-              {t_tab === "add" ? t("addAdjust") : t("history")}
+              {t_tab === "adjust" ? t("addAdjust") : t_tab === "swap" ? t("swap") : t("history")}
             </button>
           ))}
         </div>
 
-        {/* Tab content */}
         <div className="flex-1 overflow-y-auto">
-          {tab === "add" && (
-            <form onSubmit={handleAddStock} className="space-y-4 px-5 py-5">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">{t("boxes")}</label>
-                  <input
-                    value={boxes}
-                    onChange={(e) => setBoxes(e.target.value)}
-                    type="number"
-                    className={inputClass}
-                    placeholder="0"
-                  />
-                  {beverage && (
-                    <p className="text-xs text-muted-foreground">
-                      × {beverage.bottlesPerBox} {t("bottles").toLowerCase()}{" "}
-                      {t("each")}
-                    </p>
-                  )}
+          {tab === "adjust" && (
+            <form onSubmit={handleAdjust} className="space-y-5 px-5 py-5">
+              <fieldset className="rounded-lg border border-border p-3">
+                <legend className="px-2 text-sm font-medium">{t("fullStockAdjustment")}</legend>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">{t("boxes")}</label>
+                    <input value={fullBoxes} onChange={(e) => setFullBoxes(e.target.value)} type="number" min={0} className={inputClass} placeholder="0" />
+                    {beverage && <p className="text-xs text-muted-foreground">× {beverage.bottlesPerBox} {t("bottles").toLowerCase()} {t("each")}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">{t("extraBottles")}</label>
+                    <input value={fullBottles} onChange={(e) => setFullBottles(e.target.value)} type="number" min={0} className={inputClass} placeholder="0" />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">
-                    {t("extraBottles")}
-                  </label>
-                  <input
-                    value={bottles}
-                    onChange={(e) => setBottles(e.target.value)}
-                    type="number"
-                    className={inputClass}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
+                <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm">
+                  <input type="checkbox" checked={isRemoveFull} onChange={(e) => setIsRemoveFull(e.target.checked)} className="rounded border-border" />
+                  {t("removeFull")}
+                </label>
+                {fullComputed !== 0 && (
+                  <p className={`mt-2 text-sm font-medium ${fullComputed > 0 ? "text-success" : "text-destructive"}`}>
+                    {fullComputed > 0 ? "+" : ""}{fullComputed} {t("bottles").toLowerCase()} {t("fullStock").toLowerCase()}
+                  </p>
+                )}
+              </fieldset>
 
-              {computedDelta !== 0 && (
-                <p
-                  className={`text-sm font-medium ${computedDelta > 0 ? "text-success" : "text-destructive"}`}
-                >
-                  Delta: {computedDelta > 0 ? "+" : ""}
-                  {computedDelta} {t("bottles").toLowerCase()}{" "}
-                  {t("total").toLowerCase()}
-                </p>
-              )}
+              <fieldset className="rounded-lg border border-border p-3">
+                <legend className="px-2 text-sm font-medium">{t("emptyStockAdjustment")}</legend>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">{t("emptyBoxes")}</label>
+                    <input value={emptyBoxes} onChange={(e) => setEmptyBoxes(e.target.value)} type="number" min={0} className={inputClass} placeholder="0" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">{t("emptyBottles")}</label>
+                    <input value={emptyBottles} onChange={(e) => setEmptyBottles(e.target.value)} type="number" min={0} className={inputClass} placeholder="0" />
+                  </div>
+                </div>
+              </fieldset>
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">{t("reason")}</label>
-                <select
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className={inputClass}
-                >
-                  {REASONS.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
+                <select value={reason} onChange={(e) => setReason(e.target.value)} className={inputClass}>
+                  {REASONS.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}
                 </select>
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">{t("note")}</label>
-                <input
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className={inputClass}
-                  placeholder={t("optional")}
-                />
+                <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} placeholder={t("optional") as string} />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent"
-                >
-                  {t("cancel")}
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60 hover:bg-primary/90"
-                >
+                <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent">{t("cancel")}</button>
+                <button type="submit" disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60 hover:bg-primary/90">
                   {saving ? t("saving") : t("apply")}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {tab === "swap" && (
+            <form onSubmit={handleSwap} className="space-y-4 px-5 py-5">
+              <p className="text-xs text-muted-foreground">{t("swapDescription")}</p>
+              {beverage && (
+                <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                  {t("emptyStock")}: {emptyStockLabel(beverage, t)}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">{t("emptyBoxesToSwap")}</label>
+                  <input value={swapBoxes} onChange={(e) => setSwapBoxes(e.target.value)} type="number" min={0} className={inputClass} placeholder="0" />
+                  {beverage && <p className="text-xs text-muted-foreground">× {beverage.bottlesPerBox} {t("bottles").toLowerCase()} {t("each")}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">{t("emptyBottlesToSwap")}</label>
+                  <input value={swapBottles} onChange={(e) => setSwapBottles(e.target.value)} type="number" min={0} className={inputClass} placeholder="0" />
+                </div>
+              </div>
+
+              {swapReceiving > 0 && (
+                <div className="rounded-lg border border-border bg-card px-4 py-3">
+                  <p className="text-sm text-muted-foreground">{t("fullBottlesReceived")}</p>
+                  <p className="text-lg font-semibold text-success">+{swapReceiving} {t("bottles").toLowerCase()}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent">{t("cancel")}</button>
+                <button type="submit" disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60 hover:bg-primary/90">
+                  {saving ? t("saving") : t("swap")}
                 </button>
               </div>
             </form>
@@ -516,70 +556,40 @@ function StockDrawer({ beverage, onClose, onAdjusted }: StockDrawerProps) {
 
           {tab === "history" && (
             <div className="px-5 py-5 space-y-4">
-              {/* Filters */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">
-                    {t("from")}
-                  </label>
+                  <label className="text-xs text-muted-foreground">{t("from")}</label>
                   <EthiopianDateInput value={histDateFrom} onChange={setHistDateFrom} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">
-                    {t("to")}
-                  </label>
+                  <label className="text-xs text-muted-foreground">{t("to")}</label>
                   <EthiopianDateInput value={histDateTo} onChange={setHistDateTo} />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">
-                  {t("reason")}
-                </label>
-                <select
-                  value={histReason}
-                  onChange={(e) => setHistReason(e.target.value)}
-                  className={inputClass}
-                >
+                <label className="text-xs text-muted-foreground">{t("reason")}</label>
+                <select value={histReason} onChange={(e) => setHistReason(e.target.value)} className={inputClass}>
                   <option value="">{t("allReasons")}</option>
-                  {REASONS.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
+                  {ALL_REASONS.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}
                 </select>
               </div>
 
-              {/* List */}
               {movLoading ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  {t("loading")}
-                </p>
+                <p className="py-6 text-center text-sm text-muted-foreground">{t("loading")}</p>
               ) : filteredMovements.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  {t("noMovements")}
-                </p>
+                <p className="py-6 text-center text-sm text-muted-foreground">{t("noMovements")}</p>
               ) : (
                 <div className="space-y-2">
                   {filteredMovements.map((m) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2.5"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">
-                          {REASONS.find((r) => r.value === m.reason)?.label ??
-                            m.reason}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          <FormattedDate iso={m.createdAt} />
-                          {m.notes && ` · ${m.notes}`}
-                        </p>
+                    <div key={m.id} className="rounded-lg border border-border bg-background px-3 py-2.5 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium">
+                          {ALL_REASONS.find((r) => r.value === m.reason)?.label ?? m.reason}
+                        </span>
+                        <span className="text-xs text-muted-foreground"><FormattedDate iso={m.createdAt} /></span>
                       </div>
-                      <span
-                        className={`text-sm font-semibold tabular-nums ${m.bottlesDelta > 0 ? "text-success" : "text-destructive"}`}
-                      >
-                        {movLabel(m)}
-                      </span>
+                      <p className="text-xs font-medium tabular-nums">{movLabel(m, beverage, t)}</p>
+                      {m.notes && <p className="text-xs text-muted-foreground">{m.notes}</p>}
                     </div>
                   ))}
                 </div>
@@ -611,26 +621,11 @@ function DeleteDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
       <div className="relative w-full max-w-sm rounded-xl bg-card p-6 shadow-xl">
-        <h3 className="text-base font-semibold">
-          {t("deleteBeverageQuestion")}
-        </h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("permanentlyRemoveBeverage")} <strong>{beverage.name}</strong>.
-        </p>
+        <h3 className="text-base font-semibold">{t("deleteBeverageQuestion")}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{t("permanentlyRemoveBeverage")} <strong>{beverage.name}</strong>.</p>
         <div className="mt-4 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent"
-          >
-            {t("cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={deleting}
-            className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white disabled:opacity-60 hover:bg-destructive/90"
-          >
+          <button type="button" onClick={onCancel} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent">{t("cancel")}</button>
+          <button type="button" onClick={onConfirm} disabled={deleting} className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white disabled:opacity-60 hover:bg-destructive/90">
             {deleting ? t("deleting") : t("delete")}
           </button>
         </div>
@@ -694,8 +689,7 @@ export default function BeveragesPage() {
   const fetchBeverages = useCallback(async () => {
     setLoading(true);
     try {
-      const isActive =
-        searchParams.get("active") === "false" ? undefined : true;
+      const isActive = searchParams.get("active") === "false" ? undefined : true;
       const result = await sdk.beverages.list({
         page,
         pageSize: PAGE_SIZE,
@@ -722,9 +716,7 @@ export default function BeveragesPage() {
 
   function handleAdjusted(updated: Beverage) {
     setStockTarget(null);
-    setBeverages((prev) =>
-      prev.map((b) => (b.id === updated.id ? updated : b)),
-    );
+    setBeverages((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
   }
 
   async function handleDelete() {
@@ -747,8 +739,7 @@ export default function BeveragesPage() {
     }
   }
 
-  const activeFilterCount =
-    (searchParams.get("q") ? 1 : 0) + (!activeOnly ? 1 : 0);
+  const activeFilterCount = (searchParams.get("q") ? 1 : 0) + (!activeOnly ? 1 : 0);
 
   const columns = [
     {
@@ -759,14 +750,7 @@ export default function BeveragesPage() {
     {
       key: "brand",
       header: t("brand"),
-      render: (b: Beverage) => (
-        <span className="text-muted-foreground">{b.brand ?? "·"}</span>
-      ),
-    },
-    {
-      key: "size",
-      header: t("sizeMl"),
-      render: (b: Beverage) => <span>{b.sizeMl ?? "·"}</span>,
+      render: (b: Beverage) => <span className="text-muted-foreground">{b.brand ?? "\u00B7"}</span>,
     },
     {
       key: "bpb",
@@ -775,14 +759,12 @@ export default function BeveragesPage() {
     },
     {
       key: "stock",
-      header: t("stock"),
+      header: t("fullStock"),
       render: (b: Beverage) => {
-        const lowThreshold = b.bottlesPerBox * 2; // simple heuristic if no shop setting
-        const isLow = b.stockBottles <= lowThreshold && b.stockBottles >= 0;
+        const lowThreshold = b.bottlesPerBox * 2;
+        const isLow = b.stockBottles <= lowThreshold;
         return (
-          <span
-            className={`flex items-center gap-1.5 ${isLow ? "text-warning" : ""}`}
-          >
+          <span className={`flex items-center gap-1.5 ${isLow ? "text-warning" : ""}`}>
             {isLow && <TrendingDown className="h-3.5 w-3.5 shrink-0" />}
             {stockLabel(b, t)}
           </span>
@@ -790,12 +772,15 @@ export default function BeveragesPage() {
       },
     },
     {
+      key: "empty",
+      header: t("emptyStock"),
+      render: (b: Beverage) => <span className="text-muted-foreground">{emptyStockLabel(b, t)}</span>,
+    },
+    {
       key: "active",
       header: t("active"),
       render: (b: Beverage) => (
-        <span
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${b.isActive ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}
-        >
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${b.isActive ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
           {b.isActive ? t("active") : t("inactive")}
         </span>
       ),
@@ -807,42 +792,17 @@ export default function BeveragesPage() {
       render: (b: Beverage) => (
         <div className="flex items-center gap-1">
           <PermissionGate permission="beverages:edit">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditing(b);
-                setDrawerOpen(true);
-              }}
-              className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-              title={t("edit")}
-            >
+            <button type="button" onClick={(e) => { e.stopPropagation(); setEditing(b); setDrawerOpen(true); }} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground" title={t("edit") as string}>
               <Pencil className="h-4 w-4" />
             </button>
           </PermissionGate>
           <PermissionGate permission="beverages:stock">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setStockTarget(b);
-              }}
-              className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-              title={`${t("stock")} / ${t("history")}`}
-            >
+            <button type="button" onClick={(e) => { e.stopPropagation(); setStockTarget(b); }} className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground" title={t("adjustInventory") as string}>
               <ClipboardList className="h-4 w-4" />
             </button>
           </PermissionGate>
           <PermissionGate permission="beverages:delete">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeleteTarget(b);
-              }}
-              className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              title={t("delete")}
-            >
+            <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteTarget(b); }} className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" title={t("delete") as string}>
               <Trash2 className="h-4 w-4" />
             </button>
           </PermissionGate>
@@ -859,14 +819,7 @@ export default function BeveragesPage() {
         breadcrumb={["Shop", t("beverages")]}
         actions={
           <PermissionGate permission="beverages:create">
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(null);
-                setDrawerOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
+            <button type="button" onClick={() => { setEditing(null); setDrawerOpen(true); }} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
               <Plus className="h-4 w-4" />
               {t("newBeverage")}
             </button>
@@ -883,22 +836,13 @@ export default function BeveragesPage() {
         filterBar={
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={activeOnly}
-                onChange={toggleActive}
-                className="rounded border-border"
-              />
+              <input type="checkbox" checked={activeOnly} onChange={toggleActive} className="rounded border-border" />
               {t("activeOnly")}
             </label>
           </div>
         }
         activeFilterCount={activeFilterCount}
-        onClearFilters={() => {
-          setSearch("");
-          setSearchParams({});
-          setPage(1);
-        }}
+        onClearFilters={() => { setSearch(""); setSearchParams({}); setPage(1); }}
         total={total}
         page={page}
         pageSize={PAGE_SIZE}
@@ -907,25 +851,11 @@ export default function BeveragesPage() {
         empty={loading ? t("loading") : t("noBeveragesFound")}
       />
 
-      <BeverageDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        editing={editing}
-        onSaved={handleSaved}
-      />
+      <BeverageDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} editing={editing} onSaved={handleSaved} />
 
-      <StockDrawer
-        beverage={stockTarget}
-        onClose={() => setStockTarget(null)}
-        onAdjusted={handleAdjusted}
-      />
+      <StockDrawer beverage={stockTarget} onClose={() => setStockTarget(null)} onAdjusted={handleAdjusted} />
 
-      <DeleteDialog
-        beverage={deleteTarget}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
-        deleting={deleting}
-      />
+      <DeleteDialog beverage={deleteTarget} onConfirm={handleDelete} onCancel={() => setDeleteTarget(null)} deleting={deleting} />
     </div>
   );
 }

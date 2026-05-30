@@ -1,4 +1,4 @@
-import { Copy, Download, Eye, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { Copy, Eye, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -28,18 +28,6 @@ import { EthiopianDateInput, FormattedDate, Skeleton } from "@/ui";
 import { formatMoneyCents } from "@/utils/money";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatSaleTime(iso: string, locale = "en-US"): string {
-  try {
-    return new Date(iso).toLocaleTimeString(locale, {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch {
-    return "";
-  }
-}
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -106,20 +94,10 @@ interface ReturnedContainerRow {
   dropdownOpen: boolean;
 }
 
-type PaymentMethod = "CASH" | "BANK_TRANSFER" | "MOBILE_MONEY" | "OTHER";
-
-const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  CASH: "Cash",
-  BANK_TRANSFER: "Bank Transfer",
-  MOBILE_MONEY: "Mobile Money",
-  OTHER: "Other",
-};
-
 interface SalePaymentRow {
   amountCents: number;
   amountInput: string;
   paymentAccountId: string;
-  method: PaymentMethod;
 }
 
 interface DrawerState {
@@ -151,7 +129,10 @@ function VoidDialog({ sale, onConfirm, onCancel, voiding }: VoidDialogProps) {
       <div className="relative w-full max-w-sm rounded-xl bg-card p-6 shadow-xl">
         <h3 className="text-base font-semibold">{t("voidQuestion")}</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("saleFrom")} <strong><FormattedDate iso={sale.saleDate} /></strong>{" "}
+          {t("saleFrom")}{" "}
+          <strong>
+            <FormattedDate iso={sale.saleDate} />
+          </strong>{" "}
           {t("voidWarning")}
         </p>
         <div className="mt-3 space-y-1.5">
@@ -227,7 +208,9 @@ function SaleDrawer({
     { beverageId: "", boxes: 0, bottles: 0 },
   ]);
   const [paymentRows, setPaymentRows] = useState<SalePaymentRow[]>([]);
-  const [returnedContainers, setReturnedContainers] = useState<ReturnedContainerRow[]>([]);
+  const [returnedContainers, setReturnedContainers] = useState<
+    ReturnedContainerRow[]
+  >([]);
   const [containerKasas, setContainerKasas] = useState<ContainerKasaRow[]>([]);
   const [note, setNote] = useState("");
   const [applyCredit, setApplyCredit] = useState(false);
@@ -383,7 +366,6 @@ function SaleDrawer({
         amountCents: 0,
         amountInput: "",
         paymentAccountId: paymentAccounts[0]?.id ?? "",
-        method: "CASH",
       },
     ]);
   }
@@ -418,10 +400,19 @@ function SaleDrawer({
   function addReturnedContainer() {
     setReturnedContainers((prev) => [
       ...prev,
-      { beverageId: "", boxes: 0, bottles: 0, searchInput: "", dropdownOpen: false },
+      {
+        beverageId: "",
+        boxes: 0,
+        bottles: 0,
+        searchInput: "",
+        dropdownOpen: false,
+      },
     ]);
   }
-  function updateReturnedContainer(idx: number, patch: Partial<ReturnedContainerRow>) {
+  function updateReturnedContainer(
+    idx: number,
+    patch: Partial<ReturnedContainerRow>,
+  ) {
     setReturnedContainers((prev) =>
       prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
     );
@@ -502,7 +493,6 @@ function SaleDrawer({
         payments: validPayments.map((r) => ({
           paymentAccountId: r.paymentAccountId,
           amountCents: r.amountCents,
-          method: r.method,
         })),
         containerKasas: validKasas.map((k) => ({
           beverageId: k.beverageId,
@@ -510,7 +500,11 @@ function SaleDrawer({
         })),
         returnedContainers: returnedContainers
           .filter((r) => r.beverageId && (r.boxes > 0 || r.bottles > 0))
-          .map((r) => ({ beverageId: r.beverageId, boxes: r.boxes, bottles: r.bottles })),
+          .map((r) => ({
+            beverageId: r.beverageId,
+            boxes: r.boxes,
+            bottles: r.bottles,
+          })),
       };
 
       if (isEdit && sale?.id) {
@@ -606,7 +600,11 @@ function SaleDrawer({
           {/* Sale date */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">{t("saleDate")} *</label>
-            <EthiopianDateInput value={saleDate} onChange={setSaleDate} className="w-full h-10" />
+            <EthiopianDateInput
+              value={saleDate}
+              onChange={setSaleDate}
+              className="w-full h-10"
+            />
           </div>
 
           {/* Customer */}
@@ -747,7 +745,14 @@ function SaleDrawer({
             const locked = selCustomer?.priceTierLocked ?? false;
             return (
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">{t("priceTier")} * {locked && <span className="text-xs text-muted-foreground ml-1">(locked for this customer)</span>}</label>
+                <label className="text-sm font-medium">
+                  {t("priceTier")} *{" "}
+                  {locked && (
+                    <span className="text-xs text-muted-foreground ml-1">
+                      (locked for this customer)
+                    </span>
+                  )}
+                </label>
                 <select
                   value={priceTierId}
                   onChange={(e) => setPriceTierId(e.target.value)}
@@ -865,6 +870,303 @@ function SaleDrawer({
             </button>
           </div>
 
+          {/* Container Kasa (auto-shown when total loose bottles >= 24) */}
+          {showContainerKasa && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">
+                  {t("containerKasaSection")}
+                </label>
+              </div>
+              {totalBottles >= 24 && (
+                <p className="text-xs text-muted-foreground">
+                  {totalBottles} {t("containerKasaHint")}
+                </p>
+              )}
+              {containerKasas.map((kasa, idx) => {
+                const filtered = kasa.searchInput.trim()
+                  ? beverages.filter((b) =>
+                      `${b.name} ${b.brand ?? ""}`
+                        .toLowerCase()
+                        .includes(kasa.searchInput.toLowerCase()),
+                    )
+                  : beverages;
+                const selected = beverages.find(
+                  (b) => b.id === kasa.beverageId,
+                );
+                return (
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-border p-3 space-y-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      {/* Searchable beverage dropdown */}
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={
+                            kasa.dropdownOpen
+                              ? kasa.searchInput
+                              : selected
+                                ? `${selected.name}${selected.brand ? ` (${selected.brand})` : ""}`
+                                : kasa.searchInput
+                          }
+                          onChange={(e) =>
+                            updateContainerKasa(idx, {
+                              searchInput: e.target.value,
+                              dropdownOpen: true,
+                              beverageId: "",
+                            })
+                          }
+                          onFocus={() =>
+                            updateContainerKasa(idx, {
+                              dropdownOpen: true,
+                              searchInput: "",
+                            })
+                          }
+                          onBlur={() =>
+                            window.setTimeout(
+                              () =>
+                                updateContainerKasa(idx, {
+                                  dropdownOpen: false,
+                                }),
+                              120,
+                            )
+                          }
+                          placeholder={t("selectKasaType") as string}
+                          className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                        />
+                        {kasa.dropdownOpen && (
+                          <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+                            {filtered.length === 0 ? (
+                              <p className="px-3 py-2 text-xs text-muted-foreground">
+                                {t("noMatches")}
+                              </p>
+                            ) : (
+                              <ul className="py-1 text-sm">
+                                {filtered.slice(0, 30).map((b) => (
+                                  <li key={b.id}>
+                                    <button
+                                      type="button"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        updateContainerKasa(idx, {
+                                          beverageId: b.id,
+                                          searchInput: "",
+                                          dropdownOpen: false,
+                                        });
+                                      }}
+                                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent ${b.id === kasa.beverageId ? "bg-accent/60" : ""}`}
+                                    >
+                                      <span className="truncate">{b.name}</span>
+                                      {b.brand && (
+                                        <span className="shrink-0 text-xs text-muted-foreground">
+                                          {b.brand}
+                                        </span>
+                                      )}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {/* Count input */}
+                      <div className="flex items-center gap-1">
+                        <label className="text-xs text-muted-foreground shrink-0">
+                          {t("containerKasaCount")}
+                        </label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={1}
+                          value={kasa.count}
+                          onChange={(e) =>
+                            updateContainerKasa(idx, {
+                              count: Math.max(1, Number(e.target.value)),
+                            })
+                          }
+                          className="h-9 w-16 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeContainerKasa(idx)}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              <button
+                type="button"
+                onClick={addContainerKasa}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+              >
+                + {t("addContainerKasa")}
+              </button>
+            </div>
+          )}
+
+          <hr className="border-border" />
+
+          {/* Returned Containers */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t("returnedContainersSection")}
+            </label>
+            <p className="text-xs text-muted-foreground">
+              {t("returnedContainersHint")}
+            </p>
+            {returnedContainers.map((ret, idx) => {
+              const filteredBevs = ret.searchInput.trim()
+                ? beverages.filter((b) =>
+                    `${b.name} ${b.brand ?? ""}`
+                      .toLowerCase()
+                      .includes(ret.searchInput.toLowerCase()),
+                  )
+                : beverages;
+              const selectedBev = beverages.find(
+                (b) => b.id === ret.beverageId,
+              );
+              return (
+                <div
+                  key={idx}
+                  className="rounded-lg border border-border p-3 space-y-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={
+                          ret.dropdownOpen
+                            ? ret.searchInput
+                            : selectedBev
+                              ? `${selectedBev.name}${selectedBev.brand ? ` (${selectedBev.brand})` : ""}`
+                              : ret.searchInput
+                        }
+                        onChange={(e) =>
+                          updateReturnedContainer(idx, {
+                            searchInput: e.target.value,
+                            dropdownOpen: true,
+                            beverageId: "",
+                          })
+                        }
+                        onFocus={() =>
+                          updateReturnedContainer(idx, {
+                            dropdownOpen: true,
+                            searchInput: "",
+                          })
+                        }
+                        onBlur={() =>
+                          window.setTimeout(
+                            () =>
+                              updateReturnedContainer(idx, {
+                                dropdownOpen: false,
+                              }),
+                            120,
+                          )
+                        }
+                        placeholder={t("selectReturnType") as string}
+                        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                      />
+                      {ret.dropdownOpen && (
+                        <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+                          {filteredBevs.length === 0 ? (
+                            <p className="px-3 py-2 text-xs text-muted-foreground">
+                              {t("noMatches")}
+                            </p>
+                          ) : (
+                            <ul className="py-1 text-sm">
+                              {filteredBevs.slice(0, 30).map((b) => (
+                                <li key={b.id}>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      updateReturnedContainer(idx, {
+                                        beverageId: b.id,
+                                        searchInput: "",
+                                        dropdownOpen: false,
+                                      });
+                                    }}
+                                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent ${b.id === ret.beverageId ? "bg-accent/60" : ""}`}
+                                  >
+                                    <span className="truncate">{b.name}</span>
+                                    {b.brand && (
+                                      <span className="shrink-0 text-xs text-muted-foreground">
+                                        {b.brand}
+                                      </span>
+                                    )}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeReturnedContainer(idx)}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">
+                        {t("returnBoxes")}
+                      </label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        value={ret.boxes}
+                        onChange={(e) =>
+                          updateReturnedContainer(idx, {
+                            boxes: Math.max(0, Number(e.target.value)),
+                          })
+                        }
+                        className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">
+                        {t("returnBottles")}
+                      </label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        value={ret.bottles}
+                        onChange={(e) =>
+                          updateReturnedContainer(idx, {
+                            bottles: Math.max(0, Number(e.target.value)),
+                          })
+                        }
+                        className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={addReturnedContainer}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+            >
+              + {t("addReturnedContainer")}
+            </button>
+          </div>
+
+          <hr className="border-border" />
+
           {/* Live totals card */}
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2 text-sm">
             <p className="font-medium text-xs uppercase tracking-wide text-muted-foreground">
@@ -895,8 +1197,6 @@ function SaleDrawer({
               </span>
             </div>
           </div>
-
-          <hr className="border-border" />
 
           {/* Payments section */}
           <div className="space-y-2">
@@ -937,23 +1237,7 @@ function SaleDrawer({
                     </option>
                   ))}
                 </select>
-                <select
-                  value={row.method}
-                  onChange={(e) =>
-                    updatePaymentRow(idx, {
-                      method: e.target.value as PaymentMethod,
-                    })
-                  }
-                  className="h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-                >
-                  {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map(
-                    (m) => (
-                      <option key={m} value={m}>
-                        {PAYMENT_METHOD_LABELS[m]}
-                      </option>
-                    ),
-                  )}
-                </select>
+
                 <button
                   type="button"
                   onClick={() => removePaymentRow(idx)}
@@ -971,197 +1255,6 @@ function SaleDrawer({
               + {t("addPayment")}
             </button>
           </div>
-
-          <hr className="border-border" />
-
-          {/* Returned Containers */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">{t("returnedContainersSection")}</label>
-            <p className="text-xs text-muted-foreground">{t("returnedContainersHint")}</p>
-            {returnedContainers.map((ret, idx) => {
-              const filteredBevs = ret.searchInput.trim()
-                ? beverages.filter((b) =>
-                    `${b.name} ${b.brand ?? ""}`.toLowerCase().includes(ret.searchInput.toLowerCase()),
-                  )
-                : beverages;
-              const selectedBev = beverages.find((b) => b.id === ret.beverageId);
-              return (
-                <div key={idx} className="rounded-lg border border-border p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type="text"
-                        value={ret.dropdownOpen ? ret.searchInput : (selectedBev ? `${selectedBev.name}${selectedBev.brand ? ` (${selectedBev.brand})` : ""}` : ret.searchInput)}
-                        onChange={(e) => updateReturnedContainer(idx, { searchInput: e.target.value, dropdownOpen: true, beverageId: "" })}
-                        onFocus={() => updateReturnedContainer(idx, { dropdownOpen: true, searchInput: "" })}
-                        onBlur={() => window.setTimeout(() => updateReturnedContainer(idx, { dropdownOpen: false }), 120)}
-                        placeholder={t("selectReturnType") as string}
-                        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-                      />
-                      {ret.dropdownOpen && (
-                        <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
-                          {filteredBevs.length === 0 ? (
-                            <p className="px-3 py-2 text-xs text-muted-foreground">{t("noMatches")}</p>
-                          ) : (
-                            <ul className="py-1 text-sm">
-                              {filteredBevs.slice(0, 30).map((b) => (
-                                <li key={b.id}>
-                                  <button
-                                    type="button"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      updateReturnedContainer(idx, { beverageId: b.id, searchInput: "", dropdownOpen: false });
-                                    }}
-                                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent ${b.id === ret.beverageId ? "bg-accent/60" : ""}`}
-                                  >
-                                    <span className="truncate">{b.name}</span>
-                                    {b.brand && <span className="shrink-0 text-xs text-muted-foreground">{b.brand}</span>}
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeReturnedContainer(idx)}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">{t("returnBoxes")}</label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        value={ret.boxes}
-                        onChange={(e) => updateReturnedContainer(idx, { boxes: Math.max(0, Number(e.target.value)) })}
-                        className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">{t("returnBottles")}</label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        value={ret.bottles}
-                        onChange={(e) => updateReturnedContainer(idx, { bottles: Math.max(0, Number(e.target.value)) })}
-                        className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            <button
-              type="button"
-              onClick={addReturnedContainer}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              + {t("addReturnedContainer")}
-            </button>
-          </div>
-
-          <hr className="border-border" />
-
-          {/* Container Kasa (auto-shown when total loose bottles >= 24) */}
-          {showContainerKasa && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">
-                  {t("containerKasaSection")}
-                </label>
-              </div>
-              {totalBottles >= 24 && (
-                <p className="text-xs text-muted-foreground">
-                  {totalBottles} {t("containerKasaHint")}
-                </p>
-              )}
-              {containerKasas.map((kasa, idx) => {
-                const filtered = kasa.searchInput.trim()
-                  ? beverages.filter((b) =>
-                      `${b.name} ${b.brand ?? ""}`.toLowerCase().includes(kasa.searchInput.toLowerCase()),
-                    )
-                  : beverages;
-                const selected = beverages.find((b) => b.id === kasa.beverageId);
-                return (
-                  <div key={idx} className="rounded-lg border border-border p-3 space-y-2">
-                    <div className="flex items-center gap-2">
-                      {/* Searchable beverage dropdown */}
-                      <div className="relative flex-1">
-                        <input
-                          type="text"
-                          value={kasa.dropdownOpen ? kasa.searchInput : (selected ? `${selected.name}${selected.brand ? ` (${selected.brand})` : ""}` : kasa.searchInput)}
-                          onChange={(e) => updateContainerKasa(idx, { searchInput: e.target.value, dropdownOpen: true, beverageId: "" })}
-                          onFocus={() => updateContainerKasa(idx, { dropdownOpen: true, searchInput: "" })}
-                          onBlur={() => window.setTimeout(() => updateContainerKasa(idx, { dropdownOpen: false }), 120)}
-                          placeholder={t("selectKasaType") as string}
-                          className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-                        />
-                        {kasa.dropdownOpen && (
-                          <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
-                            {filtered.length === 0 ? (
-                              <p className="px-3 py-2 text-xs text-muted-foreground">{t("noMatches")}</p>
-                            ) : (
-                              <ul className="py-1 text-sm">
-                                {filtered.slice(0, 30).map((b) => (
-                                  <li key={b.id}>
-                                    <button
-                                      type="button"
-                                      onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        updateContainerKasa(idx, { beverageId: b.id, searchInput: "", dropdownOpen: false });
-                                      }}
-                                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent ${b.id === kasa.beverageId ? "bg-accent/60" : ""}`}
-                                    >
-                                      <span className="truncate">{b.name}</span>
-                                      {b.brand && <span className="shrink-0 text-xs text-muted-foreground">{b.brand}</span>}
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {/* Count input */}
-                      <div className="flex items-center gap-1">
-                        <label className="text-xs text-muted-foreground shrink-0">{t("containerKasaCount")}</label>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min={1}
-                          value={kasa.count}
-                          onChange={(e) => updateContainerKasa(idx, { count: Math.max(1, Number(e.target.value)) })}
-                          className="h-9 w-16 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeContainerKasa(idx)}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-colors"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              <button
-                type="button"
-                onClick={addContainerKasa}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-              >
-                + {t("addContainerKasa")}
-              </button>
-            </div>
-          )}
 
           <hr className="border-border" />
 
@@ -1221,19 +1314,40 @@ function SaleDrawer({
                 <span>{t("boxesOutstanding")}</span>
                 <span>
                   {(() => {
-                    const kasaBoxes = containerKasas.reduce((s, k) => s + (k.count || 0), 0);
-                    const lineBoxes = lines.reduce((s, l) => s + (l.boxes || 0), 0);
-                    const retBoxes = returnedContainers.reduce((s, r) => s + (r.boxes || 0), 0);
-                    const projected = selectedCustomer.outstandingBoxes + lineBoxes + kasaBoxes - retBoxes;
+                    const kasaBoxes = containerKasas.reduce(
+                      (s, k) => s + (k.count || 0),
+                      0,
+                    );
+                    const lineBoxes = lines.reduce(
+                      (s, l) => s + (l.boxes || 0),
+                      0,
+                    );
+                    const retBoxes = returnedContainers.reduce(
+                      (s, r) => s + (r.boxes || 0),
+                      0,
+                    );
+                    const projected =
+                      selectedCustomer.outstandingBoxes +
+                      lineBoxes +
+                      kasaBoxes -
+                      retBoxes;
                     const delta = lineBoxes + kasaBoxes - retBoxes;
                     return delta !== 0 ? (
                       <span>
                         {selectedCustomer.outstandingBoxes}{" "}
-                        <span className={projected > selectedCustomer.outstandingBoxes ? "text-destructive font-medium" : "text-success font-medium"}>
+                        <span
+                          className={
+                            projected > selectedCustomer.outstandingBoxes
+                              ? "text-destructive font-medium"
+                              : "text-success font-medium"
+                          }
+                        >
                           → {projected}
                         </span>
                       </span>
-                    ) : selectedCustomer.outstandingBoxes;
+                    ) : (
+                      selectedCustomer.outstandingBoxes
+                    );
                   })()}
                 </span>
               </div>
@@ -1386,38 +1500,38 @@ function SaleCard({
                     onVoid(sale);
                   }}
                   onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onVoid(sale);
-                  }
-                }}
-                className="rounded border border-destructive/30 px-2 py-0.5 text-[11px] text-destructive hover:bg-destructive/10"
-              >
-                {t("void")}
-              </span>
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onVoid(sale);
+                    }
+                  }}
+                  className="rounded border border-destructive/30 px-2 py-0.5 text-[11px] text-destructive hover:bg-destructive/10"
+                >
+                  {t("void")}
+                </span>
               </PermissionGate>
             </>
           )}
           <PermissionGate permission="sales:create">
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDuplicate(sale);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
                 e.stopPropagation();
                 onDuplicate(sale);
-              }
-            }}
-            className="rounded border border-border px-2 py-0.5 text-[11px] hover:bg-accent"
-          >
-            {t("duplicateSale")}
-          </span>
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onDuplicate(sale);
+                }
+              }}
+              className="rounded border border-border px-2 py-0.5 text-[11px] hover:bg-accent"
+            >
+              {t("duplicateSale")}
+            </span>
           </PermissionGate>
         </div>
       )}
@@ -1431,7 +1545,7 @@ const PAGE_SIZE = 20;
 
 export default function SalesPage() {
   const navigate = useNavigate();
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const { user } = useAuthContext();
   const isOwner = user?.role === "OWNER";
   const canCreateSale = usePermission("sales:create");
@@ -1674,7 +1788,7 @@ export default function SalesPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const ext = format === 'pdf' ? 'pdf' : 'csv';
+      const ext = format === "pdf" ? "pdf" : "csv";
       a.download = `sales-export-${todayIso()}.${ext}`;
       a.click();
       URL.revokeObjectURL(url);
@@ -1704,7 +1818,9 @@ export default function SalesPage() {
       header: t("date"),
       render: (s: Sale) => (
         <div className="whitespace-nowrap">
-          <p><FormattedDate iso={s.saleDate} /></p>
+          <p>
+            <FormattedDate iso={s.saleDate} />
+          </p>
         </div>
       ),
     },
@@ -1751,7 +1867,9 @@ export default function SalesPage() {
       key: "employee",
       header: t("employee"),
       render: (s: Sale) => {
-        const emp = s.createdBy ? employeesMap.get(s.createdBy.id) ?? s.createdBy : null;
+        const emp = s.createdBy
+          ? (employeesMap.get(s.createdBy.id) ?? s.createdBy)
+          : null;
         return (
           <span className="whitespace-nowrap text-xs text-muted-foreground">
             {emp?.name ?? "—"}
@@ -1895,12 +2013,18 @@ export default function SalesPage() {
         </button>
         <EthiopianDateInput
           value={dateFrom}
-          onChange={(v) => { setDateFrom(v); setParam("dateFrom", v || undefined); }}
+          onChange={(v) => {
+            setDateFrom(v);
+            setParam("dateFrom", v || undefined);
+          }}
         />
         <span className="text-xs text-muted-foreground">·</span>
         <EthiopianDateInput
           value={dateTo}
-          onChange={(v) => { setDateTo(v); setParam("dateTo", v || undefined); }}
+          onChange={(v) => {
+            setDateTo(v);
+            setParam("dateTo", v || undefined);
+          }}
         />
       </div>
 
@@ -2007,10 +2131,7 @@ export default function SalesPage() {
         breadcrumb={[t("shop"), t("sales")]}
         actions={
           <div className="flex items-center gap-2">
-            <ExportButton
-              onExport={handleExport}
-              loading={exporting}
-            />
+            <ExportButton onExport={handleExport} loading={exporting} />
             <PermissionGate permission="sales:create">
               <button
                 type="button"

@@ -38,8 +38,11 @@ import { Skeleton } from "../components/Skeleton";
 import { t } from "../lib/i18n";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
-import { useOffline } from "../offline/context";
-import { recordCustomerPaymentOffline, recordReturnOffline } from "../offline/writes";
+import { useOffline } from "../providers/OfflineProvider";
+import {
+  recordCustomerPaymentOffline,
+  recordReturnOffline,
+} from "../offline/writes";
 import { withCache, cacheResponse, getCachedResponse } from "../lib/api-cache";
 import { radius, spacing, type } from "../theme";
 
@@ -100,22 +103,29 @@ export default function CustomerDetailScreen() {
 
   const { data: customer, isLoading: loadingCustomer } = useQuery({
     queryKey: QK.customer(customerId),
-    queryFn: () => withCache(`customer:${customerId}`, () => getSdk().customers.findOne(customerId)),
+    queryFn: () =>
+      withCache(`customer:${customerId}`, () =>
+        getSdk().customers.findOne(customerId),
+      ),
   });
 
   const { data: ledger = [], isLoading: loadingLedger } = useQuery({
     queryKey: QK.customerLedger(customerId),
-    queryFn: () => withCache(`customer-ledger:${customerId}`, () => getSdk().customers.getLedger(customerId)),
+    queryFn: () =>
+      withCache(`customer-ledger:${customerId}`, () =>
+        getSdk().customers.getLedger(customerId),
+      ),
   });
 
   const { data: accounts = [] } = useQuery({
     queryKey: QK.paymentAccounts(),
-    queryFn: () => withCache('payment-accounts', () => getSdk().paymentAccounts.list()),
+    queryFn: () =>
+      withCache("payment-accounts", () => getSdk().paymentAccounts.list()),
   });
 
   const { data: tiers = [] } = useQuery({
     queryKey: QK.priceTiers(),
-    queryFn: () => withCache('price-tiers', () => getSdk().priceTiers.list()),
+    queryFn: () => withCache("price-tiers", () => getSdk().priceTiers.list()),
   });
 
   const recordPaymentMutation = useMutation({
@@ -124,8 +134,8 @@ export default function CustomerDetailScreen() {
         return getSdk().customers.recordPayment(customerId, dto);
       }
       await recordCustomerPaymentOffline({
-        shopId: user?.shopId ?? '',
-        actorUserId: user?.id ?? '',
+        shopId: user?.shopId ?? "",
+        actorUserId: user?.id ?? "",
         customerId,
         amountCents: dto.amountCents,
         method: dto.method,
@@ -137,15 +147,23 @@ export default function CustomerDetailScreen() {
     },
     onSuccess: (updatedCustomer) => {
       if (!isOnline) {
-        getCachedResponse<any>('customers').then(existing => {
+        getCachedResponse<any>("customers").then((existing) => {
           if (existing?.data) {
-            const idx = existing.data.findIndex((c: any) => c.id === customerId);
+            const idx = existing.data.findIndex(
+              (c: any) => c.id === customerId,
+            );
             if (idx >= 0) {
               const paidCents = Math.round(parseFloat(paymentAmount) * 100);
-              const updated = { ...existing.data[idx], creditBalanceCents: Math.max(0, existing.data[idx].creditBalanceCents - paidCents) };
+              const updated = {
+                ...existing.data[idx],
+                creditBalanceCents: Math.max(
+                  0,
+                  existing.data[idx].creditBalanceCents - paidCents,
+                ),
+              };
               const data = [...existing.data];
               data[idx] = updated;
-              cacheResponse('customers', { ...existing, data });
+              cacheResponse("customers", { ...existing, data });
             }
           }
         });
@@ -171,8 +189,8 @@ export default function CustomerDetailScreen() {
         return getSdk().customers.recordReturn(customerId, dto);
       }
       await recordReturnOffline({
-        shopId: user?.shopId ?? '',
-        actorUserId: user?.id ?? '',
+        shopId: user?.shopId ?? "",
+        actorUserId: user?.id ?? "",
         customerId,
         boxes: dto.boxes,
         bottles: dto.bottles,
@@ -182,19 +200,27 @@ export default function CustomerDetailScreen() {
     },
     onSuccess: (updatedCustomer) => {
       if (!isOnline) {
-        getCachedResponse<any>('customers').then(existing => {
+        getCachedResponse<any>("customers").then((existing) => {
           if (existing?.data) {
-            const idx = existing.data.findIndex((c: any) => c.id === customerId);
+            const idx = existing.data.findIndex(
+              (c: any) => c.id === customerId,
+            );
             if (idx >= 0) {
               const data = [...existing.data];
               const retBoxes = parseInt(returnBoxes, 10) || 0;
               const retBottles = parseInt(returnBottles, 10) || 0;
               data[idx] = {
                 ...data[idx],
-                outstandingBoxes: Math.max(0, (data[idx].outstandingBoxes ?? 0) - retBoxes),
-                outstandingBottles: Math.max(0, (data[idx].outstandingBottles ?? 0) - retBottles),
+                outstandingBoxes: Math.max(
+                  0,
+                  (data[idx].outstandingBoxes ?? 0) - retBoxes,
+                ),
+                outstandingBottles: Math.max(
+                  0,
+                  (data[idx].outstandingBottles ?? 0) - retBottles,
+                ),
               };
-              cacheResponse('customers', { ...existing, data });
+              cacheResponse("customers", { ...existing, data });
             }
           }
         });

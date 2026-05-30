@@ -10,6 +10,8 @@ export interface Beverage {
   imageUrl?: string;
   isActive: boolean;
   stockBottles: number;
+  emptyBottles: number;
+  emptyBoxes: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,6 +52,8 @@ export interface StockMovement {
   id: string;
   beverageId: string;
   bottlesDelta: number;
+  emptyBoxesDelta?: number;
+  emptyBottlesDelta?: number;
   reason: string;
   notes?: string;
   createdAt: string;
@@ -63,7 +67,6 @@ export interface BeveragePrice {
   pricePerBottleCents: number;
 }
 
-/** Shape returned by GET /beverages/:id/prices · one entry per tier. */
 export interface CurrentTierPrice {
   tier: { id: string; name: string; kind: string };
   currentPrice: BeveragePrice | null;
@@ -73,6 +76,19 @@ export interface AdjustStockDto {
   bottlesDelta: number;
   reason: string;
   notes?: string;
+}
+
+export interface AdjustInventoryDto {
+  fullBottlesDelta?: number;
+  emptyBoxesDelta?: number;
+  emptyBottlesDelta?: number;
+  reason: string;
+  notes?: string;
+}
+
+export interface SwapDto {
+  emptyBoxes: number;
+  emptyBottles: number;
 }
 
 export class BeveragesResource {
@@ -152,6 +168,30 @@ export class BeveragesResource {
   ): Promise<CurrentTierPrice[]> {
     return this.client.get<CurrentTierPrice[]>(
       `/api/v1/beverages/${id}/prices`,
+      options,
+    );
+  }
+
+  adjustInventory(
+    id: string,
+    dto: AdjustInventoryDto,
+    options?: RequestOptions,
+  ): Promise<Beverage> {
+    return this.client.post<Beverage>(
+      `/api/v1/beverages/${id}/inventory`,
+      dto,
+      options,
+    );
+  }
+
+  swap(
+    id: string,
+    dto: SwapDto,
+    options?: RequestOptions,
+  ): Promise<Beverage> {
+    return this.client.post<Beverage>(
+      `/api/v1/beverages/${id}/swap`,
+      dto,
       options,
     );
   }

@@ -11,7 +11,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import RootNavigator from "./src/navigation/RootNavigator";
 import { AuthProvider } from "./src/providers/AuthProvider";
-import { OfflineProvider } from "./src/offline/context/OfflineProvider";
+import { OfflineProvider } from "./src/providers/OfflineProvider";
 import { LanguageProvider } from "./src/context/LanguageContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { ToastContainer } from "./src/components/Toast";

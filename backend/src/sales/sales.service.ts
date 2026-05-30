@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
-import { SaleStatus, StockMovementReason } from "../database";
+import { PaymentAccountKind, PaymentMethod, SaleStatus, StockMovementReason } from "../database";
 
 import { PrismaService } from "../prisma/prisma.service";
 import { AppException } from "../common/errors/app.exception";
@@ -27,6 +27,16 @@ export interface SaleListQuery {
   hasCredit?: boolean;
   search?: string;
   createdById?: string;
+}
+
+function kindToPaymentMethod(kind: PaymentAccountKind): PaymentMethod {
+  const map: Record<PaymentAccountKind, PaymentMethod> = {
+    [PaymentAccountKind.CASH_PERSON]: PaymentMethod.CASH,
+    [PaymentAccountKind.BANK]: PaymentMethod.BANK_TRANSFER,
+    [PaymentAccountKind.MOBILE_MONEY]: PaymentMethod.MOBILE_MONEY,
+    [PaymentAccountKind.OTHER]: PaymentMethod.OTHER,
+  };
+  return map[kind];
 }
 
 const SALE_INCLUDE = {
@@ -403,7 +413,7 @@ export class SalesService {
               saleId: sale.id,
               customerId: dto.customerId,
               amountCents: payment.amountCents,
-              method: payment.method,
+              method: kindToPaymentMethod(account.kind),
               paymentAccountId: payment.paymentAccountId,
               reference: payment.reference ?? null,
               notes: payment.notes ?? null,
@@ -434,6 +444,48 @@ export class SalesService {
           await tx.beverage.update({
             where: { id: line.beverageId },
             data: { stockBottles: { increment: bottlesDelta } },
+          });
+        }
+
+        // Container Kasas — empty boxes going out to customer
+        for (const kasa of dto.containerKasas ?? []) {
+          await tx.beverage.update({
+            where: { id: kasa.beverageId },
+            data: { emptyBoxes: { decrement: kasa.count } },
+          });
+          await tx.stockMovement.create({
+            data: {
+              shopId,
+              beverageId: kasa.beverageId,
+              reason: StockMovementReason.SALE,
+              bottlesDelta: 0,
+              emptyBoxesDelta: -kasa.count,
+              saleId: sale.id,
+              createdById: userId,
+            },
+          });
+        }
+
+        // Returned containers — empty boxes/bottles coming back
+        for (const ret of dto.returnedContainers ?? []) {
+          await tx.beverage.update({
+            where: { id: ret.beverageId },
+            data: {
+              emptyBoxes: { increment: ret.boxes },
+              emptyBottles: { increment: ret.bottles },
+            },
+          });
+          await tx.stockMovement.create({
+            data: {
+              shopId,
+              beverageId: ret.beverageId,
+              reason: StockMovementReason.RETURN,
+              bottlesDelta: 0,
+              emptyBoxesDelta: ret.boxes > 0 ? ret.boxes : null,
+              emptyBottlesDelta: ret.bottles > 0 ? ret.bottles : null,
+              saleId: sale.id,
+              createdById: userId,
+            },
           });
         }
       }
@@ -528,6 +580,50 @@ export class SalesService {
           await tx.beverage.update({
             where: { id: line.beverageId },
             data: { stockBottles: { increment: bottlesDelta } },
+          });
+        }
+
+        // Reverse old container kasas (empty boxes went out, now come back)
+        const oldKasas = await tx.saleContainerKasa.findMany({ where: { saleId } });
+        for (const kasa of oldKasas) {
+          await tx.beverage.update({
+            where: { id: kasa.beverageId },
+            data: { emptyBoxes: { increment: kasa.count } },
+          });
+          await tx.stockMovement.create({
+            data: {
+              shopId,
+              beverageId: kasa.beverageId,
+              reason: StockMovementReason.SALE_VOID,
+              bottlesDelta: 0,
+              emptyBoxesDelta: kasa.count,
+              saleId,
+              createdById: userId,
+            },
+          });
+        }
+
+        // Reverse old returned containers (empty boxes/bottles came back, now go out again)
+        const oldReturns = await tx.saleReturnedContainer.findMany({ where: { saleId } });
+        for (const ret of oldReturns) {
+          await tx.beverage.update({
+            where: { id: ret.beverageId },
+            data: {
+              emptyBoxes: { decrement: ret.boxes },
+              emptyBottles: { decrement: ret.bottles },
+            },
+          });
+          await tx.stockMovement.create({
+            data: {
+              shopId,
+              beverageId: ret.beverageId,
+              reason: StockMovementReason.SALE_VOID,
+              bottlesDelta: 0,
+              emptyBoxesDelta: ret.boxes > 0 ? -ret.boxes : null,
+              emptyBottlesDelta: ret.bottles > 0 ? -ret.bottles : null,
+              saleId,
+              createdById: userId,
+            },
           });
         }
       }
@@ -717,7 +813,7 @@ export class SalesService {
               saleId,
               customerId: dto.customerId,
               amountCents: payment.amountCents,
-              method: payment.method,
+              method: kindToPaymentMethod(account.kind),
               paymentAccountId: payment.paymentAccountId,
               reference: payment.reference ?? null,
               notes: payment.notes ?? null,
@@ -748,6 +844,48 @@ export class SalesService {
           await tx.beverage.update({
             where: { id: line.beverageId },
             data: { stockBottles: { increment: bottlesDelta } },
+          });
+        }
+
+        // Container Kasas — empty boxes going out to customer
+        for (const kasa of dto.containerKasas ?? []) {
+          await tx.beverage.update({
+            where: { id: kasa.beverageId },
+            data: { emptyBoxes: { decrement: kasa.count } },
+          });
+          await tx.stockMovement.create({
+            data: {
+              shopId,
+              beverageId: kasa.beverageId,
+              reason: StockMovementReason.SALE,
+              bottlesDelta: 0,
+              emptyBoxesDelta: -kasa.count,
+              saleId,
+              createdById: userId,
+            },
+          });
+        }
+
+        // Returned containers — empty boxes/bottles coming back
+        for (const ret of dto.returnedContainers ?? []) {
+          await tx.beverage.update({
+            where: { id: ret.beverageId },
+            data: {
+              emptyBoxes: { increment: ret.boxes },
+              emptyBottles: { increment: ret.bottles },
+            },
+          });
+          await tx.stockMovement.create({
+            data: {
+              shopId,
+              beverageId: ret.beverageId,
+              reason: StockMovementReason.RETURN,
+              bottlesDelta: 0,
+              emptyBoxesDelta: ret.boxes > 0 ? ret.boxes : null,
+              emptyBottlesDelta: ret.bottles > 0 ? ret.bottles : null,
+              saleId,
+              createdById: userId,
+            },
           });
         }
       }
@@ -830,6 +968,50 @@ export class SalesService {
             data: { stockBottles: { increment: bottlesDelta } },
           });
         }
+
+        // Reverse container kasas — empty boxes come back
+        const saleKasas = await tx.saleContainerKasa.findMany({ where: { saleId } });
+        for (const kasa of saleKasas) {
+          await tx.beverage.update({
+            where: { id: kasa.beverageId },
+            data: { emptyBoxes: { increment: kasa.count } },
+          });
+          await tx.stockMovement.create({
+            data: {
+              shopId,
+              beverageId: kasa.beverageId,
+              reason: StockMovementReason.SALE_VOID,
+              bottlesDelta: 0,
+              emptyBoxesDelta: kasa.count,
+              saleId,
+              createdById: userId,
+            },
+          });
+        }
+
+        // Reverse returned containers — empty boxes/bottles go back out
+        const saleReturns = await tx.saleReturnedContainer.findMany({ where: { saleId } });
+        for (const ret of saleReturns) {
+          await tx.beverage.update({
+            where: { id: ret.beverageId },
+            data: {
+              emptyBoxes: { decrement: ret.boxes },
+              emptyBottles: { decrement: ret.bottles },
+            },
+          });
+          await tx.stockMovement.create({
+            data: {
+              shopId,
+              beverageId: ret.beverageId,
+              reason: StockMovementReason.SALE_VOID,
+              bottlesDelta: 0,
+              emptyBoxesDelta: ret.boxes > 0 ? -ret.boxes : null,
+              emptyBottlesDelta: ret.bottles > 0 ? -ret.bottles : null,
+              saleId,
+              createdById: userId,
+            },
+          });
+        }
       }
 
       // c. Void all payments
@@ -898,7 +1080,7 @@ export class SalesService {
           saleId,
           customerId: sale.customerId,
           amountCents: dto.amountCents,
-          method: dto.method,
+          method: kindToPaymentMethod(account.kind),
           paymentAccountId: dto.paymentAccountId,
           reference: dto.reference ?? null,
           notes: dto.notes ?? null,

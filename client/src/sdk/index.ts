@@ -55,6 +55,8 @@ export type {
   BeveragePrice,
   CurrentTierPrice,
   AdjustStockDto,
+  AdjustInventoryDto,
+  SwapDto,
 } from "./resources/beverages";
 export { PriceTiersResource } from "./resources/price-tiers";
 export type {

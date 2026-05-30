@@ -45,6 +45,8 @@ export const customers = {
   sendingSms: "Sending SMS...",
   recordPayment: "Record Payment",
   recordReturn: "Record Return",
+  returnBeverage: "Beverage (optional)",
+  selectBeverage: "Select beverage...",
   amountPaid: "Amount paid (ETB)",
   beverage: "Beverage",
   quantity: "Quantity",

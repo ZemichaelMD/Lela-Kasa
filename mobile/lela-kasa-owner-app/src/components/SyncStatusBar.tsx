@@ -1,107 +1,103 @@
 import React from "react";
-import { TouchableOpacity, StyleSheet, Text, View } from "react-native";
+import {
+  TouchableOpacity,
+  StyleSheet,
+  Text,
+  View,
+  Animated,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useOffline } from "../offline/context";
+import { useOffline } from "../providers/OfflineProvider";
 import { useTheme } from "../context/ThemeContext";
 import { spacing, type, radius } from "../theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export function SyncStatusBar() {
-  const { colors } = useTheme();
-  const {
-    networkState,
-    pendingCount,
-    failedCount,
-    conflictedCount,
-    lastSyncedAt,
-    isSyncing,
-    syncNow,
-  } = useOffline();
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { isOnline, pendingCount, isSyncing, syncNow } = useOffline();
 
-  const isOffline = networkState === "offline";
-  const isDegraded = networkState === "degraded";
+  if (isOnline && !isSyncing && pendingCount === 0) return null;
 
-  if (isSyncing) {
-    return (
-      <View style={[styles.bar, { backgroundColor: colors.primaryLight }]}>
-        <Ionicons name="sync-outline" size={14} color={colors.primary} />
-        <Text style={[styles.text, { color: colors.primary }]}>Syncing...</Text>
-      </View>
-    );
-  }
-
-  if (pendingCount > 0 || failedCount > 0 || conflictedCount > 0) {
-    return (
+  return (
+    <View style={[styles.container, { top: insets.top + 5 }]}>
       <TouchableOpacity
         style={[
-          styles.bar,
+          styles.pill,
           {
-            backgroundColor: isOffline
-              ? colors.warningLight
-              : colors.surfaceMuted,
+            backgroundColor: isDark
+              ? "rgba(30, 41, 59, 0.9)"
+              : "rgba(255, 255, 255, 0.9)",
+            borderColor: isSyncing
+              ? colors.primary
+              : !isOnline
+                ? colors.warning
+                : colors.border,
           },
         ]}
         onPress={syncNow}
-        activeOpacity={0.7}
+        activeOpacity={0.8}
       >
         <Ionicons
-          name={isOffline ? "cloud-offline-outline" : "cloud-upload-outline"}
+          name={
+            isSyncing ? "sync" : !isOnline ? "cloud-offline" : "cloud-upload"
+          }
           size={14}
-          color={isOffline ? colors.warning : colors.textSecondary}
+          color={
+            isSyncing
+              ? colors.primary
+              : !isOnline
+                ? colors.warning
+                : colors.textSecondary
+          }
         />
         <Text
           style={[
             styles.text,
-            { color: isOffline ? colors.warning : colors.textSecondary },
+            {
+              color: isSyncing
+                ? colors.primary
+                : !isOnline
+                  ? colors.warning
+                  : colors.textSecondary,
+            },
           ]}
         >
-          {isOffline ? "Offline - " : ""}
-          {pendingCount} pending
-          {failedCount > 0 ? `, ${failedCount} failed` : ""}
-          {conflictedCount > 0 ? `, ${conflictedCount} conflicts` : ""}
+          {isSyncing
+            ? "Syncing..."
+            : !isOnline
+              ? "Offline"
+              : `${pendingCount} pending`}
         </Text>
-        <Ionicons name="refresh-outline" size={14} color={colors.textMuted} />
       </TouchableOpacity>
-    );
-  }
-
-  if (isDegraded) {
-    return (
-      <View style={[styles.bar, { backgroundColor: colors.warningLight }]}>
-        <Ionicons name="warning-outline" size={14} color={colors.warning} />
-        <Text style={[styles.text, { color: colors.warning }]}>
-          Limited connectivity
-        </Text>
-      </View>
-    );
-  }
-
-  if (isOffline) {
-    return (
-      <View style={[styles.bar, { backgroundColor: colors.warningLight }]}>
-        <Ionicons
-          name="cloud-offline-outline"
-          size={14}
-          color={colors.warning}
-        />
-        <Text style={[styles.text, { color: colors.warning }]}>Offline</Text>
-      </View>
-    );
-  }
-
-  return null;
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  bar: {
-    marginTop: spacing[8],
+  container: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 9999,
+  },
+  pill: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     gap: spacing[2],
-    paddingVertical: spacing[1],
-    // paddingHorizontal: spacing[4],
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
   text: {
     ...type.micro,
+    fontWeight: "700",
   },
 });
