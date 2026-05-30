@@ -383,7 +383,10 @@ function ReturnModal({
   const [beverages, setBeverages] = useState<Beverage[]>([]);
 
   useEffect(() => {
-    sdk.beverages.list({ pageSize: 200 }).then((r) => setBeverages(r.data)).catch(() => {});
+    sdk.beverages
+      .list({ pageSize: 200 })
+      .then((r) => setBeverages(r.data))
+      .catch(() => {});
   }, []);
 
   const boxesCount = parseInt(boxes, 10) || 0;
@@ -1086,13 +1089,7 @@ function PaymentDetailModal({
 
 type ActivityTypeFilter = "all" | "sale" | "payment" | "return";
 
-function ActivityList({
-  entries,
-  local,
-}: {
-  entries: LedgerEntry[];
-  locale?: string;
-}) {
+function ActivityList({ entries }: { entries: LedgerEntry[] }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<ActivityTypeFilter>("all");
