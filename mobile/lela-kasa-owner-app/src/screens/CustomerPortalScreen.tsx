@@ -27,12 +27,13 @@ function formatCurrency(cents: number): string {
 }
 
 const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.0.186:3000";
+  Constants.expoConfig?.extra?.apiUrl ??
+  process.env.EXPO_PUBLIC_API_URL ??
+  "http://192.168.0.186:3001";
 
 export default function CustomerPortalScreen() {
   const { colors } = useTheme();
-  const route =
-    useRoute<RouteProp<RootStackParamList, "CustomerPortal">>();
+  const route = useRoute<RouteProp<RootStackParamList, "CustomerPortal">>();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const fmtDate = useFormattedDate();
@@ -60,15 +61,14 @@ export default function CustomerPortalScreen() {
     })
       .then(async (r) => {
         const body = await r.json();
-        if (!r.ok)
-          throw new Error(`HTTP ${r.status}: ${JSON.stringify(body)}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${JSON.stringify(body)}`);
         const d = body?.data ?? body;
         if (!d?.customer) throw new Error(t("notFound"));
         setData(d);
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [customerId]);
+  }, [customerId, route.params.accessToken]);
 
   function handleLogout() {
     navigation.reset({ index: 0, routes: [{ name: "CustomerLogin" }] });
@@ -79,12 +79,7 @@ export default function CustomerPortalScreen() {
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <View
-          style={[
-            styles.header,
-            { borderBottomColor: colors.border },
-          ]}
-        >
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Skeleton width={120} height={24} />
         </View>
         <View style={styles.content}>
@@ -108,34 +103,18 @@ export default function CustomerPortalScreen() {
             size={48}
             color={colors.danger}
           />
-          <Text
-            style={[
-              styles.errorTitle,
-              { color: colors.danger },
-            ]}
-          >
+          <Text style={[styles.errorTitle, { color: colors.danger }]}>
             {t("errorLoading")}
           </Text>
-          <Text
-            style={[
-              styles.errorDesc,
-              { color: colors.textSecondary },
-            ]}
-          >
+          <Text style={[styles.errorDesc, { color: colors.textSecondary }]}>
             {error || t("notFound")}
           </Text>
           <TouchableOpacity
-            style={[
-              styles.errorButton,
-              { backgroundColor: colors.primary },
-            ]}
+            style={[styles.errorButton, { backgroundColor: colors.primary }]}
             onPress={handleLogout}
           >
             <Text
-              style={[
-                styles.errorButtonText,
-                { color: colors.textInverse },
-              ]}
+              style={[styles.errorButtonText, { color: colors.textInverse }]}
             >
               {t("backToLogin")}
             </Text>
@@ -167,18 +146,25 @@ export default function CustomerPortalScreen() {
               size={18}
               color={colors.textMuted}
             />
-            <Text
-              style={[styles.shopName, { color: colors.textPrimary }]}
-            >
+            <Text style={[styles.shopName, { color: colors.textPrimary }]}>
               {customer.shop?.name ?? "Shop"}
             </Text>
           </View>
           <View style={styles.headerRight}>
-            <LanguageSwitcher />
             <TouchableOpacity
-              onPress={handleLogout}
-              style={styles.logoutBtn}
+              style={[styles.newOrderBtn, { backgroundColor: colors.primary }]}
+              onPress={() =>
+                navigation.navigate("CustomerOrder", {
+                  customerId,
+                  accessToken: accessToken ?? "",
+                })
+              }
             >
+              <Ionicons name="cart-outline" size={14} color="#fff" />
+              <Text style={styles.newOrderBtnText}>{t("newOrder")}</Text>
+            </TouchableOpacity>
+            <LanguageSwitcher />
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
               <Ionicons
                 name="log-out-outline"
                 size={20}
@@ -191,35 +177,18 @@ export default function CustomerPortalScreen() {
 
       <ScrollView style={styles.scroll}>
         <View style={styles.content}>
-          <Text
-            style={[styles.welcomeTitle, { color: colors.textPrimary }]}
-          >
+          <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>
             {t("welcome")}, {customer.name}
           </Text>
           {customer.phone ? (
-            <Text
-              style={[
-                styles.phoneText,
-                { color: colors.textSecondary },
-              ]}
-            >
+            <Text style={[styles.phoneText, { color: colors.textSecondary }]}>
               {customer.phone}
             </Text>
           ) : null}
 
           <View style={styles.cardsRow}>
-            <View
-              style={[
-                styles.card,
-                { backgroundColor: colors.surface },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.cardLabel,
-                  { color: colors.textSecondary },
-                ]}
-              >
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>
                 {t("creditBalance")}
               </Text>
               <Text
@@ -236,87 +205,39 @@ export default function CustomerPortalScreen() {
                 {formatCurrency(customer.creditBalanceCents)}
               </Text>
             </View>
-            <View
-              style={[
-                styles.card,
-                { backgroundColor: colors.surface },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.cardLabel,
-                  { color: colors.textSecondary },
-                ]}
-              >
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>
                 {t("boxesOwned")}
               </Text>
-              <Text
-                style={[
-                  styles.cardValue,
-                  { color: colors.textPrimary },
-                ]}
-              >
+              <Text style={[styles.cardValue, { color: colors.textPrimary }]}>
                 {customer.outstandingBoxes}
               </Text>
             </View>
-            <View
-              style={[
-                styles.card,
-                { backgroundColor: colors.surface },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.cardLabel,
-                  { color: colors.textSecondary },
-                ]}
-              >
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>
                 {t("bottlesOwned")}
               </Text>
-              <Text
-                style={[
-                  styles.cardValue,
-                  { color: colors.textPrimary },
-                ]}
-              >
+              <Text style={[styles.cardValue, { color: colors.textPrimary }]}>
                 {customer.outstandingBottles}
               </Text>
             </View>
           </View>
 
-          <Text
-            style={[styles.sectionTitle, { color: colors.textPrimary }]}
-          >
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
             {t("recentActivity")}
           </Text>
 
           {ledger.length === 0 ? (
-            <Text
-              style={[
-                styles.noActivity,
-                { color: colors.textMuted },
-              ]}
-            >
+            <Text style={[styles.noActivity, { color: colors.textMuted }]}>
               {t("noActivity")}
             </Text>
           ) : (
             <View style={styles.activityList}>
               {ledger.map((entry: any, i: number) => {
                 const isPayment = entry.type === "payment";
-                const iconColor = isPayment
-                  ? colors.success
-                  : colors.primary;
-                return (
-                  <View
-                    key={`${entry.type}-${entry.id ?? i}-${i}`}
-                    style={[
-                      styles.activityRow,
-                      {
-                        borderColor: colors.border,
-                        backgroundColor: colors.surface,
-                      },
-                    ]}
-                  >
+                const iconColor = isPayment ? colors.success : colors.primary;
+                const rowContent = (
+                  <>
                     <View
                       style={[
                         styles.activityIcon,
@@ -336,9 +257,7 @@ export default function CustomerPortalScreen() {
                           { color: colors.textPrimary },
                         ]}
                       >
-                        {isPayment
-                          ? t("payment")
-                          : t("sale")}
+                        {isPayment ? t("payment") : t("sale")}
                       </Text>
                       <Text
                         style={[
@@ -377,16 +296,51 @@ export default function CustomerPortalScreen() {
                       )}
                       {isPayment && (
                         <Text
-                          style={[
-                            styles.amountText,
-                            { color: colors.success },
-                          ]}
+                          style={[styles.amountText, { color: colors.success }]}
                         >
                           +{formatCurrency(entry.amountCents)}
                         </Text>
                       )}
                     </View>
-                  </View>
+                  </>
+                );
+                if (isPayment) {
+                  return (
+                    <View
+                      key={`${entry.type}-${entry.id ?? i}-${i}`}
+                      style={[
+                        styles.activityRow,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.surface,
+                        },
+                      ]}
+                    >
+                      {rowContent}
+                    </View>
+                  );
+                }
+                return (
+                  <TouchableOpacity
+                    key={`${entry.type}-${entry.id ?? i}-${i}`}
+                    style={[
+                      styles.activityRow,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.surface,
+                      },
+                    ]}
+                    onPress={() =>
+                      navigation.navigate("CustomerSaleDetail", {
+                        customerId,
+                        saleId: entry.id,
+                        accessToken: accessToken ?? "",
+                      })
+                    }
+                    activeOpacity={0.7}
+                  >
+                    {rowContent}
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -412,6 +366,15 @@ const styles = StyleSheet.create({
   headerLeft: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
   headerRight: { flexDirection: "row", alignItems: "center", gap: spacing[2] },
   shopName: { ...type.bodyBold },
+  newOrderBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[1],
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1],
+  },
+  newOrderBtnText: { ...type.caption, fontWeight: "600", color: "#fff" },
   logoutBtn: { padding: spacing[1] },
   scroll: { flex: 1 },
   content: { padding: spacing[5] },

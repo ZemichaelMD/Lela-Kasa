@@ -5,219 +5,334 @@ export async function migrate(db: SQLiteDatabase) {
     "PRAGMA user_version",
   )) || { user_version: 0 };
 
-  if (user_version >= 2) return;
+  console.log(`Current database version: ${user_version}`);
 
-  await db.execAsync(`
-    PRAGMA journal_mode = WAL;
+  if (user_version < 6) {
+    console.log("Migrating to version 6 (Clean Schema)");
+    // We are doing a full reset for version 6 to ensure schema consistency
+    await db.execAsync(`
+      PRAGMA journal_mode = WAL;
 
-    -- Sync State
-    CREATE TABLE IF NOT EXISTS sync_state (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      shop_id TEXT,
-      last_sync_cursor TEXT,
-      last_sync_at DATETIME
-    );
+      DROP TABLE IF EXISTS sync_state;
+      DROP TABLE IF EXISTS outbox;
+      DROP TABLE IF EXISTS users;
+      DROP TABLE IF EXISTS shops;
+      DROP TABLE IF EXISTS permissions;
+      DROP TABLE IF EXISTS customers;
+      DROP TABLE IF EXISTS customer_ledger_entries;
+      DROP TABLE IF EXISTS beverages;
+      DROP TABLE IF EXISTS price_tiers;
+      DROP TABLE IF EXISTS beverage_prices;
+      DROP TABLE IF EXISTS payment_accounts;
+      DROP TABLE IF EXISTS sales;
+      DROP TABLE IF EXISTS sale_lines;
+      DROP TABLE IF EXISTS payments;
+      DROP TABLE IF EXISTS sale_container_kasas;
+      DROP TABLE IF EXISTS sale_returned_containers;
+      DROP TABLE IF EXISTS stock_movements;
+      DROP TABLE IF EXISTS tier_prices;
 
-    -- Outbox
-    CREATE TABLE IF NOT EXISTS outbox (
-      id TEXT PRIMARY KEY,
-      entity_type TEXT NOT NULL,
-      entity_id TEXT NOT NULL,
-      operation TEXT NOT NULL,
-      payload_json TEXT NOT NULL,
-      status TEXT DEFAULT 'pending',
-      attempts INTEGER DEFAULT 0,
-      error_message TEXT,
-      client_mutation_id TEXT UNIQUE NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
+      -- Sync State
+      CREATE TABLE sync_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        shop_id TEXT,
+        last_sync_cursor TEXT,
+        last_sync_at DATETIME,
+        last_bootstrap_at DATETIME
+      );
 
-    -- System Tables
-    CREATE TABLE IF NOT EXISTS users (
-      local_id TEXT PRIMARY KEY,
-      server_id TEXT UNIQUE,
-      email TEXT,
-      name TEXT,
-      role TEXT,
-      shop_id TEXT,
-      sync_status TEXT DEFAULT 'synced',
-      last_synced_at DATETIME,
-      server_version INTEGER DEFAULT 0
-    );
+      -- Outbox
+      CREATE TABLE outbox (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        actor_user_id TEXT NOT NULL,
+        entity_type TEXT,
+        entity_id TEXT,
+        client_mutation_id TEXT UNIQUE NOT NULL,
+        idempotency_key TEXT UNIQUE NOT NULL,
+        operation TEXT NOT NULL,
+        method TEXT NOT NULL,
+        path TEXT NOT NULL,
+        body_json TEXT,
+        depends_on_json TEXT,
+        status TEXT DEFAULT 'pending',
+        attempt_count INTEGER DEFAULT 0,
+        last_error_code TEXT,
+        last_error_message TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX idx_outbox_status ON outbox(status);
+      CREATE INDEX idx_outbox_shop ON outbox(shop_id);
 
-    CREATE TABLE IF NOT EXISTS shops (
-      local_id TEXT PRIMARY KEY,
-      server_id TEXT UNIQUE,
-      name TEXT,
-      currency TEXT DEFAULT 'ETB',
-      owner_id TEXT,
-      sync_status TEXT DEFAULT 'synced',
-      last_synced_at DATETIME,
-      server_version INTEGER DEFAULT 0
-    );
+      -- Users
+      CREATE TABLE users (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT,
+        name TEXT,
+        email TEXT,
+        role TEXT,
+        phone TEXT,
+        avatar_url TEXT,
+        server_version INTEGER DEFAULT 0,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
 
-    -- Domain Tables
-    CREATE TABLE IF NOT EXISTS customers (
-      local_id TEXT PRIMARY KEY,
-      server_id TEXT UNIQUE,
-      shop_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      phone TEXT,
-      credit_balance_cents INTEGER DEFAULT 0,
-      outstanding_boxes INTEGER DEFAULT 0,
-      outstanding_bottles INTEGER DEFAULT 0,
-      price_tier_id TEXT,
-      sync_status TEXT DEFAULT 'synced',
-      last_synced_at DATETIME,
-      server_version INTEGER DEFAULT 0
-    );
+      -- Shops
+      CREATE TABLE shops (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT,
+        name TEXT,
+        phone TEXT,
+        address TEXT,
+        currency TEXT DEFAULT 'ETB',
+        timezone TEXT,
+        low_stock_threshold INTEGER DEFAULT 10,
+        default_price_tier_id TEXT,
+        server_version INTEGER DEFAULT 0,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
 
-    CREATE TABLE IF NOT EXISTS beverages (
-      local_id TEXT PRIMARY KEY,
-      server_id TEXT UNIQUE,
-      shop_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      brand TEXT,
-      bottles_per_box INTEGER DEFAULT 24,
-      stock_bottles INTEGER DEFAULT 0,
-      isActive INTEGER DEFAULT 1,
-      sync_status TEXT DEFAULT 'synced',
-      last_synced_at DATETIME,
-      server_version INTEGER DEFAULT 0
-    );
+      -- Permissions
+      CREATE TABLE permissions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        shop_id TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        granted INTEGER DEFAULT 1,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME
+      );
 
-    CREATE TABLE IF NOT EXISTS price_tiers (
-      local_id TEXT PRIMARY KEY,
-      server_id TEXT UNIQUE,
-      shop_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      isDefault INTEGER DEFAULT 0,
-      sync_status TEXT DEFAULT 'synced',
-      last_synced_at DATETIME,
-      server_version INTEGER DEFAULT 0
-    );
+      -- Customers
+      CREATE TABLE customers (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        phone TEXT,
+        email TEXT,
+        notes TEXT,
+        credit_balance_cents INTEGER DEFAULT 0,
+        outstanding_boxes INTEGER DEFAULT 0,
+        outstanding_bottles INTEGER DEFAULT 0,
+        price_tier_id TEXT,
+        price_tier_locked INTEGER DEFAULT 0,
+        server_version INTEGER DEFAULT 0,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
+      CREATE INDEX idx_customers_shop ON customers(shop_id);
 
-    CREATE TABLE IF NOT EXISTS beverage_prices (
-      local_id TEXT PRIMARY KEY,
-      server_id TEXT UNIQUE,
-      beverage_id TEXT NOT NULL,
-      price_tier_id TEXT NOT NULL,
-      price_per_box_cents INTEGER NOT NULL,
-      price_per_bottle_cents INTEGER NOT NULL,
-      sync_status TEXT DEFAULT 'synced',
-      last_synced_at DATETIME,
-      server_version INTEGER DEFAULT 0
-    );
+      -- Customer Ledger Entries
+      CREATE TABLE customer_ledger_entries (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        date DATETIME NOT NULL,
+        data_json TEXT,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
+      CREATE INDEX idx_ledger_customer ON customer_ledger_entries(customer_id);
 
-    CREATE TABLE IF NOT EXISTS payment_accounts (
-      local_id TEXT PRIMARY KEY,
-      server_id TEXT UNIQUE,
-      shop_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      kind TEXT NOT NULL,
-      account_number TEXT,
-      isActive INTEGER DEFAULT 1,
-      sync_status TEXT DEFAULT 'synced',
-      last_synced_at DATETIME,
-      server_version INTEGER DEFAULT 0
-    );
+      -- Beverages
+      CREATE TABLE beverages (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        brand TEXT,
+        size_ml INTEGER,
+        bottles_per_box INTEGER DEFAULT 24,
+        image_url TEXT,
+        is_active INTEGER DEFAULT 1,
+        stock_bottles INTEGER DEFAULT 0,
+        server_version INTEGER DEFAULT 0,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
 
-    -- Transaction Tables
-    CREATE TABLE IF NOT EXISTS sales (
-      local_id TEXT PRIMARY KEY,
-      server_id TEXT UNIQUE,
-      shop_id TEXT NOT NULL,
-      customer_id TEXT NOT NULL,
-      sale_date DATETIME NOT NULL,
-      subtotal_cents INTEGER DEFAULT 0,
-      paid_cents INTEGER DEFAULT 0,
-      status TEXT DEFAULT 'CONFIRMED',
-      price_tier_id TEXT NOT NULL,
-      notes TEXT,
-      sync_status TEXT DEFAULT 'pending',
-      last_synced_at DATETIME,
-      server_version INTEGER DEFAULT 0
-    );
+      -- Price Tiers
+      CREATE TABLE price_tiers (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        kind TEXT DEFAULT 'retail',
+        is_default INTEGER DEFAULT 0,
+        server_version INTEGER DEFAULT 0,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
 
-    CREATE TABLE IF NOT EXISTS sale_lines (
-      local_id TEXT PRIMARY KEY,
-      server_id TEXT UNIQUE,
-      sale_id TEXT NOT NULL,
-      beverage_id TEXT NOT NULL,
-      boxes INTEGER DEFAULT 0,
-      bottles INTEGER DEFAULT 0,
-      price_per_box_cents INTEGER NOT NULL,
-      price_per_bottle_cents INTEGER NOT NULL,
-      line_total_cents INTEGER NOT NULL,
-      sync_status TEXT DEFAULT 'pending',
-      last_synced_at DATETIME,
-      server_version INTEGER DEFAULT 0
-    );
+      -- Beverage Prices
+      CREATE TABLE beverage_prices (
+        id TEXT PRIMARY KEY,
+        beverage_id TEXT NOT NULL,
+        price_tier_id TEXT NOT NULL,
+        price_per_box_cents INTEGER NOT NULL,
+        price_per_bottle_cents INTEGER NOT NULL,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME
+      );
 
-    CREATE TABLE IF NOT EXISTS payments (
-      local_id TEXT PRIMARY KEY,
-      server_id TEXT UNIQUE,
-      shop_id TEXT NOT NULL,
-      sale_id TEXT,
-      customer_id TEXT NOT NULL,
-      amount_cents INTEGER NOT NULL,
-      method TEXT NOT NULL,
-      payment_account_id TEXT NOT NULL,
-      reference TEXT,
-      paid_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      sync_status TEXT DEFAULT 'pending',
-      last_synced_at DATETIME,
-      server_version INTEGER DEFAULT 0
-    );
+      -- Payment Accounts
+      CREATE TABLE payment_accounts (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        holder_name TEXT,
+        bank_name TEXT,
+        account_number TEXT,
+        is_active INTEGER DEFAULT 1,
+        notes TEXT,
+        server_version INTEGER DEFAULT 0,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
 
-    CREATE TABLE IF NOT EXISTS sale_container_kasas (
-      local_id TEXT PRIMARY KEY,
-      sale_id TEXT NOT NULL,
-      beverage_id TEXT NOT NULL,
-      count INTEGER DEFAULT 1,
-      sync_status TEXT DEFAULT 'pending'
-    );
+      -- Sales
+      CREATE TABLE sales (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        customer_id TEXT,
+        price_tier_id TEXT NOT NULL,
+        sale_date DATETIME NOT NULL,
+        status TEXT DEFAULT 'CONFIRMED',
+        subtotal_cents INTEGER DEFAULT 0,
+        paid_cents INTEGER DEFAULT 0,
+        credit_delta_cents INTEGER DEFAULT 0,
+        boxes_out_delta INTEGER DEFAULT 0,
+        bottles_out_delta INTEGER DEFAULT 0,
+        boxes_returned_on_sale INTEGER DEFAULT 0,
+        bottles_returned_on_sale INTEGER DEFAULT 0,
+        notes TEXT,
+        voided_at DATETIME,
+        void_reason TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        server_version INTEGER DEFAULT 0,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
+      CREATE INDEX idx_sales_shop ON sales(shop_id);
 
-    CREATE TABLE IF NOT EXISTS sale_returned_containers (
-      local_id TEXT PRIMARY KEY,
-      sale_id TEXT NOT NULL,
-      beverage_id TEXT NOT NULL,
-      boxes INTEGER DEFAULT 0,
-      bottles INTEGER DEFAULT 0,
-      sync_status TEXT DEFAULT 'pending'
-    );
+      -- Sale Lines
+      CREATE TABLE sale_lines (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        sale_id TEXT NOT NULL,
+        beverage_id TEXT NOT NULL,
+        boxes INTEGER DEFAULT 0,
+        bottles INTEGER DEFAULT 0,
+        price_per_box_cents INTEGER NOT NULL,
+        price_per_bottle_cents INTEGER NOT NULL,
+        line_total_cents INTEGER NOT NULL,
+        server_version INTEGER DEFAULT 0,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
 
-    CREATE TABLE IF NOT EXISTS stock_movements (
-      local_id TEXT PRIMARY KEY,
-      server_id TEXT UNIQUE,
-      shop_id TEXT NOT NULL,
-      beverage_id TEXT NOT NULL,
-      reason TEXT NOT NULL,
-      bottles_delta INTEGER NOT NULL,
-      sale_id TEXT,
-      sync_status TEXT DEFAULT 'pending',
-      last_synced_at DATETIME,
-      server_version INTEGER DEFAULT 0
-    );
+      -- Payments
+      CREATE TABLE payments (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        sale_id TEXT,
+        customer_id TEXT,
+        payment_account_id TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL,
+        method TEXT NOT NULL,
+        reference TEXT,
+        notes TEXT,
+        paid_at DATETIME,
+        voided_at DATETIME,
+        server_version INTEGER DEFAULT 0,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
 
-    -- Indexes
-    CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
-    CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(sale_date);
-    CREATE INDEX IF NOT EXISTS idx_outbox_status ON outbox(status);
-    CREATE INDEX IF NOT EXISTS idx_beverage_prices_lookup ON beverage_prices(beverage_id, price_tier_id);
+      -- Sale Container Kasas
+      CREATE TABLE sale_container_kasas (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        sale_id TEXT NOT NULL,
+        beverage_id TEXT NOT NULL,
+        count INTEGER DEFAULT 1,
+        local_updated_at DATETIME,
+        server_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
 
-    PRAGMA user_version = 1;
-  `);
+      -- Sale Returned Containers
+      CREATE TABLE sale_returned_containers (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        sale_id TEXT NOT NULL,
+        beverage_id TEXT NOT NULL,
+        boxes INTEGER DEFAULT 0,
+        bottles INTEGER DEFAULT 0,
+        local_updated_at DATETIME,
+        server_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
 
-  if (user_version < 2) {
-    const columns = (await db.getAllAsync<{ name: string }>(
-      "PRAGMA table_info(outbox)",
-    )).map((c) => c.name);
+      -- Stock Movements
+      CREATE TABLE stock_movements (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        beverage_id TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        bottles_delta INTEGER NOT NULL,
+        notes TEXT,
+        recorded_by_id TEXT,
+        sale_id TEXT,
+        server_version INTEGER DEFAULT 0,
+        server_updated_at DATETIME,
+        local_updated_at DATETIME,
+        sync_status TEXT DEFAULT 'synced',
+        last_synced_at DATETIME,
+        deleted_at DATETIME
+      );
 
-    if (!columns.includes("error_message")) {
-      await db.execAsync(`ALTER TABLE outbox ADD COLUMN error_message TEXT;`);
-    }
-
-    await db.execAsync(`PRAGMA user_version = 2;`);
+      PRAGMA user_version = 6;
+    `);
   }
 }

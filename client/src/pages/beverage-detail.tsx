@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/page-header";
 import { PermissionGate } from "@/components/permission-gate";
 import { sdk } from "@/lib/sdk";
 import type { Beverage, CurrentTierPrice, StockMovement } from "@/sdk";
+import { ApiError } from "@/sdk";
 import { Card, EthiopianDateInput, FormattedDate, Skeleton } from "@/ui";
 import { formatMoneyCents } from "@/utils/money";
 import { useI18n } from "@/lib/i18n";
@@ -160,8 +161,8 @@ function InventoryModal({
       setEmptyBottles("");
       setNotes("");
       setIsRemoveFull(false);
-    } catch {
-      toast.error(t("inventoryAdjustFailed"));
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : t("inventoryAdjustFailed"));
     } finally {
       setSaving(false);
     }

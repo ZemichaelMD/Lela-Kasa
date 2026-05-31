@@ -56,6 +56,7 @@ export default function CustomersScreen() {
     try {
       await customerRepo.createOffline({
         shop_id: user?.shopId || "",
+        actor_user_id: user?.id || "",
         name: createName.trim(),
         phone: createPhone.trim() || undefined,
       });
@@ -104,7 +105,7 @@ export default function CustomersScreen() {
       {/* List */}
       <FlatList
         data={customers}
-        keyExtractor={(item) => item.local_id}
+        keyExtractor={(item: any) => item.id || item.local_id || item.server_id}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
@@ -121,7 +122,7 @@ export default function CustomersScreen() {
             style={[styles.customerCard, { backgroundColor: colors.surface }]}
             onPress={() =>
               navigation.navigate("CustomerDetail", {
-                customerId: item.server_id || item.local_id,
+                customerId: item.id,
                 customerName: item.name,
               })
             }

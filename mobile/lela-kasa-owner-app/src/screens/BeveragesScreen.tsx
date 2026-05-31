@@ -59,11 +59,13 @@ export default function BeveragesScreen() {
     if (isNaN(delta) || !selectedBeverage) return;
 
     try {
-      await beverageRepo.adjustStock(
-        selectedBeverage.local_id,
-        delta,
-        "ADJUSTMENT",
-      );
+      await beverageRepo.adjustStock({
+        id: (selectedBeverage as any).id,
+        shopId: user?.shopId || "",
+        actorUserId: user?.id || "",
+        deltaBottles: delta,
+        reason: "ADJUSTMENT",
+      });
       showToast("Stock updated", "success");
       setShowStockModal(false);
       setStockDelta("");
@@ -116,7 +118,7 @@ export default function BeveragesScreen() {
       >
         {filteredBeverages.map((item) => (
           <View
-            key={item.local_id}
+            key={(item as any).id || (item as any).local_id}
             style={[styles.card, { backgroundColor: colors.surface }]}
           >
             <View style={styles.cardInfo}>

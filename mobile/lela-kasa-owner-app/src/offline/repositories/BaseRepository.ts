@@ -1,8 +1,8 @@
 import { getDatabase } from "../db/database";
+import { enqueueOperation, EnqueueParams } from "../outbox";
 
 export interface BaseMetadata {
-  local_id: string;
-  server_id?: string | null;
+  id: string;
   sync_status: "synced" | "pending" | "failed" | "conflicted";
   last_synced_at?: string | null;
   server_version: number;
@@ -15,19 +15,17 @@ export abstract class BaseRepository<T extends BaseMetadata> {
     return await getDatabase();
   }
 
-  async findById(local_id: string): Promise<T | null> {
-    const db = await this.db();
-    return await db.getFirstAsync<T>(
-      `SELECT * FROM ${this.tableName} WHERE local_id = ?`,
-      [local_id],
-    );
+  protected generateLocalId(): string {
+    const ts = Date.now().toString(36);
+    const r = Math.random().toString(36).substring(2, 12);
+    return `loc_${ts}_${r}`;
   }
 
-  async findByServerId(server_id: string): Promise<T | null> {
+  async findById(id: string): Promise<T | null> {
     const db = await this.db();
     return await db.getFirstAsync<T>(
-      `SELECT * FROM ${this.tableName} WHERE server_id = ?`,
-      [server_id],
+      `SELECT * FROM ${this.tableName} WHERE id = ? AND deleted_at IS NULL`,
+      [id],
     );
   }
 
@@ -35,37 +33,47 @@ export abstract class BaseRepository<T extends BaseMetadata> {
     const db = await this.db();
     if (shopId) {
       return await db.getAllAsync<T>(
-        `SELECT * FROM ${this.tableName} WHERE shop_id = ?`,
+        `SELECT * FROM ${this.tableName} WHERE shop_id = ? AND deleted_at IS NULL`,
         [shopId],
       );
     }
-    return await db.getAllAsync<T>(`SELECT * FROM ${this.tableName}`);
+    return await db.getAllAsync<T>(
+      `SELECT * FROM ${this.tableName} WHERE deleted_at IS NULL`,
+    );
   }
 
-  async upsert(data: Partial<T> & { local_id: string }): Promise<void> {
+  async upsert(data: Partial<T> & { id: string }): Promise<void> {
     const db = await this.db();
-    const existing = await this.findById(data.local_id);
+    const existing = await this.findById(data.id);
+
+    // Filter out keys that don't belong to the database schema or are complex objects
+    // For a real production app, we'd use a schema map.
+    // For now, we'll just be careful with what we pass to upsert.
+    const cleanData = { ...data };
+
+    // Ensure meta columns exist if not provided
+    if (!cleanData.sync_status) cleanData.sync_status = "synced";
+
+    const keys = Object.keys(cleanData).join(", ");
+    const placeholders = Object.keys(cleanData)
+      .map(() => "?")
+      .join(", ");
+    const values = Object.values(cleanData) as any[];
 
     if (existing) {
-      const updates = Object.keys(data)
-        .filter((key) => key !== "local_id")
+      const updates = Object.keys(cleanData)
+        .filter((key) => key !== "id")
         .map((key) => `${key} = ?`)
         .join(", ");
-      const values = Object.keys(data)
-        .filter((key) => key !== "local_id")
-        .map((key) => (data as any)[key]);
+      const updateValues = Object.keys(cleanData)
+        .filter((key) => key !== "id")
+        .map((key) => (cleanData as any)[key]);
 
       await db.runAsync(
-        `UPDATE ${this.tableName} SET ${updates} WHERE local_id = ?`,
-        [...values, data.local_id],
+        `UPDATE ${this.tableName} SET ${updates} WHERE id = ?`,
+        [...updateValues, cleanData.id],
       );
     } else {
-      const keys = Object.keys(data).join(", ");
-      const placeholders = Object.keys(data)
-        .map(() => "?")
-        .join(", ");
-      const values = Object.values(data);
-
       await db.runAsync(
         `INSERT INTO ${this.tableName} (${keys}) VALUES (${placeholders})`,
         values,
@@ -73,38 +81,15 @@ export abstract class BaseRepository<T extends BaseMetadata> {
     }
   }
 
-  async delete(local_id: string): Promise<void> {
-    const db = await this.db();
-    await db.runAsync(`DELETE FROM ${this.tableName} WHERE local_id = ?`, [
-      local_id,
-    ]);
-  }
-
-  protected generateLocalId(): string {
-    return (
-      Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15)
-    );
-  }
-
-  async enqueueOutbox(
-    entity_id: string,
-    operation: "CREATE" | "UPDATE" | "DELETE",
-    payload: any,
-    client_mutation_id: string,
-  ): Promise<void> {
+  async delete(id: string): Promise<void> {
     const db = await this.db();
     await db.runAsync(
-      `INSERT INTO outbox (id, entity_type, entity_id, operation, payload_json, client_mutation_id)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        this.generateLocalId(),
-        this.tableName,
-        entity_id,
-        operation,
-        JSON.stringify(payload),
-        client_mutation_id,
-      ],
+      `UPDATE ${this.tableName} SET deleted_at = datetime('now'), sync_status = 'pending' WHERE id = ?`,
+      [id],
     );
+  }
+
+  async enqueueOutbox(params: EnqueueParams): Promise<void> {
+    await enqueueOperation(params);
   }
 }

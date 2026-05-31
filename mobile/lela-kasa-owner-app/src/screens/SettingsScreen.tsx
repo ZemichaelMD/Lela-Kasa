@@ -26,6 +26,7 @@ import type { RootStackParamList } from "../navigation/types";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useTheme } from "../context/ThemeContext";
+import { useOffline } from "../providers/OfflineProvider";
 import { getSdk } from "../lib/sdk";
 import { t } from "../lib/i18n";
 import { showToast } from "../components/Toast";
@@ -40,7 +41,9 @@ export default function SettingsScreen() {
   const { user, logout } = useAuth();
   const { language, setLanguage: setLang } = useLanguage();
   const { colors, themeMode, setThemeMode } = useTheme();
+  const { isOnline, isSyncing, resetOfflineData } = useOffline();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isResettingOffline, setIsResettingOffline] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -216,6 +219,35 @@ export default function SettingsScreen() {
             showToast(t("failedToRecord"), "error");
           } finally {
             setIsSigningOut(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleResetOfflineData = () => {
+    if (isSyncing || isResettingOffline) {
+      showToast(t("syncInProgress"), "info");
+      return;
+    }
+
+    Alert.alert(t("clearOfflineDataTitle"), t("clearOfflineDataConfirm"), [
+      { text: t("cancel"), style: "cancel" },
+      {
+        text: t("clearOfflineDataAction"),
+        style: "destructive",
+        onPress: async () => {
+          setIsResettingOffline(true);
+          try {
+            await resetOfflineData();
+            showToast(
+              isOnline ? t("offlineResyncing") : t("offlineResyncQueued"),
+              "success",
+            );
+          } catch (e) {
+            showToast(t("offlineResetFailed"), "error");
+          } finally {
+            setIsResettingOffline(false);
           }
         },
       },
@@ -1065,6 +1097,31 @@ export default function SettingsScreen() {
             </View>
           </View>
         )}
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            {t("offlineData")}
+          </Text>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={handleResetOfflineData}
+              disabled={isResettingOffline}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              <Text style={[styles.rowLabel, { color: colors.danger }]}>
+                {isResettingOffline
+                  ? t("clearingOfflineData")
+                  : t("clearOfflineData")}
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={colors.textMuted}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         <View style={styles.footer}>
           <TouchableOpacity

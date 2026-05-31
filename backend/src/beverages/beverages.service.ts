@@ -286,17 +286,6 @@ export class BeveragesService {
       });
     }
 
-    const newEmptyBoxes = beverage.emptyBoxes + emptyBoxesDelta;
-    const newEmptyBottles = beverage.emptyBottles + emptyBottlesDelta;
-
-    if (newEmptyBoxes < 0 || newEmptyBottles < 0) {
-      throw new AppException({
-        code: ErrorCode.VALIDATION_ERROR,
-        message: 'Not enough empty containers to remove',
-        status: 422,
-      });
-    }
-
     const [movement, updated] = await this.prisma.$transaction([
       this.prisma.stockMovement.create({
         data: {

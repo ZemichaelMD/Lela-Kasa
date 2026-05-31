@@ -110,6 +110,27 @@ export class SyncService {
     const allPayments = payments?.length ? payments : payment ? [payment] : [];
 
     return await this.prisma.$transaction(async (tx) => {
+      // Compute totals — matching SalesService.createSale() logic
+      const subtotalCents = saleData.subtotal_cents ?? 0;
+      const paidCents = saleData.paid_cents ?? 0;
+      const creditDeltaCents = subtotalCents - paidCents;
+
+      const containerKasaTotal = (container_kasas ?? []).reduce(
+        (sum: number, k: any) => sum + (k.count || 0), 0,
+      );
+      const boxesOutDelta = lines.reduce(
+        (sum: number, l: SaleLinePayload) => sum + (l.boxes || 0), 0,
+      ) + containerKasaTotal;
+      const bottlesOutDelta = lines.reduce(
+        (sum: number, l: SaleLinePayload) => sum + (l.bottles || 0), 0,
+      );
+      const boxesReturnedOnSale = (returned_containers ?? []).reduce(
+        (sum: number, r: any) => sum + (r.boxes || 0), 0,
+      );
+      const bottlesReturnedOnSale = (returned_containers ?? []).reduce(
+        (sum: number, r: any) => sum + (r.bottles || 0), 0,
+      );
+
       // 1. Create Sale — map snake_case payload fields to camelCase for Prisma
       const sale = await tx.sale.create({
         data: {
@@ -117,8 +138,13 @@ export class SyncService {
           saleDate: saleData.sale_date,
           priceTierId: saleData.price_tier_id,
           ...(saleData.notes !== undefined ? { notes: saleData.notes } : {}),
-          ...(saleData.subtotal_cents !== undefined ? { subtotalCents: saleData.subtotal_cents } : {}),
-          ...(saleData.paid_cents !== undefined ? { paidCents: saleData.paid_cents } : {}),
+          subtotalCents,
+          paidCents,
+          creditDeltaCents,
+          boxesOutDelta,
+          bottlesOutDelta,
+          boxesReturnedOnSale,
+          bottlesReturnedOnSale,
           shopId,
           createdById: userId,
           lines: {
@@ -177,6 +203,18 @@ export class SyncService {
             },
           });
         }
+      }
+
+      // 5. Update customer balances — matching SalesService.createSale() logic
+      if (saleData.customer_id) {
+        await tx.customer.update({
+          where: { id: saleData.customer_id },
+          data: {
+            creditBalanceCents: { increment: creditDeltaCents },
+            outstandingBoxes: { increment: boxesOutDelta - boxesReturnedOnSale },
+            outstandingBottles: { increment: bottlesOutDelta - bottlesReturnedOnSale },
+          },
+        });
       }
 
       return sale.id;

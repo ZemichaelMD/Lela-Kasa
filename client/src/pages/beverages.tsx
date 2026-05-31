@@ -358,8 +358,8 @@ function StockDrawer({ beverage, onClose, onAdjusted }: StockDrawerProps) {
       setEmptyBottles("");
       setNotes("");
       setIsRemoveFull(false);
-    } catch {
-      toast.error(t("inventoryAdjustFailed"));
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : t("inventoryAdjustFailed"));
     } finally {
       setSaving(false);
     }

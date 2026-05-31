@@ -39,10 +39,7 @@ import { t } from "../lib/i18n";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useOffline } from "../providers/OfflineProvider";
-import {
-  recordCustomerPaymentOffline,
-  recordReturnOffline,
-} from "../offline/writes";
+import { customerRepo } from "../offline";
 import { withCache, cacheResponse, getCachedResponse } from "../lib/api-cache";
 import { radius, spacing, type } from "../theme";
 
@@ -129,11 +126,11 @@ export default function CustomerDetailScreen() {
   });
 
   const recordPaymentMutation = useMutation({
-    mutationFn: async (dto: RecordPaymentDto) => {
+    mutationFn: async (dto: any) => {
       if (isOnline) {
         return getSdk().customers.recordPayment(customerId, dto);
       }
-      await recordCustomerPaymentOffline({
+      await customerRepo.recordPayment({
         shopId: user?.shopId ?? "",
         actorUserId: user?.id ?? "",
         customerId,
@@ -158,7 +155,7 @@ export default function CustomerDetailScreen() {
                 ...existing.data[idx],
                 creditBalanceCents: Math.max(
                   0,
-                  existing.data[idx].creditBalanceCents - paidCents,
+                  (existing.data[idx].creditBalanceCents || 0) - paidCents,
                 ),
               };
               const data = [...existing.data];
@@ -184,14 +181,15 @@ export default function CustomerDetailScreen() {
   });
 
   const recordReturnMutation = useMutation({
-    mutationFn: async (dto: RecordReturnDto) => {
+    mutationFn: async (dto: any) => {
       if (isOnline) {
         return getSdk().customers.recordReturn(customerId, dto);
       }
-      await recordReturnOffline({
+      await customerRepo.recordReturn({
         shopId: user?.shopId ?? "",
         actorUserId: user?.id ?? "",
         customerId,
+        beverageId: dto.beverageId || "", // We might need to ensure beverageId is passed
         boxes: dto.boxes,
         bottles: dto.bottles,
         notes: dto.notes,

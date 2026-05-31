@@ -1,6 +1,4 @@
-export { getDb, resetDb } from './db/database';
-export { OfflineProvider, useOffline, OfflineContext } from './context';
-export { useOfflineStatus } from './hooks';
+export { getDb, resetDb, closeDatabase } from "./db/database";
 export {
   enqueueOperation,
   getPendingOperations,
@@ -11,40 +9,19 @@ export {
   resetStaleSyncingOperations,
   generateClientMutationId,
   generateIdempotencyKey,
-} from './outbox';
-export {
-  syncNow,
-  bootstrapIfNeeded,
-  doBootstrap,
-  pullChanges,
-  pushOutbox,
-  getSyncSummary,
-  subscribeToSync,
-  setCurrentShopId,
-} from './sync/sync-coordinator';
-export {
-  isOnline,
-  getCurrentNetworkState,
-  subscribeToNetwork,
-  startNetworkMonitoring,
-} from './network';
-export {
-  createSaleOffline,
-  addPaymentOffline,
-  createCustomerOffline,
-  updateCustomerOffline,
-  recordCustomerPaymentOffline,
-  recordReturnOffline,
-  adjustStockOffline,
-} from './writes';
-export {
-  customerRepository,
-  saleRepository,
-  beverageRepository,
-  shopRepository,
-  priceTierRepository,
-  paymentAccountRepository,
-} from './repositories';
+} from "./outbox";
+export { syncCoordinator } from "./sync/SyncCoordinator";
+export { isOnline } from "./network/netinfo";
+
+export { customerRepo } from "./repositories/CustomerRepository";
+export { saleRepo } from "./repositories/SaleRepository";
+export { beverageRepo } from "./repositories/BeverageRepository";
+export { shopRepo } from "./repositories/ShopRepository";
+export { priceTierRepo } from "./repositories/PriceTierRepository";
+export { paymentAccountRepo } from "./repositories/PaymentAccountRepository";
+export { beveragePriceRepo } from "./repositories/BeveragePriceRepository";
+export { syncStateRepo } from "./repositories/SyncStateRepository";
+
 export type {
   SyncStatus,
   NetworkState,
@@ -53,4 +30,4 @@ export type {
   SyncState,
   SyncSummary,
   PushResult,
-} from './types';
+} from "./types";

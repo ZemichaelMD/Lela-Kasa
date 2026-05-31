@@ -1,4 +1,11 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import NetInfo from "@react-native-community/netinfo";
 import { AppState, AppStateStatus } from "react-native";
 import { syncCoordinator } from "../offline/sync/SyncCoordinator";
@@ -11,12 +18,15 @@ interface SyncStatus {
   isSyncing: boolean;
   lastSyncAt: string | null;
   pendingCount: number;
+  failedCount: number;
+  conflictedCount: number;
   syncVersion: number;
 }
 
 interface OfflineContextType extends SyncStatus {
   triggerSync: () => Promise<void>;
   syncNow: () => Promise<void>;
+  resetOfflineData: () => Promise<void>;
 }
 
 const OfflineContext = createContext<OfflineContextType | undefined>(undefined);
@@ -29,68 +39,110 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [failedCount, setFailedCount] = useState(0);
+  const [conflictedCount, setConflictedCount] = useState(0);
   const [syncVersion, setSyncVersion] = useState(0);
   const [showSyncErrorModal, setShowSyncErrorModal] = useState(false);
 
-  const updatePendingCount = async () => {
-    const db = await getDatabase();
-    const result = await db.getFirstAsync<{ count: number }>(
-      'SELECT COUNT(*) as count FROM outbox WHERE status = "pending"',
-    );
-    setPendingCount(result?.count || 0);
-  };
+  const isOnlineRef = useRef(isOnline);
+  const isSyncingRef = useRef(isSyncing);
+  const shopIdRef = useRef(user?.shopId);
+
+  isOnlineRef.current = isOnline;
+  isSyncingRef.current = isSyncing;
+  shopIdRef.current = user?.shopId;
+
+  const updateSummary = useCallback(async () => {
+    try {
+      const db = await getDatabase();
+
+      // Get counts for different outbox statuses
+      const counts = await db.getAllAsync<{ status: string; cnt: number }>(
+        `SELECT status, COUNT(*) as cnt FROM outbox
+         WHERE status IN ('pending', 'failed', 'conflicted')
+         GROUP BY status`,
+      );
+
+      let pCount = 0;
+      let fCount = 0;
+      let cCount = 0;
+
+      for (const row of counts) {
+        if (row.status === "pending") pCount = row.cnt;
+        else if (row.status === "failed") fCount = row.cnt;
+        else if (row.status === "conflicted") cCount = row.cnt;
+      }
+
+      setPendingCount(pCount);
+      setFailedCount(fCount);
+      setConflictedCount(cCount);
+
+      // Get last sync info
+      const state = await db.getFirstAsync<{ last_sync_at: string | null }>(
+        "SELECT last_sync_at FROM sync_state WHERE id = 1",
+      );
+      setLastSyncAt(state?.last_sync_at || null);
+    } catch (e) {
+      console.error("Failed to update summary", e);
+    }
+  }, []);
 
   const handleLogout = useCallback(async () => {
     setShowSyncErrorModal(false);
     await logout();
   }, [logout]);
 
-  const handleReset = useCallback(async () => {
-    setShowSyncErrorModal(false);
-    try {
-      await resetDatabase();
-      setPendingCount(0);
-      setLastSyncAt(null);
-    } catch (e) {
-      console.error("Failed to reset database", e);
-    }
-  }, []);
-
-  const triggerSync = async () => {
-    if (!user?.shopId || !isOnline || isSyncing) return;
+  const triggerSync = useCallback(async () => {
+    const shopId = shopIdRef.current;
+    if (!shopId || !isOnlineRef.current || isSyncingRef.current) return;
     setIsSyncing(true);
     try {
-      await syncCoordinator.sync(user.shopId);
-      setLastSyncAt(new Date().toISOString());
-      await updatePendingCount();
+      await syncCoordinator.sync(shopId);
+      await updateSummary();
       setSyncVersion((v) => v + 1);
     } catch (error: any) {
+      console.error("Sync failed", error);
       const msg = error?.message ?? "";
-      if (msg.includes("no such column")) {
+      if (msg.includes("no such column") || msg.includes("no such table")) {
         setShowSyncErrorModal(true);
-      } else {
-        console.error("Manual sync failed", error);
       }
     } finally {
       setIsSyncing(false);
     }
-  };
+  }, [updateSummary]);
+
+  const resetOfflineData = useCallback(async () => {
+    setShowSyncErrorModal(false);
+    try {
+      await resetDatabase();
+      await updateSummary();
+      setSyncVersion((v) => v + 1);
+      await triggerSync();
+    } catch (e) {
+      console.error("Failed to reset offline data", e);
+      throw e;
+    }
+  }, [triggerSync, updateSummary]);
+
+  const handleReset = useCallback(async () => {
+    try {
+      await resetOfflineData();
+    } catch {
+      // resetOfflineData already logs the error
+    }
+  }, [resetOfflineData]);
 
   useEffect(() => {
-    // 1. Monitor Network
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      // isInternetReachable can be null (unknown). Assume online if isConnected is true and reachable is not false.
+    const unsubSync = syncCoordinator.subscribe(() => {
+      updateSummary();
+    });
+
+    const unsubNet = NetInfo.addEventListener((state) => {
       const online = !!state.isConnected && state.isInternetReachable !== false;
       setIsOnline(online);
       if (online) triggerSync();
     });
 
-    // 2. Initial state check
-    NetInfo.fetch().then((state) => {
-      const online = !!state.isConnected && state.isInternetReachable !== false;
-      setIsOnline(online);
-      if (online) triggerSync();
-    });
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === "active") {
         triggerSync();
@@ -101,18 +153,16 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({
       handleAppStateChange,
     );
 
-    // 3. Initial Count
-    updatePendingCount();
-
-    // 4. Poll for pending count (or use an event emitter in a real app)
-    const interval = setInterval(updatePendingCount, 5000);
+    updateSummary();
+    const interval = setInterval(updateSummary, 10000);
 
     return () => {
-      unsubscribe();
+      unsubSync();
+      unsubNet();
       appStateSub.remove();
       clearInterval(interval);
     };
-  }, [user?.shopId, isOnline]);
+  }, []);
 
   return (
     <OfflineContext.Provider
@@ -121,9 +171,12 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({
         isSyncing,
         lastSyncAt,
         pendingCount,
+        failedCount,
+        conflictedCount,
         syncVersion,
         triggerSync,
         syncNow: triggerSync,
+        resetOfflineData,
       }}
     >
       {children}

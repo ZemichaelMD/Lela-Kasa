@@ -118,6 +118,28 @@ export default function CustomerOrderPage() {
     );
   }
 
+  function setLineValue(
+    beverageId: string,
+    field: "boxes" | "bottles",
+    raw: string,
+  ) {
+    const val = parseInt(raw, 10);
+    if (raw === "") {
+      setLines((prev) =>
+        prev.map((l) =>
+          l.beverageId === beverageId ? { ...l, [field]: 0 } : l,
+        ),
+      );
+      return;
+    }
+    if (isNaN(val) || val < 0) return;
+    setLines((prev) =>
+      prev.map((l) =>
+        l.beverageId === beverageId ? { ...l, [field]: val } : l,
+      ),
+    );
+  }
+
   function removeLine(beverageId: string) {
     setLines((prev) => prev.filter((l) => l.beverageId !== beverageId));
   }
@@ -187,144 +209,150 @@ export default function CustomerOrderPage() {
             Loading beverages...
           </div>
         ) : (
-          <>
-            {lines.length > 0 && (
-              <div className="space-y-3">
-                {lines.map((l) => {
-                  const p = prices[l.beverageId];
-                  return (
-                    <div
-                      key={l.beverageId}
-                      className="rounded-lg border border-border p-3 space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{l.name}</span>
-                        <button
-                          onClick={() => removeLine(l.beverageId)}
-                          className="rounded p-1 text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                      {p && (
-                        <p className="text-xs text-muted-foreground">
-                          Box: {formatMoneyCents(p.box)} · Bottle:{" "}
-                          {formatMoneyCents(p.bottle)}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() =>
-                              updateLine(l.beverageId, "boxes", -1)
-                            }
-                            className="rounded border border-border p-1 hover:bg-accent"
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="w-8 text-center text-sm">
-                            {l.boxes}
-                          </span>
-                          <button
-                            onClick={() => updateLine(l.beverageId, "boxes", 1)}
-                            className="rounded border border-border p-1 hover:bg-accent"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                          <span className="text-xs text-muted-foreground ml-1">
-                            boxes
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() =>
-                              updateLine(l.beverageId, "bottles", -1)
-                            }
-                            className="rounded border border-border p-1 hover:bg-accent"
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="w-8 text-center text-sm">
-                            {l.bottles}
-                          </span>
-                          <button
-                            onClick={() =>
-                              updateLine(l.beverageId, "bottles", 1)
-                            }
-                            className="rounded border border-border p-1 hover:bg-accent"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                          <span className="text-xs text-muted-foreground ml-1">
-                            bottles
-                          </span>
-                        </div>
-                      </div>
-                      {p && (l.boxes > 0 || l.bottles > 0) && (
-                        <p className="text-xs text-right font-medium">
-                          {formatMoneyCents(
-                            l.boxes * p.box + l.bottles * p.bottle,
-                          )}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    {t("selectBeverage")}
-                  </label>
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value) addLine(e.target.value);
-                      e.target.value = "";
-                    }}
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
-                  >
-                    <option value="">· {t("selectBeverage")} ·</option>
-                    {beverages.map((b: any) => (
-                      <option
-                        key={b.id}
-                        value={b.id}
-                        disabled={lines.some((l) => l.beverageId === b.id)}
-                      >
-                        {b.name}
-                        {b.brand ? ` (${b.brand})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    {t("orderNotes")} ({t("optional")})
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={2}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm resize-none"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-4">
-                  <span className="font-medium">{t("orderTotal")}</span>
-                  <span className="text-lg font-bold">
-                    {formatMoneyCents(subtotal)}
-                  </span>
-                </div>
-
-                <button
-                  onClick={handlePlaceOrder}
-                  disabled={placing || lines.length === 0}
-                  className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          <div className="space-y-3">
+            {lines.map((l) => {
+              const p = prices[l.beverageId];
+              return (
+                <div
+                  key={l.beverageId}
+                  className="rounded-lg border border-border p-3 space-y-2"
                 >
-                  {placing ? "Placing..." : t("placeOrder")}
-                </button>
-              </div>
-            )}
-          </>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{l.name}</span>
+                    <button
+                      onClick={() => removeLine(l.beverageId)}
+                      className="rounded p-1 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {p && (
+                    <p className="text-xs text-muted-foreground">
+                      Box: {formatMoneyCents(p.box)} · Bottle:{" "}
+                      {formatMoneyCents(p.bottle)}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() =>
+                          updateLine(l.beverageId, "boxes", -1)
+                        }
+                        className="rounded border border-border p-1 hover:bg-accent"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        value={l.boxes}
+                        onChange={(e) =>
+                          setLineValue(l.beverageId, "boxes", e.target.value)
+                        }
+                        className="w-12 rounded border border-border bg-background px-1 py-0.5 text-center text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <button
+                        onClick={() => updateLine(l.beverageId, "boxes", 1)}
+                        className="rounded border border-border p-1 hover:bg-accent"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                      <span className="text-xs text-muted-foreground ml-1">
+                        boxes
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() =>
+                          updateLine(l.beverageId, "bottles", -1)
+                        }
+                        className="rounded border border-border p-1 hover:bg-accent"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        value={l.bottles}
+                        onChange={(e) =>
+                          setLineValue(l.beverageId, "bottles", e.target.value)
+                        }
+                        className="w-12 rounded border border-border bg-background px-1 py-0.5 text-center text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <button
+                        onClick={() => updateLine(l.beverageId, "bottles", 1)}
+                        className="rounded border border-border p-1 hover:bg-accent"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                      <span className="text-xs text-muted-foreground ml-1">
+                        bottles
+                      </span>
+                    </div>
+                  </div>
+                  {p && (l.boxes > 0 || l.bottles > 0) && (
+                    <p className="text-xs text-right font-medium">
+                      {formatMoneyCents(
+                        l.boxes * p.box + l.bottles * p.bottle,
+                      )}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {t("selectBeverage")}
+              </label>
+              <select
+                onChange={(e) => {
+                  if (e.target.value) addLine(e.target.value);
+                  e.target.value = "";
+                }}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
+              >
+                <option value="">· {t("selectBeverage")} ·</option>
+                {beverages.map((b: any) => (
+                  <option
+                    key={b.id}
+                    value={b.id}
+                    disabled={lines.some((l) => l.beverageId === b.id)}
+                  >
+                    {b.name}
+                    {b.brand ? ` (${b.brand})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {t("orderNotes")} ({t("optional")})
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm resize-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-4">
+              <span className="font-medium">{t("orderTotal")}</span>
+              <span className="text-lg font-bold">
+                {formatMoneyCents(subtotal)}
+              </span>
+            </div>
+
+            <button
+              onClick={handlePlaceOrder}
+              disabled={placing || lines.length === 0}
+              className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            >
+              {placing ? "Placing..." : t("placeOrder")}
+            </button>
+          </div>
         )}
       </main>
     </div>

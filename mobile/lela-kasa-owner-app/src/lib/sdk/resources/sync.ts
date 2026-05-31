@@ -1,4 +1,4 @@
-import { SdkClient } from '../client';
+import { SdkClient } from "../client";
 
 export interface SyncOutboxItem {
   id: string;
@@ -19,7 +19,7 @@ export interface SyncResponse {
   newSyncCursor: string;
   results: Array<{
     outboxId: string;
-    status: 'SUCCESS' | 'ERROR' | 'CONFLICT';
+    status: "SUCCESS" | "ERROR" | "CONFLICT";
     serverId?: string;
     error?: string;
   }>;
@@ -31,6 +31,8 @@ export interface SyncResponse {
     priceTiers: any[];
     beveragePrices: any[];
     paymentAccounts: any[];
+    customerLedgerEntries?: any[];
+    stockMovements?: any[];
     tombstones: Record<string, string[]>;
   };
 }
@@ -39,6 +41,6 @@ export class SyncResource {
   constructor(private client: SdkClient) {}
 
   async sync(data: SyncRequest): Promise<SyncResponse> {
-    return this.client.post<SyncResponse>('/api/v1/sync', data);
+    return this.client.post<SyncResponse>("/api/v1/sync", data);
   }
 }

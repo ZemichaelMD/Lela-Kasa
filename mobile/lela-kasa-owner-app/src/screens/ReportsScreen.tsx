@@ -635,7 +635,7 @@ export default function ReportsScreen() {
         <DateFilter
           visible={showDateFilter}
           selected={preset === "lastMonth" || preset === "custom" ? "month" : preset}
-          onSelect={(p) => setPreset(p)}
+          onSelect={(p) => setPreset(p as ReportsDatePreset)}
           onClose={() => setShowDateFilter(false)}
           label={range.label}
           showCustom

@@ -73,6 +73,69 @@ export class CustomerPortalController {
     return { customer, ledger };
   }
 
+  @Get(':customerId/sales/:saleId')
+  @ApiOperation({ summary: 'Get a single sale detail for customer portal' })
+  async getSaleDetail(
+    @Param('customerId') customerId: string,
+    @Param('saleId') saleId: string,
+  ) {
+    const sale = await this.prisma.sale.findFirst({
+      where: { id: saleId, customerId, status: { not: 'VOIDED' } },
+      select: {
+        id: true,
+        saleDate: true,
+        status: true,
+        subtotalCents: true,
+        paidCents: true,
+        creditDeltaCents: true,
+        notes: true,
+        createdById: true,
+        createdAt: true,
+        updatedAt: true,
+        customer: { select: { id: true, name: true, phone: true } },
+        lines: {
+          select: {
+            id: true,
+            boxes: true,
+            bottles: true,
+            pricePerBoxCents: true,
+            pricePerBottleCents: true,
+            lineTotalCents: true,
+            beverage: { select: { id: true, name: true } },
+          },
+        },
+        payments: {
+          where: { voidedAt: null },
+          select: {
+            id: true,
+            amountCents: true,
+            paidAt: true,
+            notes: true,
+            paymentAccount: { select: { id: true, name: true } },
+          },
+          orderBy: { paidAt: 'desc' },
+        },
+        containerKasas: {
+          select: {
+            id: true,
+            count: true,
+            beverage: { select: { id: true, name: true } },
+          },
+        },
+        returnedContainers: {
+          select: {
+            id: true,
+            boxes: true,
+            bottles: true,
+            beverage: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+    if (!sale) throw new NotFoundException('Sale not found');
+    return sale;
+  }
+
   @Post('change-pin')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Change customer PIN (forced on first login or voluntary)' })

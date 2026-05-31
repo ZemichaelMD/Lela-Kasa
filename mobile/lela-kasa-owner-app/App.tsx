@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import RootNavigator from "./src/navigation/RootNavigator";
+import { TabBarVisibilityProvider } from "./src/context/TabBarVisibilityContext";
 import { AuthProvider } from "./src/providers/AuthProvider";
 import { OfflineProvider } from "./src/providers/OfflineProvider";
 import { LanguageProvider } from "./src/context/LanguageContext";
@@ -60,9 +61,11 @@ function ThemedApp() {
         backgroundColor={colors.background}
       />
       <KeyboardProvider>
-        <NavigationContainer theme={navTheme}>
-          <RootNavigator />
-        </NavigationContainer>
+        <TabBarVisibilityProvider>
+          <NavigationContainer theme={navTheme}>
+            <RootNavigator />
+          </NavigationContainer>
+        </TabBarVisibilityProvider>
       </KeyboardProvider>
     </>
   );

@@ -4,6 +4,8 @@ export type RootStackParamList = {
   Login: undefined;
   CustomerLogin: undefined;
   CustomerPortal: { customerId: string; accessToken: string };
+  CustomerOrder: { customerId: string; accessToken: string };
+  CustomerSaleDetail: { customerId: string; saleId: string; accessToken: string };
   Register: undefined;
   ForgotPassword: undefined;
   VerifyPhone: { phone: string };

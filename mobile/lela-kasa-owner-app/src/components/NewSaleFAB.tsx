@@ -27,10 +27,10 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: spacing[5],
-    bottom: spacing[8],
+    bottom: 100, // moved up to clear the tab bar
     width: 56,
     height: 56,
-    borderRadius: radius.full,
+    borderRadius: 16, // squarcle — not a full circle
     ...shadow.brand,
     alignItems: 'center',
     justifyContent: 'center',

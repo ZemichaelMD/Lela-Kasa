@@ -10,6 +10,8 @@ import OnboardingScreen from "../screens/OnboardingScreen";
 import LoginScreen from "../screens/LoginScreen";
 import CustomerLoginScreen from "../screens/CustomerLoginScreen";
 import CustomerPortalScreen from "../screens/CustomerPortalScreen";
+import CustomerOrderScreen from "../screens/CustomerOrderScreen";
+import CustomerSaleDetailScreen from "../screens/CustomerSaleDetailScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
 import VerifyPhoneScreen from "../screens/VerifyPhoneScreen";
@@ -130,6 +132,16 @@ export default function RootNavigator() {
           <Stack.Screen
             name="CustomerPortal"
             component={CustomerPortalScreen}
+            options={{ animation: "slide_from_right" }}
+          />
+          <Stack.Screen
+            name="CustomerOrder"
+            component={CustomerOrderScreen}
+            options={{ animation: "slide_from_right" }}
+          />
+          <Stack.Screen
+            name="CustomerSaleDetail"
+            component={CustomerSaleDetailScreen}
             options={{ animation: "slide_from_right" }}
           />
           <Stack.Screen

@@ -12,9 +12,11 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 
 import type { RootStackParamList } from "../navigation/types";
 import { getSdk } from "../lib/sdk";
+import { QK } from "../lib/query-keys";
 import { customerRepo } from "../offline/repositories/CustomerRepository";
 import { beverageRepo } from "../offline/repositories/BeverageRepository";
 import { priceTierRepo } from "../offline/repositories/PriceTierRepository";
@@ -32,17 +34,22 @@ import { t } from "../lib/i18n";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useOffline } from "../providers/OfflineProvider";
-import { radius, spacing, type } from "../theme";
+import { colors, radius, spacing, type } from "../theme";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function custVal(c: any, prop: string): any {
-  return c?.[prop] ?? c?.[{
-    credit_balance_cents: "creditBalanceCents",
-    outstanding_boxes: "outstandingBoxes",
-    outstanding_bottles: "outstandingBottles",
-    price_tier_id: "priceTierId",
-  }[prop] ?? prop];
+  return (
+    c?.[prop] ??
+    c?.[
+      {
+        credit_balance_cents: "creditBalanceCents",
+        outstanding_boxes: "outstandingBoxes",
+        outstanding_bottles: "outstandingBottles",
+        price_tier_id: "priceTierId",
+      }[prop] ?? prop
+    ]
+  );
 }
 
 function todayIso(): string {
@@ -97,12 +104,12 @@ export default function NewSaleScreen() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
   const { isOnline, triggerSync } = useOffline();
+  const queryClient = useQueryClient();
 
   // ─── Form state ──────────────────────────────────────────────────────────────
   const [saleDate, setSaleDate] = useState(todayIso());
   const [customerId, setCustomerId] = useState("");
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [customerOpen, setCustomerOpen] = useState(false);
+  const [showCustomerPicker, setShowCustomerPicker] = useState(false);
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [newCustName, setNewCustName] = useState("");
   const [newCustPhone, setNewCustPhone] = useState("");
@@ -113,7 +120,9 @@ export default function NewSaleScreen() {
   const [showBeveragePicker, setShowBeveragePicker] = useState(false);
   const [editingLineIndex, setEditingLineIndex] = useState<number | null>(null);
   const [paymentRows, setPaymentRows] = useState<PaymentRow[]>([]);
-  const [showAccountPicker, setShowAccountPicker] = useState<number | null>(null);
+  const [showAccountPicker, setShowAccountPicker] = useState<number | null>(
+    null,
+  );
   const [notes, setNotes] = useState("");
   const [applyCredit, setApplyCredit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -129,7 +138,9 @@ export default function NewSaleScreen() {
     ReturnedContainerRow[]
   >([]);
   const [showReturnPicker, setShowReturnPicker] = useState(false);
-  const [editingReturnIndex, setEditingReturnIndex] = useState<number | null>(null);
+  const [editingReturnIndex, setEditingReturnIndex] = useState<number | null>(
+    null,
+  );
 
   // ─── Reference data ──────────────────────────────────────────────────────────
   const [customers, setCustomers] = useState<any[]>([]);
@@ -227,7 +238,6 @@ export default function NewSaleScreen() {
     if (c) {
       const cId = c.id || c.server_id || c.local_id || "";
       setCustomerId(cId);
-      setCustomerSearch(c.name || "");
       if (c.priceTierId || c.price_tier_id) {
         setPriceTierId(c.priceTierId ?? c.price_tier_id);
       }
@@ -251,7 +261,10 @@ export default function NewSaleScreen() {
   }
 
   function computeLineTotal(line: LineItem): number {
-    return line.boxes * line.pricePerBoxCents + line.bottles * line.pricePerBottleCents;
+    return (
+      line.boxes * line.pricePerBoxCents +
+      line.bottles * line.pricePerBottleCents
+    );
   }
 
   function maybeFoldBottlesIntoBoxes(idx: number) {
@@ -301,18 +314,11 @@ export default function NewSaleScreen() {
 
   const selectedCustomer = useMemo(() => {
     return customers.find(
-      (c) =>
-        (c.id || c.server_id || c.local_id) === customerId,
+      (c) => (c.id || c.server_id || c.local_id) === customerId,
     );
   }, [customers, customerId]);
 
   const isPriceTierLocked = selectedCustomer?.priceTierLocked ?? false;
-
-  const filteredCustomers = useMemo(() => {
-    const q = customerSearch.trim().toLowerCase();
-    if (!q) return customers;
-    return customers.filter((c) => c.name?.toLowerCase().includes(q));
-  }, [customers, customerSearch]);
 
   // ─── Line handlers ───────────────────────────────────────────────────────────
 
@@ -333,7 +339,9 @@ export default function NewSaleScreen() {
   }
 
   function updateLine(idx: number, patch: Partial<LineItem>) {
-    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+    setLines((prev) =>
+      prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)),
+    );
   }
 
   function removeLine(idx: number) {
@@ -433,7 +441,14 @@ export default function NewSaleScreen() {
   function addReturnedContainer() {
     setReturnedContainers((prev) => [
       ...prev,
-      { beverageId: "", name: "", boxes: 0, boxesText: "", bottles: 0, bottlesText: "" },
+      {
+        beverageId: "",
+        name: "",
+        boxes: 0,
+        boxesText: "",
+        bottles: 0,
+        bottlesText: "",
+      },
     ]);
   }
 
@@ -474,7 +489,11 @@ export default function NewSaleScreen() {
       {
         amountCents: 0,
         amountInput: "",
-        paymentAccountId: accounts[0]?.id || accounts[0]?.server_id || accounts[0]?.local_id || "",
+        paymentAccountId:
+          accounts[0]?.id ||
+          accounts[0]?.server_id ||
+          accounts[0]?.local_id ||
+          "",
       },
     ]);
   }
@@ -496,34 +515,37 @@ export default function NewSaleScreen() {
     setAddingCustomer(true);
     const shopId = user?.shopId || "";
     try {
+      let createdId: string;
+      let createdName: string;
       if (isOnline) {
         const created = await getSdk().customers.create({
           name: newCustName.trim(),
           phone: newCustPhone.trim() || undefined,
         });
+        createdId = created.id;
+        createdName = created.name;
         setCustomers((prev) =>
           prev.some((x) => (x.id || x.server_id || x.local_id) === created.id)
             ? prev
             : [...prev, created],
         );
-        setCustomerId(created.id);
-        setCustomerSearch(created.name);
       } else {
-        const localId = await customerRepo.createOffline({
+        createdId = await customerRepo.createOffline({
           shop_id: shopId,
+          actor_user_id: user?.id || "",
           name: newCustName.trim(),
           phone: newCustPhone.trim() || undefined,
         });
-        setCustomerId(localId);
-        setCustomerSearch(newCustName.trim());
+        createdName = newCustName.trim();
         const updated = await customerRepo.list(shopId);
         setCustomers(updated);
       }
+      setCustomerId(createdId);
       setShowAddCustomer(false);
       setNewCustName("");
       setNewCustPhone("");
     } catch {
-      showToast("Failed to create customer", "error");
+      showToast(t("newSale.failedToCreateCustomer"), "error");
     } finally {
       setAddingCustomer(false);
     }
@@ -547,7 +569,9 @@ export default function NewSaleScreen() {
       showToast(t("newSale.pleaseAddItem"), "error");
       return;
     }
-    const missingPrice = validLines.filter((l) => !getPriceForBeverage(l.beverageId));
+    const missingPrice = validLines.filter(
+      (l) => !getPriceForBeverage(l.beverageId),
+    );
     if (missingPrice.length > 0) {
       const names = missingPrice.map((l) => l.name || "?").join(", ");
       showToast(`${t("newSale.noPriceSet")}: ${names}`, "error");
@@ -573,6 +597,7 @@ export default function NewSaleScreen() {
 
       const payload: SaleCreatePayload = {
         shop_id: user?.shopId || "",
+        actor_user_id: user?.id || "",
         customer_id: customerId,
         sale_date: fullSaleDate,
         price_tier_id: priceTierId,
@@ -612,11 +637,10 @@ export default function NewSaleScreen() {
 
       await saleRepo.createOffline(payload);
       showToast(
-        status === "confirm"
-          ? "Sale confirmed successfully"
-          : "Draft saved",
+        status === "confirm" ? t("newSale.saleConfirmed") : t("newSale.draftSaved"),
         "success",
       );
+      queryClient.invalidateQueries({ queryKey: QK.sales({}) });
       navigation.goBack();
       if (isOnline) triggerSync();
     } catch (err: any) {
@@ -712,12 +736,12 @@ export default function NewSaleScreen() {
         {/* Sale Date */}
         <View style={styles.fieldGroup}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Sale Date *
+            {t("newSale.saleDate")} *
           </Text>
           <EthiopianDatePicker
             value={saleDate}
             onChange={setSaleDate}
-            placeholder="Select sale date"
+            placeholder={t("newSale.saleDatePlaceholder")}
           />
         </View>
 
@@ -725,128 +749,77 @@ export default function NewSaleScreen() {
         <View style={styles.fieldGroup}>
           <View style={styles.labelRow}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>
-              Customer *
+              {t("newSale.customer")} *
             </Text>
             {!showAddCustomer && (
               <TouchableOpacity
                 onPress={() => setShowAddCustomer(true)}
-                style={[styles.badgeBtn, { backgroundColor: colors.primary }]}
+                style={[styles.newCustBtn, { borderColor: colors.primary }]}
               >
-                <Ionicons name="add" size={12} color="#fff" />
-                <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>
-                  New
+                <Ionicons
+                  name="person-add-outline"
+                  size={16}
+                  color={colors.primary}
+                />
+                <Text
+                  style={[styles.newCustBtnText, { color: colors.primary }]}
+                >
+                  {t("newCustomer")}
                 </Text>
               </TouchableOpacity>
             )}
           </View>
-          <View style={styles.searchWrapper}>
-            <TextInput
+          <TouchableOpacity
+            style={[
+              styles.selector,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+            onPress={() => setShowCustomerPicker(true)}
+          >
+            <Text
               style={[
-                styles.input,
-                {
-                  backgroundColor: colors.surface,
-                  color: colors.textPrimary,
-                  borderColor: colors.border,
-                },
+                styles.selectorValue,
+                { color: customerId ? colors.textPrimary : colors.textMuted },
               ]}
-              value={customerOpen ? customerSearch : selectedCustomer?.name || customerSearch}
-              onChangeText={(v) => {
-                setCustomerSearch(v);
-                setCustomerOpen(true);
-                if (customerId && v !== selectedCustomer?.name) {
-                  setCustomerId("");
-                }
-              }}
-              onFocus={() => {
-                setCustomerOpen(true);
-                setCustomerSearch("");
-              }}
-              onBlur={() => {
-                setTimeout(() => setCustomerOpen(false), 150);
-              }}
-              placeholder="Search & pick customer"
-              placeholderTextColor={colors.textMuted}
-            />
+              numberOfLines={1}
+            >
+              {selectedCustomer?.name || t("newSale.selectCustomer")}
+            </Text>
             {customerId ? (
               <TouchableOpacity
-                style={styles.searchClear}
-                onPress={() => {
-                  setCustomerId("");
-                  setCustomerSearch("");
-                }}
+                onPress={() => setCustomerId("")}
+                hitSlop={8}
+                style={{ marginRight: spacing[1] }}
               >
-                <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                <Ionicons
+                  name="close-circle"
+                  size={18}
+                  color={colors.textMuted}
+                />
               </TouchableOpacity>
             ) : null}
-            {customerOpen &&
-              (() => {
-                const filtered = filteredCustomers;
-                return (
-                  <View
-                    style={[
-                      styles.dropdown,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
-                    {filtered.length === 0 ? (
-                      <Text style={[styles.dropdownEmpty, { color: colors.textMuted }]}>
-                        No matches
-                      </Text>
-                    ) : (
-                      filtered.slice(0, 50).map((c: any) => {
-                        const cId = c.id || c.server_id || c.local_id;
-                        const isSel = cId === customerId;
-                        return (
-                          <TouchableOpacity
-                            key={cId}
-                            style={[
-                              styles.dropdownItem,
-                              isSel && { backgroundColor: colors.surfaceTinted },
-                            ]}
-                            onPress={() => {
-                              setCustomerId(cId);
-                              setCustomerSearch(c.name || "");
-                              setCustomerOpen(false);
-                              const cTier = c.priceTierId ?? c.price_tier_id;
-                              if (cTier && !isPriceTierLocked) {
-                                setPriceTierId(cTier);
-                              }
-                            }}
-                          >
-                            <Text
-                              style={[
-                                styles.dropdownLabel,
-                                { color: isSel ? colors.primary : colors.textPrimary },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {c.name}
-                            </Text>
-                            {c.phone ? (
-                              <Text style={[styles.dropdownSub, { color: colors.textMuted }]}>
-                                {c.phone}
-                              </Text>
-                            ) : null}
-                          </TouchableOpacity>
-                        );
-                      })
-                    )}
-                  </View>
-                );
-              })()}
-          </View>
+            <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
           {showAddCustomer && (
             <View
               style={[
                 styles.inlineForm,
-                { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+                {
+                  backgroundColor: colors.surfaceMuted,
+                  borderColor: colors.border,
+                },
               ]}
             >
-              <Text style={[styles.inlineFormTitle, { color: colors.textSecondary }]}>
-                New Customer
+              <Text
+                style={[
+                  styles.inlineFormTitle,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                {t("newCustomer")}
               </Text>
               <TextInput
                 style={[
@@ -859,7 +832,7 @@ export default function NewSaleScreen() {
                 ]}
                 value={newCustName}
                 onChangeText={setNewCustName}
-                placeholder="Name *"
+                placeholder={t("newSale.nameRequired")}
                 placeholderTextColor={colors.textMuted}
               />
               <TextInput
@@ -873,7 +846,7 @@ export default function NewSaleScreen() {
                 ]}
                 value={newCustPhone}
                 onChangeText={setNewCustPhone}
-                placeholder="Phone"
+                placeholder={t("newSale.phoneLabel")}
                 placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
               />
@@ -882,15 +855,20 @@ export default function NewSaleScreen() {
                   onPress={handleAddCustomer}
                   disabled={addingCustomer || !newCustName.trim()}
                   style={[
-                    styles.badgeBtn,
+                    styles.inlineFormBtn,
                     {
                       backgroundColor: colors.primary,
                       opacity: addingCustomer || !newCustName.trim() ? 0.6 : 1,
                     },
                   ]}
                 >
-                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>
-                    {addingCustomer ? "Adding..." : "Add"}
+                  <Ionicons name="checkmark" size={16} color="#fff" />
+                  <Text
+                    style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}
+                  >
+                    {addingCustomer
+                      ? t("newSale.addingCustomer")
+                      : t("newSale.addCustomer")}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -900,7 +878,7 @@ export default function NewSaleScreen() {
                     setNewCustPhone("");
                   }}
                   style={[
-                    styles.badgeBtn,
+                    styles.inlineFormBtn,
                     {
                       backgroundColor: colors.surface,
                       borderWidth: 1,
@@ -908,8 +886,14 @@ export default function NewSaleScreen() {
                     },
                   ]}
                 >
-                  <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: "600" }}>
-                    Cancel
+                  <Text
+                    style={{
+                      color: colors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {t("cancel")}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -920,10 +904,10 @@ export default function NewSaleScreen() {
         {/* Price Tier */}
         <View style={styles.fieldGroup}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Price Tier *{" "}
+            {t("newSale.priceTier")} *{" "}
             {isPriceTierLocked && (
               <Text style={{ fontSize: 11, color: colors.textMuted }}>
-                (locked for this customer)
+                {t("newSale.priceTierLocked")}
               </Text>
             )}
           </Text>
@@ -948,8 +932,8 @@ export default function NewSaleScreen() {
               {priceTierId
                 ? tiers.find(
                     (t) => (t.id || t.local_id || t.server_id) === priceTierId,
-                  )?.name || "Selected Tier"
-                : "Select Tier"}
+                  )?.name || t("newSale.selectTier")
+                : t("newSale.selectTier")}
             </Text>
             <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
           </TouchableOpacity>
@@ -959,29 +943,23 @@ export default function NewSaleScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-              Items *
+              {t("newSale.items")} *
             </Text>
-            <TouchableOpacity onPress={() => openBeveragePickerForLine()}>
-              <Text style={[styles.addText, { color: colors.primary }]}>+ Add Item</Text>
-            </TouchableOpacity>
           </View>
 
           {lines.length === 0 ? (
-            <TouchableOpacity
-              style={[
-                styles.addFirstItemBtn,
-                { borderColor: colors.border, backgroundColor: colors.surface },
-              ]}
-              onPress={() => {
-                addLine();
-                openBeveragePickerForLine();
-              }}
-            >
-              <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-              <Text style={[styles.addFirstItemText, { color: colors.primary }]}>
-                Add first item
+            <View style={styles.emptyState}>
+              <Ionicons
+                name="cube-outline"
+                size={20}
+                color={colors.textMuted}
+              />
+              <Text
+                style={[styles.addFirstItemText, { color: colors.textMuted }]}
+              >
+                {t("newSale.addFirstItem")}
               </Text>
-            </TouchableOpacity>
+            </View>
           ) : (
             lines.map((line, idx) => {
               const price = getPriceForBeverage(line.beverageId);
@@ -994,7 +972,10 @@ export default function NewSaleScreen() {
                   key={idx}
                   style={[
                     styles.lineCard,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
                   ]}
                 >
                   {/* Beverage + remove */}
@@ -1016,46 +997,72 @@ export default function NewSaleScreen() {
                       >
                         {selBev
                           ? `${selBev.name}${selBev.brand ? ` (${selBev.brand})` : ""}`
-                          : "Select beverage"}
+                          : t("newSale.selectBeverage")}
                       </Text>
-                      <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
+                      <Ionicons
+                        name="chevron-down"
+                        size={14}
+                        color={colors.textMuted}
+                      />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => removeLine(idx)} hitSlop={8}>
-                      <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                    <TouchableOpacity
+                      onPress={() => removeLine(idx)}
+                      hitSlop={8}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={18}
+                        color={colors.danger}
+                      />
                     </TouchableOpacity>
                   </View>
 
                   {/* Qty + Total row */}
                   <View style={styles.lineQtyRow}>
                     <View style={styles.qtyField}>
-                      <Text style={[styles.qtyLabel, { color: colors.textMuted }]}>
-                        Boxes
+                      <Text
+                        style={[styles.qtyLabel, { color: colors.textMuted }]}
+                      >
+                        {t("newSale.boxes")}
                       </Text>
                       <QtyStepper
                         value={line.boxes}
                         text={line.boxesText}
-                        onChange={(v, n) => updateLine(idx, { boxesText: v, boxes: n })}
+                        onChange={(v, n) =>
+                          updateLine(idx, { boxesText: v, boxes: n })
+                        }
                         onBlur={() => maybeFoldBottlesIntoBoxes(idx)}
                         min={0}
                       />
                     </View>
                     <View style={styles.qtyField}>
-                      <Text style={[styles.qtyLabel, { color: colors.textMuted }]}>
-                        Bottles
+                      <Text
+                        style={[styles.qtyLabel, { color: colors.textMuted }]}
+                      >
+                        {t("newSale.bottles")}
                       </Text>
                       <QtyStepper
                         value={line.bottles}
                         text={line.bottlesText}
-                        onChange={(v, n) => updateLine(idx, { bottlesText: v, bottles: n })}
+                        onChange={(v, n) =>
+                          updateLine(idx, { bottlesText: v, bottles: n })
+                        }
                         onBlur={() => maybeFoldBottlesIntoBoxes(idx)}
                         min={0}
                       />
                     </View>
                     <View style={styles.qtyField}>
-                      <Text style={[styles.qtyLabel, { color: colors.textMuted }]}>
-                        Total
+                      <Text
+                        style={[styles.qtyLabel, { color: colors.textMuted }]}
+                      >
+                        {t("newSale.subtotal")}
                       </Text>
-                      <Text style={[styles.lineTotalText, { color: colors.textPrimary }]}>
+                      <Text
+                        style={[
+                          styles.lineTotalText,
+                          { color: colors.textPrimary },
+                        ]}
+                      >
                         {(lineTotal / 100).toLocaleString()}
                       </Text>
                     </View>
@@ -1063,35 +1070,49 @@ export default function NewSaleScreen() {
 
                   {/* Price info */}
                   {price && (
-                    <Text style={[styles.priceInfo, { color: colors.textMuted }]}>
-                      {(price.pricePerBoxCents / 100).toLocaleString()}/box ·{" "}
-                      {(price.pricePerBottleCents / 100).toLocaleString()}/btl
+                    <Text
+                      style={[styles.priceInfo, { color: colors.textMuted }]}
+                    >
+                      {(price.pricePerBoxCents / 100).toLocaleString()}{t("newSale.pricePerBox")} ·{" "}
+                      {(price.pricePerBottleCents / 100).toLocaleString()}{t("newSale.pricePerBottle")}
                     </Text>
                   )}
                   {line.beverageId && !price && (
                     <Text style={[styles.noPrice, { color: colors.warning }]}>
-                      No price set for this tier
+                      {t("newSale.noPriceSet")}
                     </Text>
                   )}
                 </View>
               );
             })
           )}
+          <TouchableOpacity
+            style={[
+              styles.addBtn,
+              {
+                borderColor: colors.primary,
+                backgroundColor: colors.primary + "10",
+              },
+            ]}
+            onPress={() => openBeveragePickerForLine()}
+          >
+            <Ionicons name="add" size={18} color={colors.primary} />
+            <Text style={[styles.addBtnText, { color: colors.primary }]}>
+              {t("newSale.addItem")}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Container Kasa Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-              Container Kasa
+              {t("newSale.containerKasaSection")}
             </Text>
-            <TouchableOpacity onPress={addContainerKasa}>
-              <Text style={[styles.addText, { color: colors.primary }]}>+ Add</Text>
-            </TouchableOpacity>
           </View>
           {totalBottles >= 24 && (
             <Text style={[styles.hint, { color: colors.textMuted }]}>
-              {totalBottles} loose bottles — specify the container box type.
+              {totalBottles} {t("newSale.containerKasaHint")}
             </Text>
           )}
           {containerKasas.map((kasa, idx) => {
@@ -1103,14 +1124,20 @@ export default function NewSaleScreen() {
                 key={idx}
                 style={[
                   styles.kasaCard,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
                 ]}
               >
                 <View style={styles.kasaRow}>
                   <TouchableOpacity
                     style={[
                       styles.kasaSelector,
-                      { borderColor: colors.border, backgroundColor: colors.background },
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                      },
                     ]}
                     onPress={() => openKasaPicker(idx)}
                   >
@@ -1127,9 +1154,13 @@ export default function NewSaleScreen() {
                     >
                       {selectedBev
                         ? `${selectedBev.name}${selectedBev.brand ? ` (${selectedBev.brand})` : ""}`
-                        : "Select box type"}
+                        : t("newSale.selectKasaType")}
                     </Text>
-                    <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
+                    <Ionicons
+                      name="chevron-down"
+                      size={14}
+                      color={colors.textMuted}
+                    />
                   </TouchableOpacity>
                   <View style={styles.kasaCountWrap}>
                     <QtyStepper
@@ -1144,27 +1175,46 @@ export default function NewSaleScreen() {
                       min={1}
                     />
                   </View>
-                  <TouchableOpacity onPress={() => removeContainerKasa(idx)} hitSlop={8}>
-                    <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                  <TouchableOpacity
+                    onPress={() => removeContainerKasa(idx)}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={colors.danger}
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
             );
           })}
+          <TouchableOpacity
+            style={[
+              styles.addBtn,
+              {
+                borderColor: colors.primary,
+                backgroundColor: colors.primary + "10",
+              },
+            ]}
+            onPress={addContainerKasa}
+          >
+            <Ionicons name="add" size={18} color={colors.primary} />
+            <Text style={[styles.addBtnText, { color: colors.primary }]}>
+              {t("newSale.addContainerKasa")}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Returned Containers Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-              Returned Containers
+              {t("newSale.returnedContainersSection")}
             </Text>
-            <TouchableOpacity onPress={addReturnedContainer}>
-              <Text style={[styles.addText, { color: colors.primary }]}>+ Add</Text>
-            </TouchableOpacity>
           </View>
           <Text style={[styles.hint, { color: colors.textMuted }]}>
-            Containers returned by the customer with this sale.
+            {t("newSale.returnedContainersHint")}
           </Text>
           {returnedContainers.map((ret, idx) => {
             const selectedBev = beverages.find(
@@ -1175,14 +1225,20 @@ export default function NewSaleScreen() {
                 key={idx}
                 style={[
                   styles.kasaCard,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
                 ]}
               >
                 <View style={styles.kasaRow}>
                   <TouchableOpacity
                     style={[
                       styles.kasaSelector,
-                      { borderColor: colors.border, backgroundColor: colors.background },
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                      },
                     ]}
                     onPress={() => openReturnPicker(idx)}
                   >
@@ -1199,18 +1255,31 @@ export default function NewSaleScreen() {
                     >
                       {selectedBev
                         ? `${selectedBev.name}${selectedBev.brand ? ` (${selectedBev.brand})` : ""}`
-                        : "Select beverage"}
+                        : t("newSale.selectReturnType")}
                     </Text>
-                    <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
+                    <Ionicons
+                      name="chevron-down"
+                      size={14}
+                      color={colors.textMuted}
+                    />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => removeReturnedContainer(idx)} hitSlop={8}>
-                    <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                  <TouchableOpacity
+                    onPress={() => removeReturnedContainer(idx)}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={colors.danger}
+                    />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.returnQtyRow}>
                   <View style={styles.qtyField}>
-                    <Text style={[styles.qtyLabel, { color: colors.textMuted }]}>
-                      Boxes
+                    <Text
+                      style={[styles.qtyLabel, { color: colors.textMuted }]}
+                    >
+                      {t("newSale.returnBoxes")}
                     </Text>
                     <QtyStepper
                       value={ret.boxes}
@@ -1225,8 +1294,10 @@ export default function NewSaleScreen() {
                     />
                   </View>
                   <View style={styles.qtyField}>
-                    <Text style={[styles.qtyLabel, { color: colors.textMuted }]}>
-                      Bottles
+                    <Text
+                      style={[styles.qtyLabel, { color: colors.textMuted }]}
+                    >
+                      {t("newSale.returnBottles")}
                     </Text>
                     <QtyStepper
                       value={ret.bottles}
@@ -1244,6 +1315,21 @@ export default function NewSaleScreen() {
               </View>
             );
           })}
+          <TouchableOpacity
+            style={[
+              styles.addBtn,
+              {
+                borderColor: colors.primary,
+                backgroundColor: colors.primary + "10",
+              },
+            ]}
+            onPress={addReturnedContainer}
+          >
+            <Ionicons name="add" size={18} color={colors.primary} />
+            <Text style={[styles.addBtnText, { color: colors.primary }]}>
+              {t("newSale.addReturn")}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Live Totals Card */}
@@ -1254,11 +1340,11 @@ export default function NewSaleScreen() {
           ]}
         >
           <Text style={[styles.totalsLabel, { color: colors.textMuted }]}>
-            Total
+            {t("total")}
           </Text>
           <View style={styles.totalsRow}>
             <Text style={[styles.totalsKey, { color: colors.textSecondary }]}>
-              Subtotal
+              {t("newSale.subtotal")}
             </Text>
             <Text style={[styles.totalsVal, { color: colors.textPrimary }]}>
               {(subtotalCents / 100).toLocaleString()} Br
@@ -1266,16 +1352,18 @@ export default function NewSaleScreen() {
           </View>
           <View style={styles.totalsRow}>
             <Text style={[styles.totalsKey, { color: colors.textSecondary }]}>
-              Paid
+              {t("newSale.paid")}
             </Text>
             <Text style={[styles.totalsVal, { color: colors.textPrimary }]}>
               {(paidCents / 100).toLocaleString()} Br
             </Text>
           </View>
-          <View style={[styles.totalsDivider, { backgroundColor: colors.border }]} />
+          <View
+            style={[styles.totalsDivider, { backgroundColor: colors.border }]}
+          />
           <View style={styles.totalsRow}>
             <Text style={[styles.totalsKey, { color: colors.textSecondary }]}>
-              Credit
+              {t("newSale.creditDelta")}
             </Text>
             <Text
               style={[
@@ -1300,13 +1388,8 @@ export default function NewSaleScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-              Payments
+              {t("payments")}
             </Text>
-            <TouchableOpacity onPress={addPaymentRow}>
-              <Text style={[styles.addText, { color: colors.primary }]}>
-                + Add Payment
-              </Text>
-            </TouchableOpacity>
           </View>
           {paymentRows.map((row, idx) => (
             <View
@@ -1361,23 +1444,49 @@ export default function NewSaleScreen() {
                           (a) =>
                             (a.id || a.server_id || a.local_id) ===
                             row.paymentAccountId,
-                        )?.name || "Account"
-                      : "Account"}
+                        )?.name || t("newSale.selectAccount")
+                      : t("newSale.selectAccount")}
                   </Text>
-                  <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
+                  <Ionicons
+                    name="chevron-down"
+                    size={14}
+                    color={colors.textMuted}
+                  />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => removePaymentRow(idx)} hitSlop={8}>
-                  <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                <TouchableOpacity
+                  onPress={() => removePaymentRow(idx)}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={18}
+                    color={colors.danger}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
           ))}
+          <TouchableOpacity
+            style={[
+              styles.addBtn,
+              {
+                borderColor: colors.primary,
+                backgroundColor: colors.primary + "10",
+              },
+            ]}
+            onPress={addPaymentRow}
+          >
+            <Ionicons name="add" size={18} color={colors.primary} />
+            <Text style={[styles.addBtnText, { color: colors.primary }]}>
+              {t("addPayment")}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Notes */}
         <View style={styles.fieldGroup}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Notes
+            {t("notes")}
           </Text>
           <TextInput
             style={[
@@ -1388,7 +1497,7 @@ export default function NewSaleScreen() {
                 borderColor: colors.border,
               },
             ]}
-            placeholder="Optional notes..."
+            placeholder={t("optionalNotes")}
             placeholderTextColor={colors.textMuted}
             multiline
             value={notes}
@@ -1397,7 +1506,8 @@ export default function NewSaleScreen() {
         </View>
 
         {/* Apply Credit Toggle */}
-        {selectedCustomer && custVal(selectedCustomer, "credit_balance_cents") > 0 ? (
+        {selectedCustomer &&
+        custVal(selectedCustomer, "credit_balance_cents") > 0 ? (
           <TouchableOpacity
             style={styles.creditRow}
             onPress={() => setApplyCredit(!applyCredit)}
@@ -1411,11 +1521,15 @@ export default function NewSaleScreen() {
                 },
               ]}
             >
-              {applyCredit && <Ionicons name="checkmark" size={14} color="#fff" />}
+              {applyCredit && (
+                <Ionicons name="checkmark" size={14} color="#fff" />
+              )}
             </View>
             <Text style={[styles.creditText, { color: colors.textPrimary }]}>
-              Apply existing credit (
-              {((custVal(selectedCustomer, "credit_balance_cents") ?? 0) / 100).toLocaleString()}{" "}
+              {t("newSale.applyExistingCredit")} (
+              {(
+                (custVal(selectedCustomer, "credit_balance_cents") ?? 0) / 100
+              ).toLocaleString()}{" "}
               Br)
             </Text>
           </TouchableOpacity>
@@ -1433,10 +1547,12 @@ export default function NewSaleScreen() {
                 },
               ]}
             >
-              {applyCredit && <Ionicons name="checkmark" size={14} color="#fff" />}
+              {applyCredit && (
+                <Ionicons name="checkmark" size={14} color="#fff" />
+              )}
             </View>
             <Text style={[styles.creditText, { color: colors.textPrimary }]}>
-              Apply customer credit
+              {t("newSale.applyCustomerCredit")}
             </Text>
           </TouchableOpacity>
         ) : null}
@@ -1446,30 +1562,40 @@ export default function NewSaleScreen() {
           <View
             style={[
               styles.projectedCard,
-              { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+              {
+                backgroundColor: colors.surfaceMuted,
+                borderColor: colors.border,
+              },
             ]}
           >
-            <Text style={[styles.projectedTitle, { color: colors.textSecondary }]}>
-              Projected balances for {selectedCustomer.name}
+            <Text
+              style={[styles.projectedTitle, { color: colors.textSecondary }]}
+            >
+              {t("newSale.projectedBalancesFor")} {selectedCustomer.name}
             </Text>
             <View style={styles.totalsRow}>
               <Text style={[styles.totalsKey, { color: colors.textSecondary }]}>
-                Current credit
+                {t("newSale.currentCredit")}
               </Text>
               <Text style={[styles.totalsVal, { color: colors.textPrimary }]}>
-                {((custVal(selectedCustomer, "credit_balance_cents") ?? 0) / 100).toLocaleString()} Br
+                {(
+                  (custVal(selectedCustomer, "credit_balance_cents") ?? 0) / 100
+                ).toLocaleString()}{" "}
+                Br
               </Text>
             </View>
             <View style={styles.totalsRow}>
               <Text style={[styles.totalsKey, { color: colors.textSecondary }]}>
-                After this sale
+                {t("newSale.afterThisSale")}
               </Text>
               <Text
                 style={[
                   styles.totalsVal,
                   {
                     color:
-                      (custVal(selectedCustomer, "credit_balance_cents") ?? 0) + creditDelta > 0
+                      (custVal(selectedCustomer, "credit_balance_cents") ?? 0) +
+                        creditDelta >
+                      0
                         ? colors.danger
                         : colors.success,
                     fontWeight: "600",
@@ -1477,34 +1603,69 @@ export default function NewSaleScreen() {
                 ]}
               >
                 {(
-                  ((custVal(selectedCustomer, "credit_balance_cents") ?? 0) + creditDelta) /
+                  ((custVal(selectedCustomer, "credit_balance_cents") ?? 0) +
+                    creditDelta) /
                   100
                 ).toLocaleString()}{" "}
                 Br
               </Text>
             </View>
-            <View style={[styles.totalsDivider, { backgroundColor: colors.border }]} />
+            <View
+              style={[styles.totalsDivider, { backgroundColor: colors.border }]}
+            />
             <View style={styles.totalsRow}>
-              <Text style={[styles.totalsKey, { color: colors.textSecondary, fontSize: 12 }]}>
-                Boxes outstanding
+              <Text
+                style={[
+                  styles.totalsKey,
+                  { color: colors.textSecondary, fontSize: 12 },
+                ]}
+              >
+                {t("newSale.boxesOutstanding")}
               </Text>
-              <Text style={[styles.totalsVal, { color: colors.textPrimary, fontSize: 13 }]}>
+              <Text
+                style={[
+                  styles.totalsVal,
+                  { color: colors.textPrimary, fontSize: 13 },
+                ]}
+              >
                 {(() => {
-                  const kasaBoxes = containerKasas.reduce((s, k) => s + (k.count || 0), 0);
-                  const lineBoxes = lines.reduce((s, l) => s + (l.boxes || 0), 0);
-                  const retBoxes = returnedContainers.reduce((s, r) => s + (r.boxes || 0), 0);
-                  const current = custVal(selectedCustomer, "outstanding_boxes") ?? 0;
+                  const kasaBoxes = containerKasas.reduce(
+                    (s, k) => s + (k.count || 0),
+                    0,
+                  );
+                  const lineBoxes = lines.reduce(
+                    (s, l) => s + (l.boxes || 0),
+                    0,
+                  );
+                  const retBoxes = returnedContainers.reduce(
+                    (s, r) => s + (r.boxes || 0),
+                    0,
+                  );
+                  const current =
+                    custVal(selectedCustomer, "outstanding_boxes") ?? 0;
                   const projected = current + lineBoxes + kasaBoxes - retBoxes;
                   const delta = lineBoxes + kasaBoxes - retBoxes;
-                  return delta !== 0 ? `${current} → ${projected}` : String(current);
+                  return delta !== 0
+                    ? `${current} → ${projected}`
+                    : String(current);
                 })()}
               </Text>
             </View>
             <View style={styles.totalsRow}>
-              <Text style={[styles.totalsKey, { color: colors.textSecondary, fontSize: 12 }]}>
-                Bottles outstanding
+              <Text
+                style={[
+                  styles.totalsKey,
+                  { color: colors.textSecondary, fontSize: 12 },
+                ]}
+              >
+                {t("newSale.bottlesOutstanding")}
               </Text>
-              <Text style={[styles.totalsVal, { color: colors.textPrimary, fontSize: 13 }]}>
+              <Text
+                style={[
+                  styles.totalsVal,
+                  { color: colors.textPrimary, fontSize: 13 },
+                ]}
+              >
                 {custVal(selectedCustomer, "outstanding_bottles") ?? 0}
               </Text>
             </View>
@@ -1521,10 +1682,13 @@ export default function NewSaleScreen() {
       >
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          style={[styles.footerBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          style={[
+            styles.footerBtn,
+            { borderColor: colors.border, backgroundColor: colors.surface },
+          ]}
         >
           <Text style={[styles.footerBtnText, { color: colors.textPrimary }]}>
-            Cancel
+            {t("cancel")}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -1540,7 +1704,7 @@ export default function NewSaleScreen() {
           ]}
         >
           <Text style={[styles.footerBtnText, { color: colors.textPrimary }]}>
-            {submitting && saving === "draft" ? "Saving..." : "Save Draft"}
+            {submitting && saving === "draft" ? t("saving") : t("newSale.saveDraft")}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -1552,7 +1716,7 @@ export default function NewSaleScreen() {
           ]}
         >
           <Text style={[styles.footerBtnPrimaryText, { color: "#fff" }]}>
-            {submitting && saving === "confirm" ? "Saving..." : "Confirm Sale"}
+            {submitting && saving === "confirm" ? t("saving") : t("newSale.confirmSale")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1565,8 +1729,31 @@ export default function NewSaleScreen() {
       ) : (
         <>
           <PickerSheet
+            visible={showCustomerPicker}
+            title={t("newSale.selectCustomer")}
+            items={customers.map((c) => ({
+              id: c.id || c.server_id || c.local_id,
+              label: c.name,
+              subtitle: c.phone || undefined,
+            }))}
+            selectedId={customerId}
+            onSelect={(item) => {
+              const c = customers.find(
+                (x) => (x.id || x.server_id || x.local_id) === item.id,
+              );
+              setCustomerId(item.id);
+              const cTier = c?.priceTierId ?? c?.price_tier_id;
+              if (cTier && !isPriceTierLocked) {
+                setPriceTierId(cTier);
+              }
+              setShowCustomerPicker(false);
+            }}
+            onClose={() => setShowCustomerPicker(false)}
+          />
+
+          <PickerSheet
             visible={showTierPicker}
-            title="Select Price Tier"
+            title={t("newSale.selectTier")}
             items={tiers.map((t) => ({
               id: t.id || t.local_id || t.server_id,
               label: t.name,
@@ -1581,7 +1768,7 @@ export default function NewSaleScreen() {
 
           <PickerSheet
             visible={showBeveragePicker}
-            title="Select Beverage"
+            title={t("newSale.pickerBeverage")}
             items={beverages.map((b) => ({
               id: b.id || b.local_id,
               label: b.name,
@@ -1596,7 +1783,7 @@ export default function NewSaleScreen() {
 
           <PickerSheet
             visible={showKasaPicker}
-            title="Select Box Type"
+            title={t("newSale.selectKasaType")}
             items={beverages.map((b) => ({
               id: b.id || b.local_id,
               label: b.name,
@@ -1611,7 +1798,7 @@ export default function NewSaleScreen() {
 
           <PickerSheet
             visible={showReturnPicker}
-            title="Select Beverage for Return"
+            title={t("newSale.pickerReturn")}
             items={beverages.map((b) => ({
               id: b.id || b.local_id,
               label: b.name,
@@ -1626,7 +1813,7 @@ export default function NewSaleScreen() {
 
           <PickerSheet
             visible={showAccountPicker !== null}
-            title="Select Account"
+            title={t("newSale.selectAccount")}
             items={accounts.map((a) => ({
               id: a.id || a.server_id || a.local_id,
               label: a.name,
@@ -1668,6 +1855,18 @@ const styles = StyleSheet.create({
   },
   headerTitle: { ...type.h3 },
   scrollContent: { paddingBottom: spacing[10], paddingHorizontal: spacing[5] },
+
+  emptyState: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: spacing[2],
+    padding: spacing[2],
+    borderWidth: 0.1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    gap: spacing[2],
+  },
 
   // ─── Fields ──────────────────────────────────────────────────────────────────
   fieldGroup: { marginTop: spacing[5] },
@@ -1745,6 +1944,28 @@ const styles = StyleSheet.create({
   },
   inlineFormTitle: { ...type.caption, fontWeight: "600" },
   inlineFormActions: { flexDirection: "row", gap: spacing[2] },
+  inlineFormBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing[1],
+    paddingVertical: spacing[3],
+    borderRadius: radius.md,
+  },
+  newCustBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[1],
+    borderWidth: 1,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    borderRadius: radius.md,
+  },
+  newCustBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
   badgeBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1801,9 +2022,27 @@ const styles = StyleSheet.create({
   lineQtyRow: { flexDirection: "row", gap: spacing[2] },
   qtyField: { flex: 1 },
   qtyLabel: { ...type.micro, marginBottom: 4 },
-  lineTotalText: { ...type.bodyBold, marginTop: spacing[3], textAlign: "center" },
+  lineTotalText: {
+    ...type.bodyBold,
+    marginTop: spacing[3],
+    textAlign: "center",
+  },
   priceInfo: { ...type.micro, marginTop: spacing[1] },
   noPrice: { ...type.micro, marginTop: spacing[1] },
+
+  // ─── Add buttons ─────────────────────────────────────────────────────────────
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing[2],
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: radius.lg,
+    paddingVertical: spacing[3],
+    marginTop: spacing[2],
+  },
+  addBtnText: { ...type.bodyBold, fontSize: 13 },
 
   // ─── Stepper ─────────────────────────────────────────────────────────────────
   stepperRow: {
@@ -1939,7 +2178,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: spacing[4],
   },
-  projectedTitle: { ...type.caption, fontWeight: "600", marginBottom: spacing[2] },
+  projectedTitle: {
+    ...type.caption,
+    fontWeight: "600",
+    marginBottom: spacing[2],
+  },
 
   // ─── Footer ──────────────────────────────────────────────────────────────────
   footer: {

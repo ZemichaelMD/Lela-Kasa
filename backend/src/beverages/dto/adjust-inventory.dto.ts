@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, IsEnum, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsEnum } from 'class-validator';
 
 export enum InventoryReason {
   PURCHASE = 'PURCHASE',
@@ -13,13 +13,11 @@ export class AdjustInventoryDto {
 
   @IsOptional()
   @IsInt()
-  @Min(0)
-  declare emptyBoxesDelta?: number;
+  emptyBoxesDelta?: number;
 
   @IsOptional()
   @IsInt()
-  @Min(0)
-  declare emptyBottlesDelta?: number;
+  emptyBottlesDelta?: number;
 
   @IsEnum(InventoryReason)
   declare reason: InventoryReason;

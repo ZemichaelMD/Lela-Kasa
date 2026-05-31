@@ -133,8 +133,8 @@ export default function CustomerPortalPage() {
                 const isPayment = entry.type === 'payment';
                 const Icon = isPayment ? Coins : Banknote;
                 const toneClass = isPayment ? 'bg-success/15 text-success' : 'bg-primary/10 text-primary';
-                return (
-                  <div key={`${entry.type}-${entry.id}-${i}`} className="flex items-start gap-3 rounded-lg border border-border p-3">
+                const content = (
+                  <>
                     <div className={`rounded-lg p-2 mt-0.5 ${toneClass}`}><Icon className="h-4 w-4" /></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium capitalize">{entry.type === 'payment' ? t('payment') : t('sale')}</p>
@@ -145,7 +145,23 @@ export default function CustomerPortalPage() {
                       {!isPayment && <p className={`text-sm font-semibold tabular-nums ${entry.status === 'CONFIRMED' ? 'text-destructive' : ''}`}>{formatMoneyCents(entry.subtotalCents)}</p>}
                       {isPayment && <p className="text-sm font-semibold text-success tabular-nums">+{formatMoneyCents(entry.amountCents)}</p>}
                     </div>
-                  </div>
+                  </>
+                );
+                if (isPayment) {
+                  return (
+                    <div key={`${entry.type}-${entry.id}-${i}`} className="flex items-start gap-3 rounded-lg border border-border p-3">
+                      {content}
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    key={`${entry.type}-${entry.id}-${i}`}
+                    onClick={() => navigate(`/customer-portal/${customerId}/sales/${entry.id}`)}
+                    className="flex w-full items-start gap-3 rounded-lg border border-border p-3 text-left active:bg-accent/30 hover:bg-accent/10 transition-colors"
+                  >
+                    {content}
+                  </button>
                 );
               })}
             </div>

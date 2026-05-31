@@ -23,10 +23,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Card, EthiopianDateInput, FormattedDate, Skeleton, useFormattedDate } from "@/ui";
+import {
+  Card,
+  EthiopianDateInput,
+  FormattedDate,
+  Skeleton,
+  useFormattedDate,
+} from "@/ui";
 import { PageHeader } from "@/components/page-header";
 import { useI18n } from "@/lib/i18n";
-import { toEth, ethMonths } from "@/lib/ethiopian-date-utils";
+import { toEth } from "@/lib/ethiopian-date-utils";
 import { sdk } from "@/lib/sdk";
 import type { DashboardData, Employee } from "@/sdk";
 import { formatMoneyCents } from "@/utils/money";
@@ -50,7 +56,14 @@ interface SalesSummary {
 // ── Palette ────────────────────────────────────────────────────────────────────
 
 const BRAND = "#096136";
-const PALETTE = ["#096136", "#237e56", "#349e6f", "#5bbd90", "#91d7b3", "#c2ead2"];
+const PALETTE = [
+  "#096136",
+  "#237e56",
+  "#349e6f",
+  "#5bbd90",
+  "#91d7b3",
+  "#c2ead2",
+];
 
 // ── Date helpers ───────────────────────────────────────────────────────────────
 
@@ -178,10 +191,14 @@ function KpiCard({
   }
 
   const inner = (
-    <Card className={`p-5 flex flex-col gap-3 ${href ? "hover:border-primary/40 transition-colors" : ""}`}>
+    <Card
+      className={`p-5 flex flex-col gap-3 ${href ? "hover:border-primary/40 transition-colors" : ""}`}
+    >
       <div className="flex items-start justify-between">
         <p className="text-sm text-muted-foreground leading-none">{label}</p>
-        <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${c.bg} ${c.text} shrink-0`}>
+        <span
+          className={`flex h-9 w-9 items-center justify-center rounded-lg ${c.bg} ${c.text} shrink-0`}
+        >
           <Icon className="h-4 w-4" />
         </span>
       </div>
@@ -240,9 +257,7 @@ function SalesTrendChart({
         if (!active || !payload?.length) return null;
         return (
           <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-lg text-xs">
-            <p className="font-semibold mb-1">
-              {label ? fmtDate(label) : ""}
-            </p>
+            <p className="font-semibold mb-1">{label ? fmtDate(label) : ""}</p>
             {payload.map((p) => (
               <p key={p.dataKey} style={{ color: p.color }}>
                 {p.dataKey === "amountCents"
@@ -260,7 +275,7 @@ function SalesTrendChart({
     return (
       <Card className="p-5">
         <Skeleton className="h-4 w-40 mb-4" />
-        <Skeleton className="h-[220px] w-full rounded-lg" />
+        <Skeleton className="h-55 w-full rounded-lg" />
       </Card>
     );
   }
@@ -285,7 +300,7 @@ function SalesTrendChart({
       </div>
 
       {data.length === 0 ? (
-        <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+        <div className="flex h-55 items-center justify-center text-sm text-muted-foreground">
           {t("noData")}
         </div>
       ) : (
@@ -300,7 +315,11 @@ function SalesTrendChart({
                 <stop offset="95%" stopColor={BRAND} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#e4e4e7"
+              vertical={false}
+            />
             <XAxis
               dataKey="date"
               tickFormatter={fmtAxisTick}
@@ -312,7 +331,9 @@ function SalesTrendChart({
             <YAxis
               tickFormatter={(v) => {
                 const birr = v / 100;
-                return birr >= 1000 ? `${(birr / 1000).toFixed(0)}k` : String(Math.round(birr));
+                return birr >= 1000
+                  ? `${(birr / 1000).toFixed(0)}k`
+                  : String(Math.round(birr));
               }}
               tick={{ fontSize: 10, fill: "#71717a" }}
               axisLine={false}
@@ -326,7 +347,11 @@ function SalesTrendChart({
               stroke={BRAND}
               strokeWidth={2}
               fill="url(#salesGrad)"
-              dot={data.length <= 14 ? { fill: BRAND, r: 3, strokeWidth: 0 } : false}
+              dot={
+                data.length <= 14
+                  ? { fill: BRAND, r: 3, strokeWidth: 0 }
+                  : false
+              }
               activeDot={{ r: 5, fill: BRAND, strokeWidth: 0 }}
             />
           </AreaChart>
@@ -375,7 +400,7 @@ function TopBeveragesChart({
     return (
       <Card className="p-5">
         <Skeleton className="h-4 w-32 mb-4" />
-        <Skeleton className="h-[160px] w-full rounded-full mx-auto" />
+        <Skeleton className="h-40 w-full rounded-full mx-auto" />
         <div className="mt-3 space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-3 w-full" />
@@ -385,7 +410,11 @@ function TopBeveragesChart({
     );
   }
 
-  const pieData = data.map((b) => ({ id: b.id, name: b.name, value: b.totalBoxes ?? 0 }));
+  const pieData = data.map((b) => ({
+    id: b.id,
+    name: b.name,
+    value: b.totalBoxes ?? 0,
+  }));
 
   return (
     <Card className="p-5">
@@ -397,7 +426,7 @@ function TopBeveragesChart({
       </div>
 
       {pieData.length === 0 ? (
-        <div className="flex h-[160px] items-center justify-center text-sm text-muted-foreground">
+        <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
           {t("noData")}
         </div>
       ) : (
@@ -423,7 +452,10 @@ function TopBeveragesChart({
           </ResponsiveContainer>
           <ul className="mt-2 space-y-2">
             {pieData.map((d, i) => (
-              <li key={d.id} className="flex items-center justify-between text-xs gap-2">
+              <li
+                key={d.id}
+                className="flex items-center justify-between text-xs gap-2"
+              >
                 <Link
                   to={`/beverages/${d.id}`}
                   className="flex items-center gap-1.5 min-w-0 group"
@@ -574,7 +606,9 @@ function LowStockWidget({
                   <span className="font-medium truncate mr-2">{b.name}</span>
                   <span
                     className={`tabular-nums shrink-0 ${
-                      isCritical ? "text-destructive font-semibold" : "text-muted-foreground"
+                      isCritical
+                        ? "text-destructive font-semibold"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {b.stockBottles} {t("bottles").toLowerCase()}
@@ -641,7 +675,9 @@ function RecentVoidsWidget({
                       {v.customerName ?? "·"}
                     </Link>
                   ) : (
-                    <span className="text-sm font-medium">{v.customerName ?? "·"}</span>
+                    <span className="text-sm font-medium">
+                      {v.customerName ?? "·"}
+                    </span>
                   )}
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>
@@ -650,8 +686,7 @@ function RecentVoidsWidget({
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {t("voidedAt")}:{" "}
-                    <FormattedDate iso={v.voidedAt} showTime />
+                    {t("voidedAt")}: <FormattedDate iso={v.voidedAt} showTime />
                   </div>
                 </div>
                 <div className="shrink-0 text-right space-y-0.5">
@@ -707,7 +742,10 @@ export default function DashboardPage() {
         }
       }
       try {
-        const d = await sdk.dashboard.getDashboard("month", filterCreatedById || undefined);
+        const d = await sdk.dashboard.getDashboard(
+          "month",
+          filterCreatedById || undefined,
+        );
         if (!cancelled) {
           setDashData(d);
           setLoading(false);
@@ -727,7 +765,10 @@ export default function DashboardPage() {
 
   // Load employees for filter
   useEffect(() => {
-    sdk.employees.list().then(setEmployees).catch(() => {});
+    sdk.employees
+      .list()
+      .then(setEmployees)
+      .catch(() => {});
   }, []);
 
   // Sync dates when preset mode changes
@@ -870,7 +911,11 @@ export default function DashboardPage() {
           value={(dashData?.lowStockBeverages?.length ?? 0).toLocaleString()}
           sub={t("belowThreshold")}
           icon={AlertTriangle}
-          color={(dashData?.lowStockBeverages?.length ?? 0) > 0 ? "danger" : "success"}
+          color={
+            (dashData?.lowStockBeverages?.length ?? 0) > 0
+              ? "danger"
+              : "success"
+          }
           loading={loading}
         />
       </div>
@@ -884,13 +929,22 @@ export default function DashboardPage() {
             title={`${t("salesTrend")} · ${trendLabel}`}
           />
         </div>
-        <TopBeveragesChart loading={loading} data={dashData?.topBeverages ?? []} />
+        <TopBeveragesChart
+          loading={loading}
+          data={dashData?.topBeverages ?? []}
+        />
       </div>
 
       {/* Top customers + Low stock */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <TopCustomersList loading={loading} data={dashData?.topCustomers ?? []} />
-        <LowStockWidget loading={loading} data={dashData?.lowStockBeverages ?? []} />
+        <TopCustomersList
+          loading={loading}
+          data={dashData?.topCustomers ?? []}
+        />
+        <LowStockWidget
+          loading={loading}
+          data={dashData?.lowStockBeverages ?? []}
+        />
       </div>
 
       {/* Recent voids */}

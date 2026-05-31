@@ -1,4 +1,4 @@
-import { BaseRepository, BaseMetadata } from './BaseRepository';
+import { BaseRepository, BaseMetadata } from "./BaseRepository";
 
 export interface BeverageOffline extends BaseMetadata {
   shop_id: string;
@@ -6,41 +6,64 @@ export interface BeverageOffline extends BaseMetadata {
   brand?: string | null;
   bottles_per_box: number;
   stock_bottles: number;
-  isActive: number;
+  is_active: number;
 }
 
 export class BeverageRepository extends BaseRepository<BeverageOffline> {
   constructor() {
-    super('beverages');
+    super("beverages");
   }
 
-  async adjustStock(local_id: string, deltaBottles: number, reason: string): Promise<void> {
-    const beverage = await this.findById(local_id);
-    if (!beverage) throw new Error('Beverage not found');
+  async adjustStock(params: {
+    id: string;
+    shopId: string;
+    actorUserId: string;
+    deltaBottles: number;
+    reason: string;
+    notes?: string;
+  }): Promise<void> {
+    const beverage = await this.findById(params.id);
+    if (!beverage) throw new Error("Beverage not found");
 
-    const client_mutation_id = this.generateLocalId();
     const db = await this.db();
+    const now = new Date().toISOString();
 
     await db.withTransactionAsync(async () => {
       await db.runAsync(
-        `UPDATE beverages SET stock_bottles = stock_bottles + ? WHERE local_id = ?`,
-        [deltaBottles, local_id]
+        `UPDATE beverages SET stock_bottles = stock_bottles + ?, local_updated_at = ? WHERE id = ?`,
+        [params.deltaBottles, now, params.id],
       );
 
       await db.runAsync(
-        `INSERT INTO stock_movements (local_id, shop_id, beverage_id, reason, bottles_delta, sync_status)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO stock_movements (id, shop_id, beverage_id, reason, bottles_delta, notes, recorded_by_id, sync_status, local_updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           this.generateLocalId(),
-          beverage.shop_id,
-          beverage.server_id || local_id,
-          reason,
-          deltaBottles,
-          'pending'
-        ]
+          params.shopId,
+          params.id,
+          params.reason,
+          params.deltaBottles,
+          params.notes || null,
+          params.actorUserId,
+          "pending",
+          now,
+        ],
       );
 
-      await this.enqueueOutbox(local_id, 'UPDATE', { deltaBottles, reason }, client_mutation_id);
+      await this.enqueueOutbox({
+        shopId: params.shopId,
+        actorUserId: params.actorUserId,
+        entityType: "beverage",
+        entityId: params.id,
+        operation: "adjust_stock",
+        method: "POST",
+        path: `/api/v1/beverages/${params.id}/stock`,
+        body: {
+          deltaBottles: params.deltaBottles,
+          reason: params.reason,
+          notes: params.notes,
+        },
+      });
     });
   }
 }

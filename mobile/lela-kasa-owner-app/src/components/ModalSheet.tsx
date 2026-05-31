@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[6],
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   sheet: {
     borderTopLeftRadius: radius["2xl"],

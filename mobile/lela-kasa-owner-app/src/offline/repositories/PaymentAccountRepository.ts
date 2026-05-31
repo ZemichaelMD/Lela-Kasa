@@ -5,7 +5,7 @@ export interface PaymentAccountOffline extends BaseMetadata {
   name: string;
   kind: string;
   account_number?: string | null;
-  isActive: number;
+  is_active: number;
 }
 
 export class PaymentAccountRepository extends BaseRepository<PaymentAccountOffline> {
@@ -16,8 +16,8 @@ export class PaymentAccountRepository extends BaseRepository<PaymentAccountOffli
   async listActive(shopId: string): Promise<PaymentAccountOffline[]> {
     const db = await this.db();
     return await db.getAllAsync<PaymentAccountOffline>(
-      'SELECT * FROM payment_accounts WHERE shop_id = ? AND isActive = 1',
-      [shopId]
+      'SELECT * FROM payment_accounts WHERE shop_id = ? AND is_active = 1 AND deleted_at IS NULL',
+      [shopId],
     );
   }
 }

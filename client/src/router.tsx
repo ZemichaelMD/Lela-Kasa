@@ -11,6 +11,7 @@ import NotFoundPage from '@/pages/not-found';
 import CustomerLoginPage from '@/pages/customer-login';
 import CustomerPortalPage from '@/pages/customer-portal';
 const CustomerOrderPage = lazy(() => import('@/pages/customer-order'));
+const CustomerSaleDetailPage = lazy(() => import('@/pages/customer-sale-detail'));
 import VerifyPage from '@/pages/verify';
 
 const HomePage = lazy(() => import('@/pages/home'));
@@ -80,6 +81,15 @@ export const router = createBrowserRouter([
     element: (
       <Suspense fallback={<PageLoader />}>
         <CustomerOrderPage />
+      </Suspense>
+    ),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: '/customer-portal/:customerId/sales/:saleId',
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <CustomerSaleDetailPage />
       </Suspense>
     ),
     errorElement: <RouteErrorBoundary />,

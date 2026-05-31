@@ -1,8 +1,7 @@
 import { getDatabase } from '../db/database';
 
 export interface BeveragePriceOffline {
-  local_id: string;
-  server_id: string;
+  id: string;
   beverage_id: string;
   price_tier_id: string;
   price_per_box_cents: number;

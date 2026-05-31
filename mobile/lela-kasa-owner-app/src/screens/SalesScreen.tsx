@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Presets } from "react-native-pulsar";
 
 import type { RootStackParamList } from "../navigation/types";
-import { getSdk } from "../lib/sdk";
+import { getSdk, Sale } from "../lib/sdk";
 import { QK } from "../lib/query-keys";
 import { NewSaleFAB } from "../components/NewSaleFAB";
 import { EmptyState } from "../components/EmptyState";
@@ -31,8 +31,12 @@ import { useTheme } from "../context/ThemeContext";
 import { withCache } from "../lib/api-cache";
 import { t } from "../lib/i18n";
 import { radius, spacing, type, layout } from "../theme";
+import { getDb } from "../offline";
+import { useOffline } from "../providers/OfflineProvider";
+import { useAuth } from "../context/AuthContext";
+import { useTabBarVisibility } from "../context/TabBarVisibilityContext";
 
-type SalesDatePreset = BaseDatePreset | "custom";
+type SalesDatePreset = BaseDatePreset | "custom" | "all";
 
 function getDateRange(
   preset: SalesDatePreset,
@@ -40,7 +44,7 @@ function getDateRange(
   customTo?: string,
 ): { from: string; to: string; label: string } {
   const now = new Date();
-  let from: Date;
+  let from: Date | null = null;
   let to = now;
   let label = "";
 
@@ -58,6 +62,9 @@ function getDateRange(
       from = new Date(now.getFullYear(), now.getMonth(), 1);
       label = t("thisMonth");
       break;
+    case "all":
+      label = t("allTime");
+      break;
     case "custom":
       from = customFrom
         ? new Date(customFrom)
@@ -71,8 +78,8 @@ function getDateRange(
   }
 
   return {
-    from: from.toISOString().split("T")[0],
-    to: to.toISOString().split("T")[0],
+    from: from ? from.toISOString().split("T")[0] : "",
+    to: from ? to.toISOString().split("T")[0] : "",
     label,
   };
 }
@@ -103,7 +110,7 @@ function SkeletonRow() {
         <Skeleton width={140} height={16} radius={4} />
         <Skeleton width={70} height={16} radius={4} />
       </View>
-      <View style={[styles.cardFooter, { marginTop: spacing[3] }]}>
+      <View style={[styles.cardMidRow, { marginTop: spacing[3] }]}>
         <Skeleton width={90} height={12} radius={2} />
         <Skeleton width={65} height={18} radius={radius.full} />
       </View>
@@ -115,10 +122,14 @@ export default function SalesScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
+  const { user } = useAuth();
+  const { isOnline, syncVersion } = useOffline();
+  const userShopId = user?.shopId ?? "";
   const fmtDate = useFormattedDate();
+  const { onScroll } = useTabBarVisibility();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [datePreset, setDatePreset] = useState<SalesDatePreset>("month");
+  const [datePreset, setDatePreset] = useState<SalesDatePreset>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
@@ -138,16 +149,128 @@ export default function SalesScreen() {
       week: t("thisWeek"),
       month: t("thisMonth"),
       custom: t("custom"),
+      all: t("allTime"),
     };
     return labels[datePreset];
   }, [datePreset, customFrom, customTo]);
 
-  const queryKey = QK.sales({
-    search,
-    status: statusFilter === "ALL" ? undefined : statusFilter,
-    dateFrom: range.from,
-    dateTo: range.to,
-  });
+  const queryKey = [
+    ...QK.sales({
+      search,
+      status: statusFilter === "ALL" ? undefined : statusFilter,
+      dateFrom: range.from,
+      dateTo: range.to,
+    }),
+    isOnline,
+    syncVersion,
+  ];
+
+  const queryLocalSales = useCallback(async (pageParam: number, includeSynced = false) => {
+    try {
+      const db = await getDb();
+      let sql =
+        "SELECT * FROM sales WHERE shop_id = ? AND deleted_at IS NULL";
+      const params: any[] = [userShopId];
+
+      if (!includeSynced) {
+        sql += " AND (sync_status != 'synced' OR sync_status IS NULL)";
+      }
+
+      if (range.from) {
+        sql += " AND DATE(sale_date) >= DATE(?)";
+        params.push(range.from);
+      }
+      if (range.to) {
+        sql += " AND DATE(sale_date) <= DATE(?)";
+        params.push(range.to);
+      }
+      if (statusFilter !== "ALL") {
+        sql += " AND status = ?";
+        params.push(statusFilter);
+      }
+      sql +=
+        " ORDER BY sale_date DESC, COALESCE(created_at, last_synced_at) DESC LIMIT ?";
+      params.push(PAGE_SIZE);
+
+      const rows = await db.getAllAsync<any>(sql, params);
+
+      const saleIds = rows.map((r: any) => r.id);
+      let customerMap: Record<string, string> = {};
+      let lineCountMap: Record<string, number> = {};
+      let paymentPaidMap: Record<string, number> = {};
+
+      if (saleIds.length > 0) {
+        const idPlaceholders = saleIds.map(() => "?").join(", ");
+
+        try {
+          const customerRows = await db.getAllAsync<{ id: string; name: string }>(
+            `SELECT id, name FROM customers WHERE id IN (SELECT DISTINCT customer_id FROM sales WHERE id IN (${idPlaceholders}) AND customer_id IS NOT NULL)`,
+            saleIds,
+          );
+          customerRows.forEach((c) => {
+            customerMap[c.id] = c.name;
+          });
+        } catch {}
+
+        try {
+          const lineRows = await db.getAllAsync<{ sale_id: string; cnt: number }>(
+            `SELECT sale_id, COUNT(*) as cnt FROM sale_lines WHERE sale_id IN (${idPlaceholders}) GROUP BY sale_id`,
+            saleIds,
+          );
+          lineRows.forEach((l) => {
+            lineCountMap[l.sale_id] = l.cnt;
+          });
+        } catch {}
+
+        try {
+          const paymentRows = await db.getAllAsync<{ sale_id: string; total: number }>(
+            `SELECT sale_id, COALESCE(SUM(amount_cents), 0) as total FROM payments WHERE sale_id IN (${idPlaceholders}) GROUP BY sale_id`,
+            saleIds,
+          );
+          paymentRows.forEach((p) => {
+            paymentPaidMap[p.sale_id] = p.total;
+          });
+        } catch {}
+      }
+
+      const data = rows.map((r: any) => {
+        const lineCount = lineCountMap[r.id] || 0;
+        const synced = r.sync_status === 'synced';
+        return {
+          id: r.id,
+          shopId: r.shop_id,
+          customerId: r.customer_id,
+          priceTierId: r.price_tier_id,
+          saleDate: r.sale_date,
+          status: r.status,
+          subtotalCents: r.subtotal_cents ?? 0,
+          paidCents: paymentPaidMap[r.id] ?? r.paid_cents ?? 0,
+          creditDeltaCents: r.credit_delta_cents ?? 0,
+          boxesOutDelta: r.boxes_out_delta ?? 0,
+          bottlesOutDelta: r.bottles_out_delta ?? 0,
+          boxesReturnedOnSale: r.boxes_returned_on_sale ?? 0,
+          bottlesReturnedOnSale: r.bottles_returned_on_sale ?? 0,
+          notes: r.notes,
+          customer: r.customer_id && customerMap[r.customer_id]
+            ? { name: customerMap[r.customer_id] } as any
+            : null,
+          lines: Array(lineCount).fill({} as any),
+          payments: [],
+          createdAt: r.created_at ?? r.last_synced_at,
+          updatedAt: r.updated_at ?? r.last_synced_at,
+          _synced: synced,
+        };
+      });
+      return {
+        data: data as unknown as Sale[],
+        total: data.length,
+        page: pageParam,
+        pageSize: PAGE_SIZE,
+      };
+    } catch {
+      return { data: [], total: 0, page: pageParam, pageSize: PAGE_SIZE };
+    }
+  }, [userShopId, range.from, range.to, statusFilter]);
 
   const {
     data,
@@ -161,24 +284,42 @@ export default function SalesScreen() {
   } = useInfiniteQuery({
     queryKey,
     queryFn: async ({ pageParam }) => {
+      if (!isOnline) {
+        return await queryLocalSales(pageParam, true);
+      }
       try {
-        return await withCache("sales", () =>
+        const apiResult = await withCache("sales", () =>
           getSdk().sales.list({
             page: pageParam,
             pageSize: PAGE_SIZE,
             search: search || undefined,
-            status: statusFilter === "ALL" ? undefined : statusFilter,
-            dateFrom: range.from,
-            dateTo: range.to,
+            status: statusFilter === "ALL" ? "CONFIRMED,OPEN,VOIDED" : statusFilter,
+            dateFrom: range.from || undefined,
+            dateTo: range.to || undefined,
           }),
         );
+
+        // Merge local unsynced sales on the first page
+        if (pageParam === 1) {
+          const localResult = await queryLocalSales(1, false);
+          if (localResult && localResult.data.length > 0) {
+            const apiIds = new Set(apiResult.data.map((s: Sale) => s.id));
+            const unsynced = localResult.data.filter((s: any) => !apiIds.has(s.id));
+            if (unsynced.length > 0) {
+              const sorted = [...unsynced, ...apiResult.data].sort(
+                (a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime(),
+              );
+              return {
+                ...apiResult,
+                data: sorted,
+                total: apiResult.total + unsynced.length,
+              };
+            }
+          }
+        }
+        return apiResult;
       } catch {
-        return {
-          data: [],
-          total: 0,
-          page: pageParam,
-          pageSize: PAGE_SIZE,
-        };
+        return await queryLocalSales(pageParam, true);
       }
     },
     getNextPageParam: (lastPage) => {
@@ -262,7 +403,7 @@ export default function SalesScreen() {
           selected={datePreset === "custom" ? "month" : datePreset}
           onSelect={(p) => {
             Presets.System.selection();
-            setDatePreset(p);
+            setDatePreset(p as SalesDatePreset);
           }}
           onClose={() => {}}
           showCustom
@@ -277,6 +418,9 @@ export default function SalesScreen() {
               setDatePreset("custom");
             }
           }}
+          extraPills={[
+            { key: "all", labelKey: "allTime", icon: "time-outline" },
+          ]}
           label={dateLabel}
         />
       </View>
@@ -354,16 +498,26 @@ export default function SalesScreen() {
           <SkeletonRow />
         </View>
       ) : (
-        <FlatList
-          data={sales}
+        <FlatList<Sale>
+          data={sales as Sale[]}
           keyExtractor={(item) => item.id}
           style={{ flex: 1, paddingHorizontal: spacing[4] }}
           contentContainerStyle={{
             paddingBottom: layout.screenPaddingBottom,
             paddingTop: spacing[2],
           }}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           renderItem={({ item }) => {
             const isVoided = item.status?.toUpperCase() === "VOIDED";
+            const isUnsynced = (item as any)._synced === false;
+            const itemsCount = item.lines?.length || 0;
+            const creditNote =
+              item.creditDeltaCents > 0
+                ? `+${formatCurrency(item.creditDeltaCents)}`
+                : item.creditDeltaCents < 0
+                  ? formatCurrency(item.creditDeltaCents)
+                  : null;
             return (
               <TouchableOpacity
                 onPress={() => handleRowPress(item.id)}
@@ -377,56 +531,76 @@ export default function SalesScreen() {
                 ]}
               >
                 <View style={styles.cardHeader}>
-                  <Text
-                    style={[styles.customerName, { color: colors.textPrimary }]}
-                    numberOfLines={1}
-                  >
-                    {item.customer?.name || t("walkInCustomer")}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.amountText,
-                      {
-                        color: isVoided ? colors.textMuted : colors.textPrimary,
-                      },
-                    ]}
-                  >
-                    {formatCurrency(item.subtotalCents)}
-                  </Text>
-                </View>
-                {/*<Text
-                  style={[styles.statusPillText, { color: colors.primary }]}
-                >
-                  Credit: {formatCurrency(item.creditDeltaCents)} Payment:{" "}
-                  {formatCurrency(item.paidCents)}
-                </Text>*/}
-
-                <View style={styles.cardFooter}>
-                  <Text style={[styles.metaText, { color: colors.textMuted }]}>
-                    {fmtDate(item.saleDate)} • {item.lines?.length || 0}{" "}
-                    {item.lines?.length === 1 ? t("item") : t("items")}
-                  </Text>
-
-                  {/* Premium Status Pill */}
-                  <View
-                    style={[
-                      styles.statusPill,
-                      {
-                        backgroundColor: isVoided
-                          ? colors.textMuted + "15"
-                          : colors.primary + "15",
-                      },
-                    ]}
-                  >
+                  <View style={styles.cardTitleRow}>
                     <Text
+                      style={[styles.customerName, { color: colors.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {item.customer?.name || t("walkInCustomer")}
+                    </Text>
+                    <View
                       style={[
-                        styles.statusPillText,
-                        { color: isVoided ? colors.textMuted : colors.primary },
+                        styles.statusPill,
+                        {
+                          backgroundColor: isVoided
+                            ? `${colors.textMuted}18`
+                            : `${colors.primary}18`,
+                        },
                       ]}
                     >
-                      {item.status}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.statusPillText,
+                          {
+                            color: isVoided
+                              ? colors.textMuted
+                              : colors.primary,
+                          },
+                        ]}
+                      >
+                        {item.status}
+                      </Text>
+                    </View>
+                    {isUnsynced && (
+                      <Ionicons
+                        name="cloud-offline-outline"
+                        size={14}
+                        color={colors.warning}
+                      />
+                    )}
                   </View>
+                </View>
+
+                <Text
+                  style={[styles.itemsSummary, { color: colors.textMuted }]}
+                  numberOfLines={1}
+                >
+                  {fmtDate(item.saleDate)}
+                  {itemsCount > 0 ? ` · ${itemsCount} ${itemsCount === 1 ? t("item") : t("items")}` : ""}
+                </Text>
+
+                <View style={styles.cardMidRow}>
+                  <Text style={[styles.amountText, { color: colors.textPrimary }]}>
+                    {formatCurrency(item.subtotalCents)}
+                  </Text>
+                  <Text style={[styles.paidText, { color: colors.textMuted }]}>
+                    {t("newSale.paid")} {formatCurrency(item.paidCents)}
+                  </Text>
+                  {creditNote && (
+                    <Text
+                      style={[
+                        styles.creditText,
+                        {
+                          color:
+                            item.creditDeltaCents > 0
+                              ? colors.danger
+                              : colors.success,
+                        },
+                      ]}
+                    >
+                      {creditNote}
+                    </Text>
+                  )}
                 </View>
               </TouchableOpacity>
             );
@@ -505,7 +679,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
   },
-  /* Premium Card Restyling */
   card: {
     borderWidth: 1,
     borderRadius: radius.xl,
@@ -520,8 +693,20 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: spacing[2],
+  },
+  cardTitleRow: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
     gap: spacing[2],
+  },
+  cardMidRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: spacing[3],
+    marginTop: spacing[2],
   },
   customerName: {
     flex: 1,
@@ -530,30 +715,34 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: -0.2,
   },
+  itemsSummary: {
+    ...type.caption,
+    fontSize: 11,
+    marginTop: 2,
+  },
   amountText: {
     ...type.body,
     fontWeight: "700",
     fontSize: 15,
   },
-  cardFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: spacing[2],
-  },
-  metaText: {
+  paidText: {
     ...type.caption,
-    fontSize: 12,
+    fontSize: 11,
+  },
+  creditText: {
+    ...type.caption,
+    fontSize: 11,
+    fontWeight: "600",
   },
   statusPill: {
-    paddingHorizontal: spacing[3],
-    paddingVertical: 3,
+    paddingHorizontal: spacing[2],
+    paddingVertical: 2,
     borderRadius: radius.full,
     alignItems: "center",
     justifyContent: "center",
   },
   statusPillText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.5,

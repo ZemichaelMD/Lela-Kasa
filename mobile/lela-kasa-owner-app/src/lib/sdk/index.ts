@@ -105,10 +105,10 @@ export { ShopsResource } from "./resources/shops";
 export type { Shop, UpdateShopDto } from "./resources/shops";
 
 export { DashboardResource } from "./resources/dashboard";
-export type { DashboardData } from "./resources/dashboard";
+export type { DashboardData, DashboardRange } from "./resources/dashboard";
 
 export { ReportsResource } from "./resources/reports";
-export type { ReportParams } from "./resources/reports";
+export type { ReportParams, SalesSummary } from "./resources/reports";
 
 export { PermissionsResource } from "./resources/permissions";
 export type {

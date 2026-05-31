@@ -23,8 +23,8 @@ export type DatePreset = "today" | "week" | "month";
 
 interface DateFilterProps {
   visible: boolean;
-  selected: DatePreset;
-  onSelect: (preset: DatePreset) => void;
+  selected: DatePreset | string;
+  onSelect: (preset: DatePreset | string) => void;
   onClose: () => void;
   showCustom?: boolean;
   customFrom?: string;
@@ -124,7 +124,7 @@ export function DateFilter({
       } catch {}
     }
     setExpanded(false);
-    onSelect(key as DatePreset);
+    onSelect(key);
     onClose();
   }
 

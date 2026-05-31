@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Animated,
   Platform,
   StyleSheet,
   Text,
@@ -8,11 +9,12 @@ import {
 } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Presets } from "react-native-pulsar";
 
-import type { MainTabParamList } from "../navigation/types";
+import type { MainTabParamList } from "./types";
 import DashboardScreen from "../screens/DashboardScreen";
 import CustomersScreen from "../screens/CustomersScreen";
 import SalesScreen from "../screens/SalesScreen";
@@ -20,6 +22,7 @@ import ReportsScreen from "../screens/ReportsScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import { useTabBarVisibility } from "../context/TabBarVisibilityContext";
 import { t } from "../lib/i18n";
 import { radius, spacing } from "../theme";
 
@@ -81,6 +84,7 @@ const tabConfig: TabConfig[] = [
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { translateY } = useTabBarVisibility();
 
   const mainTabs = state.routes.filter((r) =>
     ["Dashboard", "Customers", "Sales", "Reports"].includes(r.name),
@@ -97,7 +101,10 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         ? tab.iconActive
         : tab.icon
       : "ellipse-outline";
-    const color = isFocused ? colors.primary : colors.textMuted;
+
+    const activeColor = colors.primary;
+    const inactiveColor = colors.textMuted;
+    const color = isFocused ? activeColor : inactiveColor;
 
     const onPress = () => {
       Presets.System.impactLight();
@@ -114,58 +121,80 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     return (
       <TouchableOpacity
         key={route.key}
-        style={styles.tabItem}
+        style={[
+          styles.tabItem,
+          isFocused && [
+            styles.tabItemActive,
+            { backgroundColor: `${colors.primary}18` },
+          ],
+        ]}
         onPress={onPress}
         activeOpacity={0.7}
       >
-        <View
-          style={[
-            styles.iconWrap,
-            isFocused && {
-              backgroundColor: isDark
-                ? "rgba(255, 255, 255, 0.1)"
-                : "rgba(0, 0, 0, 0.04)",
-            },
-          ]}
-        >
-          <Ionicons name={icon} size={20} color={color} />
-        </View>
-        {isFocused && <Text style={[styles.label, { color }]}>{label}</Text>}
+        <Ionicons name={icon} size={22} color={color} />
+        {isFocused && (
+          <Text style={[styles.label, { color }]} numberOfLines={1}>
+            {label}
+          </Text>
+        )}
       </TouchableOpacity>
     );
   };
 
   return (
-    <View
-      style={[styles.container, { paddingBottom: Math.max(insets.bottom, 15) }]}
+    <Animated.View
+      style={[
+        styles.absoluteContainer,
+        { transform: [{ translateY: translateY }] },
+      ]}
     >
+      <LinearGradient
+        colors={
+          isDark
+            ? [
+                "rgba(10, 10, 10, 0)",
+                "rgba(10, 10, 10, 0.8)",
+                "rgba(10, 10, 10, 1)",
+              ]
+            : [
+                "rgba(255, 255, 255, 0)",
+                "rgba(255, 255, 255, 0.8)",
+                "rgba(255, 255, 255, 1)",
+              ]
+        }
+        locations={[0, 1, 1]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <View
         style={[
-          styles.glassWrapper,
-          {
-            backgroundColor: isDark
-              ? "rgba(30, 41, 59, 0.85)"
-              : "rgba(255, 255, 255, 0.8)",
-            borderColor: isDark
-              ? "rgba(255, 255, 255, 0.1)"
-              : "rgba(0, 0, 0, 0.05)",
-          },
+          styles.dockContainer,
+          { paddingBottom: Math.max(insets.bottom, 12) },
         ]}
       >
-        <View style={styles.mainGroup}>{mainTabs.map(renderTab)}</View>
-
         <View
           style={[
-            styles.separator,
-            { backgroundColor: colors.border, opacity: 0.5 },
+            styles.glassWrapper,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
           ]}
-        />
+        >
+          <View style={styles.mainGroup}>{mainTabs.map(renderTab)}</View>
 
-        <View style={styles.settingsGroup}>
-          {settingsTab && renderTab(settingsTab)}
+          {settingsTab && (
+            <View
+              style={[styles.separator, { backgroundColor: colors.border }]}
+            />
+          )}
+
+          <View style={styles.settingsGroup}>
+            {settingsTab && renderTab(settingsTab)}
+          </View>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -188,26 +217,31 @@ export default function MainTabs() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  absoluteContainer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
+    height: 100,
+    justifyContent: "flex-end",
+  },
+  dockContainer: {
     alignItems: "center",
     paddingHorizontal: spacing[4],
   },
   glassWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: radius["2xl"],
+    borderRadius: radius["3xl"],
     borderWidth: 1,
-    padding: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.12,
-        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
       },
       android: { elevation: 8 },
     }),
@@ -218,32 +252,32 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   settingsGroup: {
-    paddingLeft: 4,
+    flexDirection: "row",
+    alignItems: "center",
   },
   separator: {
     width: 1,
     height: 24,
-    marginHorizontal: 8,
+    marginHorizontal: 6,
   },
   tabItem: {
     alignItems: "center",
     justifyContent: "center",
     minWidth: 44,
-    height: 40,
-    paddingHorizontal: 8,
+    height: 44,
+    borderRadius: 22,
     flexDirection: "row",
-    gap: 4,
+    paddingHorizontal: 10,
+    gap: 6,
   },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
+  tabItemActive: {
+    paddingHorizontal: 16,
+    borderRadius: 22,
   },
   label: {
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     textTransform: "capitalize",
+    letterSpacing: 0.3,
   },
 });
