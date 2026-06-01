@@ -3,6 +3,7 @@ import type { SdkClient, RequestOptions } from '../client';
 export interface Customer {
   id: string;
   shopId: string;
+  code: string;
   name: string;
   phone?: string;
   email?: string;
@@ -30,6 +31,7 @@ export interface CreateCustomerDto {
   priceTierLocked?: boolean;
   username?: string;
   pin?: string;
+  code?: string;
 }
 
 export interface UpdateCustomerDto {
@@ -41,6 +43,7 @@ export interface UpdateCustomerDto {
   priceTierLocked?: boolean;
   username?: string;
   pin?: string;
+  code?: string;
 }
 
 export interface ListCustomersParams {

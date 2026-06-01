@@ -121,6 +121,11 @@ function CustomerSearch() {
               className="flex min-h-[40px] w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
             >
               <span className="truncate font-medium text-foreground">
+                {c.code && (
+                  <span className="mr-1.5 inline-flex items-center rounded bg-muted px-1.5 font-mono text-[10px] font-semibold tracking-wide text-muted-foreground">
+                    {c.code}
+                  </span>
+                )}
                 {c.name}
               </span>
               {c.phone && (

@@ -631,7 +631,11 @@ function SaleDrawer({
                 value={
                   customerOpen
                     ? customerInput
-                    : (selectedCustomer?.name ?? customerInput)
+                    : (selectedCustomer
+                      ? `${selectedCustomer.name}${
+                          selectedCustomer.code ? ` · ${selectedCustomer.code}` : ""
+                        }`
+                      : customerInput)
                 }
                 onChange={(e) => {
                   setCustomerInput(e.target.value);
@@ -684,7 +688,14 @@ function SaleDrawer({
                               c.id === customerId ? "bg-accent/60" : ""
                             }`}
                           >
-                            <span className="truncate">{c.name}</span>
+                            <span className="truncate">
+                              {c.code && (
+                                <span className="mr-1.5 inline-flex items-center rounded bg-muted px-1.5 font-mono text-[10px] font-semibold tracking-wide text-muted-foreground">
+                                  {c.code}
+                                </span>
+                              )}
+                              {c.name}
+                            </span>
                             {c.phone && (
                               <span className="shrink-0 text-xs text-muted-foreground">
                                 {c.phone}
@@ -793,6 +804,7 @@ function SaleDrawer({
                       <option value="">{t("selectBeveragePlaceholder")}</option>
                       {beverages.map((b) => (
                         <option key={b.id} value={b.id}>
+                          {b.code ? `[${b.code}] ` : ""}
                           {b.name}
                           {b.brand ? ` (${b.brand})` : ""}
                         </option>
@@ -884,11 +896,12 @@ function SaleDrawer({
                 </p>
               )}
               {containerKasas.map((kasa, idx) => {
-                const filtered = kasa.searchInput.trim()
+                const q = kasa.searchInput.trim().toLowerCase();
+                const filtered = q
                   ? beverages.filter((b) =>
-                      `${b.name} ${b.brand ?? ""}`
+                      `${b.name} ${b.brand ?? ""} ${b.code ?? ""}`
                         .toLowerCase()
-                        .includes(kasa.searchInput.toLowerCase()),
+                        .includes(q),
                     )
                   : beverages;
                 const selected = beverages.find(
@@ -958,7 +971,14 @@ function SaleDrawer({
                                       }}
                                       className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent ${b.id === kasa.beverageId ? "bg-accent/60" : ""}`}
                                     >
-                                      <span className="truncate">{b.name}</span>
+                                      <span className="truncate">
+                                        {b.code && (
+                                          <span className="mr-1.5 inline-flex items-center rounded bg-muted px-1.5 font-mono text-[10px] font-semibold tracking-wide text-muted-foreground">
+                                            {b.code}
+                                          </span>
+                                        )}
+                                        {b.name}
+                                      </span>
                                       {b.brand && (
                                         <span className="shrink-0 text-xs text-muted-foreground">
                                           {b.brand}
@@ -1022,11 +1042,12 @@ function SaleDrawer({
               {t("returnedContainersHint")}
             </p>
             {returnedContainers.map((ret, idx) => {
-              const filteredBevs = ret.searchInput.trim()
+              const q = ret.searchInput.trim().toLowerCase();
+              const filteredBevs = q
                 ? beverages.filter((b) =>
-                    `${b.name} ${b.brand ?? ""}`
+                    `${b.name} ${b.brand ?? ""} ${b.code ?? ""}`
                       .toLowerCase()
-                      .includes(ret.searchInput.toLowerCase()),
+                      .includes(q),
                   )
                 : beverages;
               const selectedBev = beverages.find(
@@ -1095,7 +1116,14 @@ function SaleDrawer({
                                     }}
                                     className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent ${b.id === ret.beverageId ? "bg-accent/60" : ""}`}
                                   >
-                                    <span className="truncate">{b.name}</span>
+                                    <span className="truncate">
+                                      {b.code && (
+                                        <span className="mr-1.5 inline-flex items-center rounded bg-muted px-1.5 font-mono text-[10px] font-semibold tracking-wide text-muted-foreground">
+                                          {b.code}
+                                        </span>
+                                      )}
+                                      {b.name}
+                                    </span>
                                     {b.brand && (
                                       <span className="shrink-0 text-xs text-muted-foreground">
                                         {b.brand}
@@ -1560,6 +1588,12 @@ export default function SalesPage() {
   const [filterCustomerId, setFilterCustomerId] = useState(
     searchParams.get("customerId") ?? "",
   );
+  const [filterCustomerCode, setFilterCustomerCode] = useState(
+    searchParams.get("customerCode") ?? "",
+  );
+  const [filterBeverageCode, setFilterBeverageCode] = useState(
+    searchParams.get("beverageCode") ?? "",
+  );
   const [filterPaymentAccountId, setFilterPaymentAccountId] = useState(
     searchParams.get("paymentAccountId") ?? "",
   );
@@ -1662,6 +1696,8 @@ export default function SalesPage() {
     setDateFrom("");
     setDateTo("");
     setFilterCustomerId("");
+    setFilterCustomerCode("");
+    setFilterBeverageCode("");
     setFilterPaymentAccountId("");
     setFilterCreatedById("");
     setFilterStatuses([]);
@@ -1710,6 +1746,8 @@ export default function SalesPage() {
         dateFrom: searchParams.get("dateFrom") ?? undefined,
         dateTo: searchParams.get("dateTo") ?? undefined,
         customerId: searchParams.get("customerId") ?? undefined,
+        customerCode: searchParams.get("customerCode") ?? undefined,
+        beverageCode: searchParams.get("beverageCode") ?? undefined,
         paymentAccountId: searchParams.get("paymentAccountId") ?? undefined,
         status: searchParams.get("status") ?? undefined,
         hasCredit: searchParams.get("hasCredit") === "true" ? true : undefined,
@@ -1806,6 +1844,8 @@ export default function SalesPage() {
     (searchParams.get("q") ? 1 : 0) +
     (searchParams.get("dateFrom") || searchParams.get("dateTo") ? 1 : 0) +
     (searchParams.get("customerId") ? 1 : 0) +
+    (searchParams.get("customerCode") ? 1 : 0) +
+    (searchParams.get("beverageCode") ? 1 : 0) +
     (searchParams.get("paymentAccountId") ? 1 : 0) +
     (searchParams.get("status") ? 1 : 0) +
     (searchParams.get("createdById") ? 1 : 0) +
@@ -2028,7 +2068,7 @@ export default function SalesPage() {
         />
       </div>
 
-      {/* Customer + payment account */}
+      {/* Customer + payment account + codes */}
       <div className="flex flex-wrap gap-2">
         <select
           value={filterCustomerId}
@@ -2041,10 +2081,35 @@ export default function SalesPage() {
           <option value="">{t("allCustomers")}</option>
           {customers.map((c) => (
             <option key={c.id} value={c.id}>
+              {c.code ? `[${c.code}] ` : ""}
               {c.name}
             </option>
           ))}
         </select>
+
+        <input
+          type="text"
+          value={filterCustomerCode}
+          onChange={(e) => {
+            const v = e.target.value.toUpperCase();
+            setFilterCustomerCode(v);
+            setParam("customerCode", v || undefined);
+          }}
+          placeholder={t("customerCode") as string}
+          className="h-8 w-28 rounded-lg border border-border bg-background px-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring/40"
+        />
+
+        <input
+          type="text"
+          value={filterBeverageCode}
+          onChange={(e) => {
+            const v = e.target.value.toUpperCase();
+            setFilterBeverageCode(v);
+            setParam("beverageCode", v || undefined);
+          }}
+          placeholder={t("beverageCode") as string}
+          className="h-8 w-28 rounded-lg border border-border bg-background px-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring/40"
+        />
 
         <select
           value={filterPaymentAccountId}

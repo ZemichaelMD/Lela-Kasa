@@ -4,6 +4,7 @@ import { PaymentAccountKind, PaymentMethod, SaleStatus, StockMovementReason } fr
 import { PrismaService } from "../prisma/prisma.service";
 import { AppException } from "../common/errors/app.exception";
 import { ErrorCode } from "../contract";
+import { findEntityIdByCode } from "../common/public-code";
 import type { CreateSaleDto } from "./dto/create-sale.dto";
 import type { UpdateSaleDto } from "./dto/update-sale.dto";
 import type { AddPaymentDto } from "./dto/add-payment.dto";
@@ -21,9 +22,11 @@ export interface SaleListQuery {
   dateFrom?: string;
   dateTo?: string;
   customerId?: string;
+  customerCode?: string;
   status?: SaleStatus;
   paymentAccountId?: string;
   beverageId?: string;
+  beverageCode?: string;
   hasCredit?: boolean;
   search?: string;
   createdById?: string;
@@ -40,10 +43,10 @@ function kindToPaymentMethod(kind: PaymentAccountKind): PaymentMethod {
 }
 
 const SALE_INCLUDE = {
-  customer: { select: { id: true, name: true, phone: true } },
+  customer: { select: { id: true, code: true, name: true, phone: true } },
   lines: {
     include: {
-      beverage: { select: { id: true, name: true } },
+      beverage: { select: { id: true, code: true, name: true } },
     },
   },
   payments: {
@@ -53,12 +56,12 @@ const SALE_INCLUDE = {
   },
   containerKasas: {
     include: {
-      beverage: { select: { id: true, name: true } },
+      beverage: { select: { id: true, code: true, name: true } },
     },
   },
   returnedContainers: {
     include: {
-      beverage: { select: { id: true, name: true } },
+      beverage: { select: { id: true, code: true, name: true } },
     },
   },
   createdBy: { select: { id: true, name: true } },
@@ -105,6 +108,19 @@ export class SalesService {
 
     if (query.customerId) {
       where["customerId"] = query.customerId;
+    } else if (query.customerCode) {
+      const customerId = await findEntityIdByCode(
+        this.prisma,
+        "customer",
+        shopId,
+        query.customerCode,
+      );
+      if (customerId) {
+        where["customerId"] = customerId;
+      } else {
+        // No match — force an empty result set without hitting the DB twice.
+        where["customerId"] = "__no_match__";
+      }
     }
 
     if (query.hasCredit === true) {
@@ -119,12 +135,38 @@ export class SalesService {
 
     if (query.beverageId) {
       where["lines"] = { some: { beverageId: query.beverageId } };
+    } else if (query.beverageCode) {
+      const beverageId = await findEntityIdByCode(
+        this.prisma,
+        "beverage",
+        shopId,
+        query.beverageCode,
+      );
+      if (beverageId) {
+        where["lines"] = { some: { beverageId } };
+      } else {
+        where["lines"] = { some: { beverageId: "__no_match__" } };
+      }
     }
 
     if (query.search) {
-      where["customer"] = {
-        name: { contains: query.search, mode: "insensitive" },
-      };
+      const normalizedCode = query.search.trim().toUpperCase();
+      const codeOnly = /^([A-Z]{1,8})-(\d{1,9})$/.test(normalizedCode);
+      if (codeOnly) {
+        const customerId = await findEntityIdByCode(
+          this.prisma,
+          "customer",
+          shopId,
+          normalizedCode,
+        );
+        where["customer"] = customerId
+          ? { id: customerId }
+          : { name: { contains: query.search, mode: "insensitive" } };
+      } else {
+        where["customer"] = {
+          name: { contains: query.search, mode: "insensitive" },
+        };
+      }
     }
 
     if (query.createdById) {
@@ -223,12 +265,57 @@ export class SalesService {
     return { ...sale, auditLogs };
   }
 
+  /**
+   * Walk the sale DTO and resolve any `*Code` fields to their matching ids
+   * in place. The id field on each row is left alone when the client sent
+   * a valid id; when only a code is provided the id is filled in via a
+   * unique lookup. Missing codes are silently ignored — the existing
+   * "Beverage not found" error path will then trigger for an empty id.
+   */
+  private async resolveCodesInDto(
+    shopId: string,
+    dto: CreateSaleDto | UpdateSaleDto,
+  ): Promise<void> {
+    if (!dto.customerId && dto.customerCode) {
+      const id = await findEntityIdByCode(
+        this.prisma,
+        "customer",
+        shopId,
+        dto.customerCode,
+      );
+      if (id) dto.customerId = id;
+    }
+
+    const beverageRows: Array<{ beverageId: string; beverageCode?: string }> = [
+      ...((dto.lines ?? []) as Array<{ beverageId: string; beverageCode?: string }>),
+      ...((dto.containerKasas ?? []) as Array<{ beverageId: string; beverageCode?: string }>),
+      ...((dto.returnedContainers ?? []) as Array<{ beverageId: string; beverageCode?: string }>),
+    ];
+
+    for (const row of beverageRows) {
+      if (!row.beverageId && row.beverageCode) {
+        const id = await findEntityIdByCode(
+          this.prisma,
+          "beverage",
+          shopId,
+          row.beverageCode,
+        );
+        if (id) row.beverageId = id;
+      }
+    }
+  }
+
   async createSale(shopId: string, userId: string, dto: CreateSaleDto) {
     const saleDate = new Date(dto.saleDate);
     // Use end-of-day for price lookup: effectiveFrom is stored as the exact creation
     // timestamp, so a price created at 15:30 on day X must still match a sale on day X.
     const saleDateEndOfDay = new Date(dto.saleDate + "T23:59:59.999Z");
     const status = dto.draft ? SaleStatus.OPEN : SaleStatus.CONFIRMED;
+
+    // Resolve any *Code fields to ids so the rest of the service can
+    // continue using the existing id-based logic. id is preferred; if the
+    // client sent a code, fill in the id when blank.
+    await this.resolveCodesInDto(shopId, dto);
 
     const result = await this.prisma.$transaction(async (tx) => {
       // a. Load Customer
@@ -546,6 +633,8 @@ export class SalesService {
     const status = dto.draft ? SaleStatus.OPEN : SaleStatus.CONFIRMED;
     const saleDate = new Date(dto.saleDate);
     const saleDateEndOfDay = new Date(dto.saleDate + "T23:59:59.999Z");
+
+    await this.resolveCodesInDto(shopId, dto);
 
     await this.prisma.$transaction(async (tx) => {
       // a. Reverse old customer effects

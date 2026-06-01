@@ -5,6 +5,7 @@ import {
   IsInt,
   IsBoolean,
   IsUrl,
+  Matches,
   Min,
   MaxLength,
 } from 'class-validator';
@@ -37,4 +38,12 @@ export class CreateBeverageDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  @Matches(/^[A-Za-z0-9-]{1,20}$/, {
+    message: 'code must be alphanumeric with optional hyphens (max 20 chars)',
+  })
+  code?: string;
 }

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../contract';
+import { generateNextCode, normalizePublicCode } from '../common/public-code';
 import type { CreateBeverageDto } from './dto/create-beverage.dto';
 import type { UpdateBeverageDto } from './dto/update-beverage.dto';
 import type { AdjustStockDto } from './dto/adjust-stock.dto';
@@ -14,6 +15,9 @@ export interface BeverageListQuery {
   search?: string;
   isActive?: boolean;
 }
+
+const BEVERAGE_CODE_PREFIX = 'BE';
+const BEVERAGE_CODE_PAD = 3;
 
 @Injectable()
 export class BeveragesService {
@@ -30,7 +34,11 @@ export class BeveragesService {
     };
 
     if (query.search) {
-      where['name'] = { contains: query.search, mode: 'insensitive' };
+      where['OR'] = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { brand: { contains: query.search, mode: 'insensitive' } },
+        { code: { equals: normalizePublicCode(query.search) ?? query.search, mode: 'insensitive' } },
+      ];
     }
 
     if (query.isActive !== undefined) {
@@ -63,11 +71,22 @@ export class BeveragesService {
     dtos: CreateBeverageDto[],
     actorUserId: string,
   ) {
-    const created = await this.prisma.$transaction(
-      dtos.map((dto) =>
-        this.prisma.beverage.create({
+    const created = await this.prisma.$transaction(async (tx) => {
+      const results = [];
+      for (const dto of dtos) {
+        const code =
+          normalizePublicCode(dto.code) ??
+          (await generateNextCode({
+            prefix: BEVERAGE_CODE_PREFIX,
+            padLength: BEVERAGE_CODE_PAD,
+            prisma: tx,
+            model: 'beverage',
+            shopId,
+          }));
+        const beverage = await tx.beverage.create({
           data: {
             shopId,
+            code,
             name: dto.name,
             brand: dto.brand ?? null,
             sizeMl: dto.sizeMl ?? null,
@@ -75,9 +94,11 @@ export class BeveragesService {
             imageUrl: dto.imageUrl ?? null,
             isActive: dto.isActive ?? true,
           },
-        }),
-      ),
-    );
+        });
+        results.push(beverage);
+      }
+      return results;
+    });
 
     await this.prisma.auditLog.create({
       data: {
@@ -90,6 +111,7 @@ export class BeveragesService {
           count: created.length,
           ids: created.map((b) => b.id),
           names: created.map((b) => b.name),
+          codes: created.map((b) => b.code),
         }),
       },
     });
@@ -98,9 +120,20 @@ export class BeveragesService {
   }
 
   async create(shopId: string, dto: CreateBeverageDto, actorUserId: string) {
+    const code =
+      normalizePublicCode(dto.code) ??
+      (await generateNextCode({
+        prefix: BEVERAGE_CODE_PREFIX,
+        padLength: BEVERAGE_CODE_PAD,
+        prisma: this.prisma,
+        model: 'beverage',
+        shopId,
+      }));
+
     const beverage = await this.prisma.beverage.create({
       data: {
         shopId,
+        code,
         name: dto.name,
         brand: dto.brand ?? null,
         sizeMl: dto.sizeMl ?? null,

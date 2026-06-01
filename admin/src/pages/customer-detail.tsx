@@ -1259,7 +1259,14 @@ export default function CustomerDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={customer.name}
+        title={
+          <div className="flex items-center gap-3">
+            <span>{customer.name}</span>
+            <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 font-mono text-sm font-semibold tracking-wide text-foreground">
+              {customer.code}
+            </span>
+          </div>
+        }
         description={`${customer.phone ?? ""} · ${customer.notes ?? ""}`}
         breadcrumb={[t("shop"), t("manageCustomers"), customer.name]}
         actions={

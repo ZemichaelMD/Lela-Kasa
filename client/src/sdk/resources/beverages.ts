@@ -3,6 +3,7 @@ import type { SdkClient, RequestOptions } from "../client";
 export interface Beverage {
   id: string;
   shopId: string;
+  code: string;
   name: string;
   brand?: string;
   sizeMl?: number;
@@ -23,6 +24,7 @@ export interface CreateBeverageDto {
   bottlesPerBox: number;
   imageUrl?: string;
   isActive?: boolean;
+  code?: string;
 }
 
 export interface UpdateBeverageDto {
@@ -32,6 +34,7 @@ export interface UpdateBeverageDto {
   bottlesPerBox?: number;
   imageUrl?: string;
   isActive?: boolean;
+  code?: string;
 }
 
 export interface ListBeveragesParams {

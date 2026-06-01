@@ -6,7 +6,7 @@ export function PageHeader({
   actions,
   breadcrumb,
 }: {
-  title: string;
+  title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
   breadcrumb?: string[];

@@ -64,4 +64,7 @@ export const common = {
   send: 'Send',
   active: 'Active',
   voided: 'Voided',
+  code: 'Code',
+  searchByCode: 'Search by code',
+  enterCode: 'Enter code (e.g. BE-001)',
 } as const;

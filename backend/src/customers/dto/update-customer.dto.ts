@@ -1,4 +1,12 @@
-import { IsEmail, IsString, IsOptional, IsBoolean, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsOptional,
+  IsBoolean,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class UpdateCustomerDto {
   @IsOptional()
@@ -39,4 +47,12 @@ export class UpdateCustomerDto {
   @MinLength(4)
   @MaxLength(10)
   pin?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  @Matches(/^[A-Za-z0-9-]{1,20}$/, {
+    message: 'code must be alphanumeric with optional hyphens (max 20 chars)',
+  })
+  code?: string;
 }

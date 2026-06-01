@@ -144,4 +144,6 @@ export const sales = {
   allEmployees: "ሁሉም ሰራተኞች",
   createdBy: "የፈጠረው",
   updatedBy: "ያዘመነው",
+  customerCode: "የደንበኛ ኮድ",
+  beverageCode: "የመጠጥ ኮድ",
 } as const;

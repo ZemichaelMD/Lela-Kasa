@@ -64,4 +64,7 @@ export const common = {
   send: 'ላክ',
   active: 'ንቁ',
   voided: 'ተሰርዟል',
+  code: 'ኮድ',
+  searchByCode: 'በኮድ ፈልግ',
+  enterCode: 'ኮድ አስገባ (ለምሳሌ BE-001)',
 } as const;

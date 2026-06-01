@@ -12,6 +12,7 @@ import { TelegramService } from "../telegram/telegram.service";
 import { WhatsAppService } from "../whatsapp/whatsapp.service";
 import { MailService } from "../mail/mail.service";
 import { AppException } from "../common/errors/app.exception";
+import { generateNextCode, normalizePublicCode } from "../common/public-code";
 import * as argon2 from "argon2";
 import * as crypto from "node:crypto";
 import { ErrorCode } from "../contract";
@@ -26,6 +27,9 @@ export interface CustomerListQuery {
   search?: string;
   hasCredit?: boolean;
 }
+
+const CUSTOMER_CODE_PREFIX = "CU";
+const CUSTOMER_CODE_PAD = 3;
 
 @Injectable()
 export class CustomersService {
@@ -58,7 +62,16 @@ export class CustomersService {
     };
 
     if (query.search) {
-      where["name"] = { contains: query.search, mode: "insensitive" };
+      where["OR"] = [
+        { name: { contains: query.search, mode: "insensitive" } },
+        { phone: { contains: query.search, mode: "insensitive" } },
+        {
+          code: {
+            equals: normalizePublicCode(query.search) ?? query.search,
+            mode: "insensitive",
+          },
+        },
+      ];
     }
 
     if (query.hasCredit === true) {
@@ -138,9 +151,20 @@ export class CustomersService {
       await this.checkEmailUniqueness(dto.email);
     }
 
+    const code =
+      normalizePublicCode(dto.code) ??
+      (await generateNextCode({
+        prefix: CUSTOMER_CODE_PREFIX,
+        padLength: CUSTOMER_CODE_PAD,
+        prisma: this.prisma,
+        model: "customer",
+        shopId,
+      }));
+
     const customer = await this.prisma.customer.create({
       data: {
         shopId,
+        code,
         name: dto.name,
         phone: dto.phone ?? null,
         email: dto.email?.toLowerCase().trim() ?? null,

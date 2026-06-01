@@ -172,6 +172,7 @@ model OtpCode {
 model Customer {
   id                      String                           @id @default(cuid())
   shopId                  String
+  code                    String
   name                    String
   phone                   String?
   notes                   String?
@@ -198,6 +199,7 @@ model Customer {
   payments                Payment[]
   sales                   Sale[]
 
+  @@unique([shopId, code])
   @@index([shopId])
   @@index([shopId, name])
   @@index([shopId, creditBalanceCents])
@@ -209,6 +211,7 @@ model Customer {
 model Beverage {
   id                 String                  @id @default(cuid())
   shopId             String
+  code               String
   name               String
   brand              String?
   sizeMl             Int?
@@ -229,6 +232,7 @@ model Beverage {
   returnedContainers SaleReturnedContainer[]
   movements          StockMovement[]
 
+  @@unique([shopId, code])
   @@index([shopId])
   @@index([shopId, name])
 }

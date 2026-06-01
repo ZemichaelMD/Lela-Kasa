@@ -410,6 +410,16 @@ export default function CustomersPage() {
 
   const columns = [
     {
+      key: "code",
+      header: t("code"),
+      className: "w-24",
+      render: (c: Customer) => (
+        <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-foreground">
+          {c.code}
+        </span>
+      ),
+    },
+    {
       key: "name",
       header: t("name"),
       render: (c: Customer) => (

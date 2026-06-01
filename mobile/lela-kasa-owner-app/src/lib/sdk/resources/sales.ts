@@ -5,7 +5,7 @@ export interface SaleContainerKasa {
   saleId: string;
   beverageId: string;
   count: number;
-  beverage?: { id: string; name: string };
+  beverage?: { id: string; code?: string; name: string };
   createdAt: string;
 }
 
@@ -15,7 +15,7 @@ export interface SaleReturnedContainer {
   beverageId: string;
   boxes: number;
   bottles: number;
-  beverage?: { id: string; name: string };
+  beverage?: { id: string; code?: string; name: string };
   createdAt: string;
 }
 
@@ -28,7 +28,7 @@ export interface SaleLine {
   pricePerBoxCents: number;
   pricePerBottleCents: number;
   lineTotalCents: number;
-  beverage?: { id: string; name: string };
+  beverage?: { id: string; code?: string; name: string };
 }
 
 export interface Payment {
@@ -68,13 +68,14 @@ export interface Sale {
   payments: Payment[];
   containerKasas?: SaleContainerKasa[];
   returnedContainers?: SaleReturnedContainer[];
-  customer?: { id: string; name: string; phone?: string };
+  customer?: { id: string; code?: string; name: string; phone?: string };
   priceTier?: { id: string; name: string };
   createdBy?: { id: string; name: string };
 }
 
 export interface CreateSaleLineDto {
   beverageId: string;
+  beverageCode?: string;
   priceTierId?: string;
   boxes?: number;
   bottles?: number;
@@ -94,17 +95,19 @@ export interface CreateSalePaymentDto {
 export interface CreateSaleDto {
   saleDate: string;
   customerId?: string;
+  customerCode?: string;
   priceTierId: string;
   lines: CreateSaleLineDto[];
   notes?: string;
   applyCredit?: boolean;
   payments?: CreateSalePaymentDto[];
-  containerKasas?: { beverageId: string; count: number }[];
-  returnedContainers?: { beverageId: string; boxes: number; bottles: number }[];
+  containerKasas?: { beverageId: string; beverageCode?: string; count: number }[];
+  returnedContainers?: { beverageId: string; beverageCode?: string; boxes: number; bottles: number }[];
 }
 
 export interface UpdateSaleLineDto {
   beverageId: string;
+  beverageCode?: string;
   boxes: number;
   bottles: number;
 }
@@ -121,6 +124,7 @@ export interface UpdateSalePaymentDto {
 export interface UpdateSaleDto {
   saleDate: string;
   customerId: string;
+  customerCode?: string;
   priceTierId?: string;
   notes?: string;
   lines: UpdateSaleLineDto[];
@@ -146,9 +150,11 @@ export interface ListSalesParams {
   dateFrom?: string;
   dateTo?: string;
   customerId?: string;
+  customerCode?: string;
   priceTierId?: string;
   paymentAccountId?: string;
   beverageId?: string;
+  beverageCode?: string;
   status?: string;
   hasCredit?: boolean;
   createdById?: string;
@@ -176,10 +182,12 @@ export class SalesResource {
     if (params?.dateFrom) query.set("dateFrom", params.dateFrom);
     if (params?.dateTo) query.set("dateTo", params.dateTo);
     if (params?.customerId) query.set("customerId", params.customerId);
+    if (params?.customerCode) query.set("customerCode", params.customerCode);
     if (params?.priceTierId) query.set("priceTierId", params.priceTierId);
     if (params?.paymentAccountId)
       query.set("paymentAccountId", params.paymentAccountId);
     if (params?.beverageId) query.set("beverageId", params.beverageId);
+    if (params?.beverageCode) query.set("beverageCode", params.beverageCode);
     if (params?.status) query.set("status", params.status);
     if (params?.hasCredit !== undefined)
       query.set("hasCredit", String(params.hasCredit));

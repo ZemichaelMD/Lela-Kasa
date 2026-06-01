@@ -47,8 +47,9 @@ const PERMISSION_REGISTRY = [
 ];
 
 async function main() {
+  const commonPassword = "Password00";
   // Super Admin
-  const superAdminHash = await argon2.hash("SuperAdminPass123!");
+  const superAdminHash = await argon2.hash(commonPassword);
   const superAdmin = await prisma.user.upsert({
     where: { email: "superadmin@kasa.app" },
     update: {},
@@ -63,7 +64,7 @@ async function main() {
   });
 
   // Admin (legacy)
-  const adminHash = await argon2.hash("AdminPass123!");
+  const adminHash = await argon2.hash(commonPassword);
   const admin = await prisma.user.upsert({
     where: { email: "admin@kasa.test" },
     update: {},
@@ -78,7 +79,7 @@ async function main() {
   });
 
   // Owner
-  const ownerHash = await argon2.hash("OwnerPass123!");
+  const ownerHash = await argon2.hash(commonPassword);
   const owner = await prisma.user.upsert({
     where: { email: "owner@kasa.test" },
     update: {},
@@ -112,7 +113,7 @@ async function main() {
   });
 
   // Employee
-  const staffHash = await argon2.hash("StaffPass123!");
+  const staffHash = await argon2.hash(commonPassword);
   await prisma.user.upsert({
     where: { email: "staff@kasa.test" },
     update: {},
@@ -176,6 +177,7 @@ async function main() {
       create: {
         id: `seed-bev-${bev.name.toLowerCase().replace(/\s+/g, "-")}-${shop.id}`,
         shopId: shop.id,
+        code: `BE-${String(beverageData.indexOf(bev) + 1).padStart(3, "0")}`,
         name: bev.name,
         brand: bev.brand,
         sizeMl: bev.sizeMl,
@@ -270,6 +272,7 @@ async function main() {
       create: {
         id: `seed-cust-${c.name.toLowerCase().replace(/\s+/g, "-")}-${shop.id}`,
         shopId: shop.id,
+        code: `CU-${String(customerData.indexOf(c) + 1).padStart(3, "0")}`,
         name: c.name,
         phone: c.phone,
         creditBalanceCents: 0,

@@ -10,6 +10,10 @@ import {
 import { resolveLatLngFromMapUrl } from "../common/geo.util";
 import { VerificationService } from "../verification/verification.service";
 import { assertStrongPassword, loadPasswordPolicy } from "../common/password-policy";
+import {
+  generateNextCode,
+  normalizePublicCode,
+} from "../common/public-code";
 import * as argon2 from "argon2";
 
 const SENSITIVE_KEYS = new Set([
@@ -754,9 +758,18 @@ export class AdminService {
         "No shop registered on platform to link beverage to",
       );
 
+    const code = await generateNextCode({
+      prefix: "BE",
+      padLength: 3,
+      prisma: this.prisma,
+      model: "beverage",
+      shopId: shop.id,
+    });
+
     return this.prisma.beverage.create({
       data: {
         shopId: shop.id,
+        code,
         name: dto.name,
         brand: dto.brand || null,
         sizeMl: dto.sizeMl || null,
@@ -1062,9 +1075,18 @@ export class AdminService {
     const shop = await this.prisma.shop.findUnique({ where: { id: shopId } });
     if (!shop) throw AppException.notFound("Shop", shopId);
 
+    const code = await generateNextCode({
+      prefix: "BE",
+      padLength: 3,
+      prisma: this.prisma,
+      model: "beverage",
+      shopId,
+    });
+
     return this.prisma.beverage.create({
       data: {
         shopId,
+        code,
         name: dto.name,
         brand: dto.brand || null,
         sizeMl: dto.sizeMl || null,
@@ -1127,9 +1149,18 @@ export class AdminService {
     const shop = await this.prisma.shop.findUnique({ where: { id: shopId } });
     if (!shop) throw AppException.notFound("Shop", shopId);
 
+    const code = await generateNextCode({
+      prefix: "CU",
+      padLength: 3,
+      prisma: this.prisma,
+      model: "customer",
+      shopId,
+    });
+
     return this.prisma.customer.create({
       data: {
         shopId,
+        code,
         name: dto.name,
         phone: dto.phone || null,
         notes: dto.notes || null,

@@ -688,6 +688,16 @@ export default function BeveragesPage() {
 
   const columns = [
     {
+      key: "code",
+      header: t("code"),
+      className: "w-24",
+      render: (b: Beverage) => (
+        <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-foreground">
+          {b.code}
+        </span>
+      ),
+    },
+    {
       key: "name",
       header: t("name"),
       render: (b: Beverage) => <span className="font-medium">{b.name}</span>,

@@ -144,4 +144,6 @@ export const sales = {
   allEmployees: "All employees",
   createdBy: "Created by",
   updatedBy: "Updated by",
+  customerCode: "Customer code",
+  beverageCode: "Beverage code",
 } as const;

@@ -14,17 +14,20 @@ import { PaymentMethod } from "../../database";
 
 export class ContainerKasaDto {
   @IsString() declare beverageId: string;
+  @IsOptional() @IsString() declare beverageCode?: string;
   @IsInt() @Min(1) declare count: number;
 }
 
 export class ReturnedContainerDto {
   @IsString() declare beverageId: string;
+  @IsOptional() @IsString() declare beverageCode?: string;
   @IsInt() @Min(0) declare boxes: number;
   @IsInt() @Min(0) declare bottles: number;
 }
 
 export class SaleLineDto {
   @IsString() declare beverageId: string;
+  @IsOptional() @IsString() declare beverageCode?: string;
   @IsInt() @Min(0) declare boxes: number;
   @IsInt() @Min(0) declare bottles: number;
 }
@@ -41,6 +44,7 @@ export class SalePaymentDto {
 export class CreateSaleDto {
   @IsDateString() declare saleDate: string;
   @IsString() declare customerId: string;
+  @IsOptional() @IsString() declare customerCode?: string;
   @IsOptional() @IsString() priceTierId?: string;
   @IsOptional() @IsString() notes?: string;
   @IsArray()

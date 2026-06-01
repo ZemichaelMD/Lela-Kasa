@@ -756,7 +756,14 @@ export default function BeverageDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={beverage.name}
+        title={
+          <div className="flex items-center gap-3">
+            <span>{beverage.name}</span>
+            <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 font-mono text-sm font-semibold tracking-wide text-foreground">
+              {beverage.code}
+            </span>
+          </div>
+        }
         description={
           [beverage.brand, beverage.sizeMl ? `${beverage.sizeMl}ml` : null]
             .filter(Boolean)
